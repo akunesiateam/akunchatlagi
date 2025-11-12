@@ -1,0 +1,23 @@
+{
+    "name": "EmbeddedSignup",
+    "alias": "embedded-signup",
+    "namespace": "Modules\\EmbeddedSignup\\",
+    "provider": "Modules\\EmbeddedSignup\\Providers\\EmbeddedSignupServiceProvider",
+    "author": "Corbital Technologies",
+    "url": "https://codecanyon.net/user/corbitaltech",
+    "version": "1.0.0",
+    "description": "Streamline and secure WhatsApp Business API onboarding with a modern, compliant signup experience that boosts user engagement and conversions",
+    "keywords": [],
+    "order": 0,
+    "providers": [
+        "Modules\\EmbeddedSignup\\Providers\\EmbeddedSignupServiceProvider"
+    ],
+    "aliases": [],
+    "require": [],
+    "requires_at": "1.3.1",
+    "license_required": true,
+    "license_product_id": "59142549",
+    "license_grace_period": 3,
+    "conflicts": [],
+    "type": "addon"
+}

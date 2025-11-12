@@ -1,0 +1,61 @@
+# ===========================================
+# Laravel & PHP
+# ===========================================
+/vendor
+/node_modules
+/bootstrap/cache/*.php
+/storage/*.key
+/storage/app/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+/storage/logs/*
+
+# ===========================================
+# Environment
+# ===========================================
+.env
+.env.*
+!.env.example
+
+# ===========================================
+# IDE & OS Junk
+# ===========================================
+.idea
+.vscode
+.phpunit.result.cache
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ===========================================
+# Node Build Artifacts
+# ===========================================
+/public/hot
+/public/storage
+/public/js/*.map
+/public/css/*.map
+/public/mix-manifest.json
+
+# ===========================================
+# PM2 / Logs
+# ===========================================
+pids
+*.pid
+*.seed
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===========================================
+# AkunChat Custom (Modules) - case-proof
+# ===========================================
+/Modules/**/node_modules
+/Modules/**/vendor
+/Modules/**/storage
+/modules/**/node_modules
+/modules/**/vendor
+/modules/**/storage

@@ -1,0 +1,21 @@
+{
+  "name": "Ecommerce",
+  "alias": "ecommerce",
+  "namespace": "Modules\\Ecommerce\\",
+  "provider": "Modules\\Ecommerce\\Providers\\EcommerceServiceProvider",
+  "author": "Corbital Technologies",
+  "url": "https://codecanyon.net/user/corbitaltech",
+  "version": "1.0.0",
+  "description": "automatically send real-time WhatsApp template messages to customers for order updates, payments, shipping, and other critical events",
+  "keywords": [],
+  "order": 0,
+  "providers": ["Modules\\Ecommerce\\Providers\\EcommerceServiceProvider"],
+  "aliases": [],
+  "require": [],
+  "conflicts": [],
+  "type": "addon",
+  "requires_at": "1.3.5",
+  "license_required": true,
+  "license_product_id": "59498277",
+  "license_grace_period": 3
+}

@@ -1,0 +1,15 @@
+{
+    "facebook_lead_integration": "Facebook Lead Integration",
+    "automate_facebook_lead_generation": "Automate lead generation and management through Facebook Lead Ads integration.",
+    "enable_facebook_lead_integration": "Enable Facebook Lead Integration",
+    "facebook_app_configuration": "Facebook App Configuration",
+    "configure_facebook_app_credentials": "Configure your Facebook app credentials for lead integration.",
+    "facebook_app_id": "Facebook App ID",
+    "facebook_app_secret": "Facebook App Secret",
+    "webhook_configuration": "Webhook Configuration",
+    "configure_facebook_webhook_settings": "Configure webhook settings for receiving Facebook lead data.",
+    "webhook_verify_token_generated": "Webhook verify token generated successfully",
+    "webhook_url_help": "Use this URL in your Facebook webhook configuration.",
+    "select_group": "Select Group",
+    "facebook_lead": "Facebook Lead"
+}

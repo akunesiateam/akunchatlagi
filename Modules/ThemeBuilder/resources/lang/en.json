@@ -1,0 +1,12 @@
+{
+    "create_theme": "Create Theme",
+    "manage_theme": "Manage Theme",
+    "theme_name": "Theme Name",
+    "update": "Update",
+    "create": "Create",
+    "delete_theme_title": "Delete Theme",
+    "edit_theme": "Edit Theme",
+    "remove_image": "Remove Image",
+    "valid_image_description": "Max size 1MB. JPEG, PNG, JPG",
+    "customize": "Customize"
+}
