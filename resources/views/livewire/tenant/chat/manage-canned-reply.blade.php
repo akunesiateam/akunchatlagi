@@ -31,13 +31,9 @@
     </div>
 
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="mt-8 lg:mt-0" wire:ignore>
-                <livewire:tenant.tables.canned-reply-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+    <div class="mt-8 lg:mt-0" >
+        <livewire:tenant.tables.filament.canned-reply-filament-table />
+    </div>
 
     <x-modal.custom-modal :id="'canned_reply-modal'" :maxWidth="'2xl'" wire:model="showCannedModal">
         <div class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-500/30 ">

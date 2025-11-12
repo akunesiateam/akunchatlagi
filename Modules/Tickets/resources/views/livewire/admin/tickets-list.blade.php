@@ -3,7 +3,7 @@
         {{ t('tickets') }}
     </x-slot:title>
 
-    <livewire:tickets::admin.tickets-table />
+    <livewire:tickets::admin.filament.tickets-filament-table />
 
     <!-- Delete Confirmation Modal -->
     <x-modal.confirm-box :maxWidth="'lg'" :id="'delete-ticket-modal'" title="{{ t('delete_ticket_title') }}"

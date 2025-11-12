@@ -118,7 +118,7 @@ class FlowList extends Component
                 : t('bot_flow_update_successfully');
 
             $this->notify(['type' => 'success', 'message' => $message]);
-            $this->dispatch('pg:eventRefresh-flow-bot-table-9nci5n-table');
+            $this->dispatch('flow-bot-table-refresh');
         } else {
             $this->showFlowModal = false;
         }
@@ -144,7 +144,7 @@ class FlowList extends Component
         $this->resetPage();
 
         $this->notify(['type' => 'success', 'message' => t('flow_delete_successfully')]);
-        $this->dispatch('pg:eventRefresh-flow-bot-table-9nci5n-table');
+        $this->dispatch('flow-bot-table-refresh');
     }
 
     public function editRedirect($flowId)

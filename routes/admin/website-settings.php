@@ -17,6 +17,7 @@ Route::middleware([AdminMiddleware::class, SanitizeInputs::class])->group(functi
         'hero-section' => App\Livewire\Admin\Settings\Website\HeroSectionSettings::class,
         'partner-logo' => App\Livewire\Admin\Settings\Website\PartnerLogoSettings::class,
         'testimonials' => App\Livewire\Admin\Settings\Website\TestimonialSettings::class,
+        'pricing-plan' => App\Livewire\Admin\Settings\Website\PricingPlanSettings::class,
         'unique-feature' => App\Livewire\Admin\Settings\Website\UniqueFeatureSettings::class,
         'website-seo' => App\Livewire\Admin\Settings\Website\WebsiteSeoSettings::class,
     ];

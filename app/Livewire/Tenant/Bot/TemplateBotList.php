@@ -44,7 +44,7 @@ class TemplateBotList extends Component
             TemplateBot::findOrFail($this->templatebotId)->delete();
             $this->confirmingDeletion = false;
             $this->notify(['type' => 'success', 'message' => t('template_bot_delete_successfully')]);
-            $this->dispatch('pg:eventRefresh-template-bot-table');
+            $this->dispatch('template-bot-table-refresh');
         }
     }
 
@@ -70,7 +70,7 @@ class TemplateBotList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-template-bot-table');
+        $this->dispatch('template-bot-table-refresh');
     }
 
     public function render()

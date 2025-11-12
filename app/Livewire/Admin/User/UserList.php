@@ -63,13 +63,13 @@ class UserList extends Component
             $user->delete();
             $this->notify(['type' => 'success', 'message' => t('user_deleted_successfully')]);
             $this->confirmingDeletion = false;
-            $this->dispatch('pg:eventRefresh-user-table');
+            $this->dispatch('user-table-refresh');
         }
     }
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-user-table');
+        $this->dispatch('user-table-refresh');
     }
 
     public function render()

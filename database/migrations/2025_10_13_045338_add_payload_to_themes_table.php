@@ -49,8 +49,8 @@ return new class extends Migration
                     $table->dropColumn('theme_css');
                 }
 
-                if (! Schema::hasColumn('themes', 'type')) {
-                    $table->dropColumn('core');
+                if (Schema::hasColumn('themes', 'type')) {
+                    $table->dropColumn('type');
                 }
             });
         }

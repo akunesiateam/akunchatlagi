@@ -35,7 +35,7 @@
                             <!-- Tables Pagination Limit Input -->
                             <div
                                 class="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 transition-all duration-150 hover:shadow-sm">
-                                <div wire:ignore>
+                                <div>
                                     <x-label for="tables_pagination_limit" :value="t('tables_pagination_limit')"
                                         class="block text-sm font-medium text-slate-900 dark:text-white mb-2" />
                                     <x-input type="number" wire:model="tables_pagination_limit"

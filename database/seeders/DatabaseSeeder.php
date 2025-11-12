@@ -27,6 +27,8 @@ class DatabaseSeeder extends Seeder
             TenantWebhookFieldsSeeder::class,
             DefaultLanguageSeeder::class,
             TemplateFieldSeerder::class,
+            RerunInvoiceCouponMigrationSeeder::class,
+            DefaultThemeSeeder::class
         ]);
     }
 }

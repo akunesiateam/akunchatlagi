@@ -93,13 +93,6 @@ class BillingManager
      *
      * @example
      * ```php
-     * $billingManager->register('stripe', function() {
-     *     return new StripePaymentGateway(
-     *         config('services.stripe_key'),
-     *         config('services.stripe_secret')
-     *     );
-     * });
-     *
      * $billingManager->register('offline', function() {
      *     return new OfflinePaymentGateway(
      *         setting('offline_payment_instructions')

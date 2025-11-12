@@ -57,7 +57,7 @@ return $adminThemeSettings['theme.favicon']
                     'admin.currencies.*',
                     'admin.taxes.*',
                     'admin.faqs',
-                    'admin.languages',
+                    'admin.tenant-languages',
                     'admin.pages',
                     'admin.email-template.*',
                     'admin.logs.index',

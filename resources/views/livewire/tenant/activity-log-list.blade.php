@@ -12,13 +12,9 @@
         @endif
     </div>
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:tenant.tables.wm-activity-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:tenant.tables.filament.wm-activity-filament-table />
+    </div>
 
     <!-- Delete Confirmation Modal -->
     <x-modal.confirm-box :maxWidth="'lg'" :id="'delete-activity-modal'" title="{{ t('delete_activity_log_title') }}"

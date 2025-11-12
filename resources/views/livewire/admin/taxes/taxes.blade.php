@@ -3,10 +3,7 @@
         {{ t('taxes') }}
     </x-slot:title>
 
-      <x-breadcrumb :items="[
-        ['label' => t('dashboard'), 'route' => route('admin.dashboard')],
-        ['label' => t('taxes')],
-    ]" />
+    <x-breadcrumb :items="[['label' => t('dashboard'), 'route' => route('admin.dashboard')], ['label' => t('taxes')]]" />
 
     <div class="flex justify-start mb-3 items-center gap-2">
         <x-button.primary wire:click="createTaxes">
@@ -14,14 +11,9 @@
         </x-button.primary>
     </div>
 
-
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:admin.tables.tax-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:admin.tables.filament.tax-filament-table />
+    </div>
 
     {{-- Delete Tax Modal --}}
     <x-modal.confirm-box :id="'delete-tax-modal'" title="{{ t('delete_taxes') }}" wire:model.defer="confirmingDeletion"
@@ -50,8 +42,7 @@
                 <div>
                     <div class="flex item-centar justify-start gap-1">
                         <span class="text-danger-500">*</span> <label
-                            class="dark:text-gray-300 block text-sm font-medium text-gray-700">{{ t('tax_name')
-                            }}</label>
+                            class="dark:text-gray-300 block text-sm font-medium text-gray-700">{{ t('tax_name') }}</label>
                     </div>
                     <x-input wire:model.defer="name" type="text" id="name" class="w-full" />
                     <x-input-error for="name" class="mt-2" />
@@ -63,8 +54,8 @@
                             class="dark:text-gray-300 block text-sm font-medium text-gray-700">{{ t('rate') }}</label>
                     </div>
                     <div class="relative">
-                        <x-input wire:model.defer="rate" type="number" step="0.01" min="0" max="100" id="rate"
-                            class="w-full pr-8" />
+                        <x-input wire:model.defer="rate" type="number" step="0.01" min="0" max="100"
+                            id="rate" class="w-full pr-8" />
                         <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                             <span class="text-gray-500">%</span>
                         </div>
@@ -74,10 +65,11 @@
 
                 <div>
                     <div class="flex item-centar justify-start gap-1">
-                        <label class="dark:text-gray-300 block text-sm font-medium text-gray-700">{{ t('description')
-                            }}</label>
+                        <label
+                            class="dark:text-gray-300 block text-sm font-medium text-gray-700">{{ t('description') }}</label>
                     </div>
-                    <x-textarea wire:model.defer="description" id="description" class="w-full" rows="3"></x-textarea>
+                    <x-textarea wire:model.defer="description" id="description" class="w-full"
+                        rows="3"></x-textarea>
                     <x-input-error for="description" class="mt-2" />
                 </div>
 

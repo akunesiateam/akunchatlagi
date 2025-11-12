@@ -14,8 +14,6 @@ class SubscriptionMergeFields
     public function templates(): array
     {
         return [
-            'subscription-renewal-success',
-            'subscription-renewal-failed',
             'subscription-created',
             'subscription-activated',
             'subscription-renewal-reminder',

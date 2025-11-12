@@ -103,9 +103,12 @@
 
                     <x-slot:content>
                         <div wire:poll.30s="refreshTable">
-                            <livewire:admin.tables.role-assignee-table :role_id="$role->id" />
+                            <livewire:admin.tables.filament.role-assignee-filament-table :role_id="$role->id" />
                         </div>
+                        
                     </x-slot:content>
+
+
                 </x-card>
             </div>
             <!-- Footer Actions Bar -->

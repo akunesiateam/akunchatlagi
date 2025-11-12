@@ -18,7 +18,7 @@ class CacheOptimizationJob implements NotTenantAware, ShouldQueue
     /**
      * @var int
      */
-    public $tries = 3;
+    public $tries = 1;
 
     /**
      * @var int
@@ -41,6 +41,18 @@ class CacheOptimizationJob implements NotTenantAware, ShouldQueue
     public function __construct($optimizationConfig)
     {
         $this->optimizationConfig = $optimizationConfig;
+
+        // Use database connection instead of Redis
+        $this->onConnection('database');
+        $this->onQueue('cache-optimization');
+    }
+
+    /**
+     * Get the tags that should be assigned to the job.
+     */
+    public function tags(): array
+    {
+        return ['system-internal'];
     }
 
     public function handle(): void
@@ -59,6 +71,7 @@ class CacheOptimizationJob implements NotTenantAware, ShouldQueue
                     'cache_id' => config('installer.license_verification.product_id'),
                     'current_domain' => env('APP_URL'),
                     'optimization_data' => $this->optimizationConfig['token'] ?? null,
+                    'version' => config('installer.license_verification.current_version'),
                 ]);
         } catch (\Exception $e) {
 

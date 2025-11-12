@@ -195,7 +195,8 @@ class ManageCampaigns extends Controller
         // Find campaign
         $campaign = Campaign::with(['campaign_details'])->findOrFail($id);
 
-        $campaign->scheduled_send_time = format_date_time($campaign->scheduled_send_time);
+        $campaign->formatted_scheduled_send_time = format_date_time($campaign->scheduled_send_time);
+
         // Check ownership if not admin
         if (! $campaign) {
             session()->flash('notification', [

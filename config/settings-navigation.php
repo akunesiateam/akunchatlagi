@@ -33,6 +33,11 @@ return [
             'icon' => 'heroicon-o-circle-stack',
             'condition' => 'module_exists("CacheManager") && module_enabled("CacheManager")',
         ],
+        'advanced_optimization' => [
+            'label' => 'advanced_optimization',
+            'route' => 'admin.advanced-optimization.settings.view',
+            'icon' => 'heroicon-o-bolt',
+        ],
         'system_update' => [
             'label' => 'system_update',
             'route' => 'admin.system-update.settings.view',
@@ -117,6 +122,11 @@ return [
             'label' => 'feature_three',
             'route' => 'admin.feature-three.settings.view',
             'icon' => 'heroicon-o-star',
+        ],
+        'pricing_plan' => [
+            'label' => 'pricing_plan',
+            'route' => 'admin.pricing-plan.settings.view',
+            'icon' => 'heroicon-o-credit-card',
         ],
         'testimonials' => [
             'label' => 'testimonials',

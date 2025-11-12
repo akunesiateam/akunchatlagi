@@ -17,7 +17,7 @@ class SubscriptionList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-subscription-table-t5n8qk-table');
+        $this->dispatch('subscription-table-refresh');
     }
 
     public function render()

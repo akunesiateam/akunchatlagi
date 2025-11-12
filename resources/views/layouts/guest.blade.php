@@ -1,41 +1,39 @@
 <!DOCTYPE html>
 @php
-$isTenant = tenant_check();
-if ($isTenant) {
-$systemSettings = tenant_settings_by_group('system');
-$pusherSettings = tenant_settings_by_group('pusher');
-} else {
-$themeSettings = get_batch_settings([
-'system.active_language',
-'theme.seo_meta_title',
-'theme.seo_meta_description',
-'theme.favicon',
-]);
-}
-$countryCode = get_setting('system.default_country_code');
-$locale = Auth::check()
-? Session::get('locale', config('app.locale'))
-: ($isTenant
-? $systemSettings['active_language']
-: $themeSettings['system.active_language'] ?? config('app.locale'));
+    $isTenant = tenant_check();
+    if ($isTenant) {
+        $systemSettings = tenant_settings_by_group('system');
+        $pusherSettings = tenant_settings_by_group('pusher');
+    } else {
+        $themeSettings = get_batch_settings([
+            'system.active_language',
+            'theme.seo_meta_title',
+            'theme.seo_meta_description',
+            'theme.favicon',
+        ]);
+    }
 
-$metaTitle =
-$themeSettings['theme.seo_meta_title'] ??
-t('app_name');
+    $countryCode = get_setting('system.default_country_code');
+    $locale = Auth::check()
+        ? Session::get('locale', config('app.locale'))
+        : ($isTenant
+            ? $systemSettings['active_language']
+            : $themeSettings['system.active_language'] ?? config('app.locale'));
 
-$metaDescription =
-$themeSettings['theme.seo_meta_description'] ??
-t('app_description');
+    $metaTitle = $themeSettings['theme.seo_meta_title'] ?? t('app_name');
 
-$favicon = $isTenant
-? (isset($systemSettings['favicon'])
-? Storage::url($systemSettings['favicon'])
-: null)
-: ($themeSettings['theme.favicon']
-? Storage::url($themeSettings['theme.favicon'])
-: null);
+    $metaDescription = $themeSettings['theme.seo_meta_description'] ?? t('app_description');
 
-$pageTitle = isset($title) ? " - $title" : '';
+    $favicon = $isTenant
+        ? (isset($systemSettings['favicon'])
+            ? Storage::url($systemSettings['favicon'])
+            : null)
+        : ($themeSettings['theme.favicon']
+            ? Storage::url($themeSettings['theme.favicon'])
+            : null);
+
+    $pageTitle = isset($title) ? " - $title" : '';
+
 @endphp
 <html lang="{{ $locale }}">
 
@@ -56,6 +54,11 @@ $pageTitle = isset($title) ? " - $title" : '';
 
     <!-- Favicon -->
 
+    @if ($favicon)
+        <link rel="icon" type="image/png" href="{{ $favicon }}">
+    @else
+        <link rel="icon" type="image/png" href="{{  url('./img/favicon-32x32.png'); }}">
+    @endif
 
     <link id="theme-style-css" rel="stylesheet" href="{{ route('theme-style-css') }}">
     <!-- Styles -->

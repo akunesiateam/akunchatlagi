@@ -152,7 +152,7 @@
 
                     <x-slot:content>
                         <div wire:poll.30s="refreshTable">
-                            <livewire:tenant.tables.tenant-role-assignee-table :role_id="$role->id" />
+                            <livewire:tenant.tables.filament.tenant-role-assignee-filament-table :role_id="$role->id"/>
                         </div>
                     </x-slot:content>
                 </x-card>

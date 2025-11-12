@@ -49,7 +49,7 @@ class MessageBotList extends Component
             $messageBot->delete();
             $this->confirmingDeletion = false;
             $this->notify(['type' => 'success', 'message' => t('delete_message_bot_successfully')]);
-            $this->dispatch('pg:eventRefresh-message-bot-table-hb8oye-table');
+            $this->dispatch('message-bot-table-refresh');
         }
     }
 
@@ -75,7 +75,7 @@ class MessageBotList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-message-bot-table-hb8oye-table');
+        $this->dispatch('message-bot-table-refresh');
     }
 
     public function render()

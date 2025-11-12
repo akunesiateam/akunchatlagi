@@ -18,13 +18,9 @@
         @endif
     </div>
 
-    <x-card class="lg:mx-0 rounded-lg">
-        <x-slot:content>
-            <div class="lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:admin.tables.tenant-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:admin.tables.filament.tenant-filament-table />
+    </div>
 
     <!-- Delete Confirmation Modal -->
     <x-modal.confirm-box :maxWidth="'2xl'" :id="'delete-tenant-modal'" title="{{ t('delete_tenant_title') }}"

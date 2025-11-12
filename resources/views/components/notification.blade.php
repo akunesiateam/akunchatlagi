@@ -80,7 +80,7 @@
             </template>
 
             <div class="ml-3 flex w-0 flex-1 justify-between">
-              <p x-text="message.content" class="w-0 flex-1 text-base font-normal"></p>
+              <p x-html="message.content" class="w-0 flex-1 text-base font-normal"></p>
               <div class="flex flex-shrink-0">
                 <button x-on:click="remove(message)" type="button"
                   class="inline-flex rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-2 dark:hover:text-slate-300">

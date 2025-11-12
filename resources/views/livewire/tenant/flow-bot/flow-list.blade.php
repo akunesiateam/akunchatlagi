@@ -28,14 +28,9 @@
         </div>
     </div>
 
-
-    <x-card class="mx-4 lg:mx-0 rounded-lg">
-        <x-slot:content>
-            <div class="mt-8 lg:mt-0">
-                <livewire:tenant.tables.flow-bot-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+     <div class="mt-8 lg:mt-0">
+        <livewire:tenant.tables.filament.flow-bot-filament-table />
+    </div>
 
     <x-modal.custom-modal :id="'source-modal'" :maxWidth="'2xl'" wire:model.defer="showFlowModal">
         <div class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-500/30 ">

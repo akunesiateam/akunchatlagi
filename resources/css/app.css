@@ -2,12 +2,20 @@
 @import "../../node_modules/intl-tel-input/build/css/intlTelInput.min.css";
 @import "../../node_modules/glightbox/dist/css/glightbox.min.css";
 @import "./variables.css";
+/* Remove Filament Tables import as it's now handled by Filament's assets */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 [x-cloak] {
     display: none;
+}
+@media (max-width: 640px) {
+    /* Tailwind's 'sm' breakpoint */
+    .chat-users {
+        height: calc(100vh - -100px);
+        -webkit-overflow-scrolling: touch; /* smooth scrolling for iOS */
+    }
 }
 
 .ts-wrapper {
@@ -172,3 +180,30 @@
         gap: 20px;
     }
 }
+
+.filament-tables-container {
+    @apply bg-transparent;
+}
+
+.fi-ta-table {
+    @apply bg-white dark:bg-secondary-800 shadow-sm rounded-lg;
+}
+
+.fi-ta-header-cell {
+    @apply bg-secondary-50 dark:bg-secondary-700;
+}
+
+/* Match your existing button styles */
+.fi-btn {
+    @apply transition-colors duration-200;
+}
+
+.fi-btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white;
+}
+
+/* Override bg-custom-600 when toggle is enabled */
+.fi-color-custom.bg-custom-600[aria-checked="true"] {
+    background-color: rgb(79 70 229) !important; /* bg-indigo-600 */
+}
+

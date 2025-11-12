@@ -3,6 +3,12 @@
         {{ t('dashboard') }}
     </x-slot:title>
 
+    <div class="mb-3">
+        @php
+            do_action('before_tenant_dashboard_content')
+        @endphp
+    </div>
+
     {{-- conversation limit alert --}}
     @if (
         $conversationLimit != -1 &&
@@ -24,7 +30,6 @@
             </div>
         </div>
     @endif
-
     {{-- Dashboard Template Change Alert --}}
     @if (get_tenant_setting_from_db('whats-mark', 'is_templates_changed', '0') == '1')
         <div class="mb-4">
@@ -150,7 +155,7 @@
                                         @endif
                                     @endif
                                 @else
-                                    {{ t('no_active_subscription') }}
+                                  {{ $subscriptionMessage ?? t('no_active_subscription') }}
                                 @endif
                             </p>
                         </div>

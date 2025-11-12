@@ -17,7 +17,7 @@ class InvoicesList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-invoices-table-hgitwy-table');
+        $this->dispatch('invoices-table-refresh');
     }
 
     public function render()

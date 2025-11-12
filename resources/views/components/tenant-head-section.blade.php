@@ -23,7 +23,7 @@
   @endphp
 
   <link rel="icon" type="image/png" sizes="32x32"
-      href="{{ !empty($settings['favicon']) ? Storage::url($settings['favicon']) : $favicon_image_32 }}}}">
+      href="{{ !empty($settings['favicon']) ? Storage::url($settings['favicon']) : $favicon_image_32 }}">
   <link rel="icon" type="image/png" sizes="16x16"
       href="{{ !empty($settings['favicon']) ? Storage::url($settings['favicon']) : $favicon_image_16 }}">
   <link rel="apple-touch-icon"

@@ -33,7 +33,10 @@ class ProcessScheduledCampaigns extends Command
      */
     public function handle(): int
     {
+        $startTime = microtime(true);
         $now = Carbon::now();
+
+        $this->info("Starting campaign processing at {$now->toDateTimeString()}");
 
         // Get campaigns that need to be sent now (scheduled time has arrived or passed)
         $campaigns = Campaign::where('is_sent', false)
@@ -71,17 +74,28 @@ class ProcessScheduledCampaigns extends Command
 
                 collect($details)->chunk(500)->each(function ($chunk) use ($campaign, $now) {
                     foreach ($chunk as $detail) {
-                        // Determine immediate dispatch or delay
                         $delay = (! $campaign->send_now && $now->lessThan($campaign->scheduled_send_time))
                             ? $now->diffInSeconds($campaign->scheduled_send_time)
                             : 0;
 
-                        SendCampaignMessageJob::dispatch($detail, Tenant::current())->delay($delay);
+                        $job = new SendCampaignMessageJob(
+                            $detail->id,
+                            $campaign->id,
+                            Tenant::current()->id
+                        );
+
+                        if ($delay > 0) {
+                            $job->delay($delay);
+                        }
+
+                        dispatch($job);
                     }
                 });
 
                 // Mark campaign as sent
                 $campaign->update(['is_sent' => true]);
+
+                $totalProcessed += $details->count();
 
                 $this->info("Successfully queued campaign: {$campaign->name}");
             } catch (\Throwable $e) {
@@ -92,7 +106,8 @@ class ProcessScheduledCampaigns extends Command
             }
         }
 
-        $this->info("Total messages queued: {$totalProcessed}");
+        $executionTime = round(microtime(true) - $startTime, 2);
+        $this->info("Completed! Total messages queued: {$totalProcessed} in {$executionTime}s");
 
         return self::SUCCESS;
     }

@@ -80,7 +80,7 @@ class TaxList extends Component
                 $this->taxes->save();
 
                 $this->showTaxesModal = false;
-                $this->dispatch('pg:eventRefresh-tax-table-n9y47e-table');
+                $this->dispatch('tax-table-refresh');
 
                 $this->notify([
                     'type' => 'success',
@@ -125,7 +125,7 @@ class TaxList extends Component
                 $this->notify(['type' => 'success', 'message' => t('tax_deleted_successfully')]);
 
                 $this->confirmingDeletion = false;
-                $this->dispatch('pg:eventRefresh-tax-table-n9y47e-table');
+                $this->dispatch('tax-table-refresh');
             } catch (\Exception $e) {
                 app_log('Tax deletion failed: '.$e->getMessage(), 'error', $e, [
                     'tax_id' => $this->taxes->id ?? null,
@@ -138,7 +138,7 @@ class TaxList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-tax-table-n9y47e-table');
+        $this->dispatch('tax-table-refresh');
     }
 
     public function render()

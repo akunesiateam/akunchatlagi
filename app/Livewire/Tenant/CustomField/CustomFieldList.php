@@ -103,7 +103,7 @@ class CustomFieldList extends Component
             ]);
 
             // Refresh PowerGrid table
-            $this->dispatch('pg:eventRefresh-custom-fields-table');
+            $this->dispatch('custom-field-table-refresh');
         }
     }
 
@@ -136,7 +136,7 @@ class CustomFieldList extends Component
         $field = CustomField::where('tenant_id', tenant_id())
             ->findOrFail($this->field_id);
 
-            // Check if any contact is using this custom field
+        // Check if any contact is using this custom field
         $contacts = Contact::where('tenant_id', tenant_id())
             ->whereNotNull('custom_fields_data')
             ->whereRaw("JSON_EXTRACT(custom_fields_data, '$.\"".$field->field_name."\"') IS NOT NULL")
@@ -148,6 +148,7 @@ class CustomFieldList extends Component
             ]);
             $this->confirmingDeletion = false;
             $this->field_id = null;
+
             return;
         }
 
@@ -163,13 +164,13 @@ class CustomFieldList extends Component
         ]);
 
         // Refresh PowerGrid table
-        $this->dispatch('pg:eventRefresh-custom-fields-table');
+        $this->dispatch('custom-field-table-refresh');
     }
 
     public function refreshList()
     {
         // Refresh PowerGrid table
-        $this->dispatch('pg:eventRefresh-custom-fields-table');
+        $this->dispatch('custom-field-table-refresh');
     }
 
     public function getCanCreateProperty()

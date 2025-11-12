@@ -45,11 +45,6 @@
         </script>
 
         <form wire:submit.prevent="save">
-            <div class="pb-3 font-display">
-                <x-page-heading>
-                    {{ $contact->exists ? t('edit_contact_title') : t('add_contact_title') }}
-                </x-page-heading>
-            </div>
 
             <x-card class="relative rounded-lg lg:w-3/4" x-cloak>
                 <x-slot:content>

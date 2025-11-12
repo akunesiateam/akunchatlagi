@@ -16,8 +16,6 @@ class OtherMergeFields
         return [
             'test-email',
             'tenant-welcome-mail',
-            'subscription-renewal-success',
-            'subscription-renewal-failed',
             'subscription-created',
             'subscription-activated',
             'invoice-receipt',

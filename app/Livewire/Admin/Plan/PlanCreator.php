@@ -65,7 +65,7 @@ class PlanCreator extends Component
     protected function rules()
     {
         $rule = [
-            'name' => ['required', 'unique:plans,name,'.$this->planId, 'max:255', 'min:3', new PurifiedInput(t('sql_injection_error'))],
+            'name' => ['required', 'max:255', 'min:3', new PurifiedInput(t('sql_injection_error'))],
             'description' => ['required', new PurifiedInput(t('sql_injection_error'))],
             'color' => ['required', new PurifiedInput(t('sql_injection_error'))],
             'price' => [

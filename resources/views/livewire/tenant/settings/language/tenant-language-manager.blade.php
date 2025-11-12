@@ -25,13 +25,9 @@
         </x-button.primary>
     </div>
 
-    <x-card class="mx-4 lg:mx-0 rounded-lg">
-        <x-slot:content>
-            <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:tenant.tables.tenant-language-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:tenant.tables.filament.tenant-language-filament-table />
+    </div>
 
     {{-- Add Language Modal --}}
     <x-modal.custom-modal :id="'showLanguageModal'" :maxWidth="'3xl'" wire:model="showLanguageModal">

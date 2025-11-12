@@ -3,27 +3,19 @@
         {{ t('pages') }}
     </x-slot:title>
 
-     <x-breadcrumb :items="[
-        ['label' => t('dashboard'), 'route' => route('admin.dashboard')],
-        ['label' => t('pages')],
-    ]" />
+    <x-breadcrumb :items="[['label' => t('dashboard'), 'route' => route('admin.dashboard')], ['label' => t('pages')]]" />
 
-    @if(checkPermission('admin.pages.create'))
-    <div class="flex justify-start mb-3 items-center gap-2">
-        <x-button.primary wire:click="createPage">
-            <x-heroicon-m-plus class="w-4 h-4 mr-1" />{{ t('create_new_page') }}
-        </x-button.primary>
-    </div>
+    @if (checkPermission('admin.pages.create'))
+        <div class="flex justify-start mb-3 items-center gap-2">
+            <x-button.primary wire:click="createPage">
+                <x-heroicon-m-plus class="w-4 h-4 mr-1" />{{ t('create_new_page') }}
+            </x-button.primary>
+        </div>
     @endif
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:admin.tables.page-table />
-            </div>
-        </x-slot:content>
-    </x-card>
-
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:admin.tables.filament.page-filament-table />
+    </div>
 
     <x-modal.custom-modal :id="'page-modal'" :maxWidth="'3xl'" wire:model="showPageModal">
         <div class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-500/30 ">
@@ -44,7 +36,7 @@
                 </div>
 
                 <div x-data="{
-                        slugify() {
+                    slugify() {
                             const title = $wire.page?.title || '';
                             const slug = this.slugifyValue(title);
                             $wire.set('page.slug', slug);
@@ -54,13 +46,13 @@
                                 .toString()
                                 .toLowerCase()
                                 .trim()
-                                .replace(/\s+/g, '-')      // Replace spaces with -
-                                .replace(/[^\w\-]+/g, '')  // Remove all non-word chars
-                                .replace(/\-\-+/g, '-')    // Replace multiple - with single -
-                                .replace(/^-+/, '')        // Trim - from start
-                                .replace(/-+$/, '');       // Trim - from end
+                                .replace(/\s+/g, '-') // Replace spaces with -
+                                .replace(/[^\w\-]+/g, '') // Remove all non-word chars
+                                .replace(/\-\-+/g, '-') // Replace multiple - with single -
+                                .replace(/^-+/, '') // Trim - from start
+                                .replace(/-+$/, ''); // Trim - from end
                         }
-                    }">
+                }">
 
                     <div class="flex item-centar justify-between gap-1">
                         <div class="flex justify-start items-center gap-1">
@@ -87,22 +79,22 @@
                     </div>
                     <div wire:ignore>
                         <div x-data x-ref="editor" x-init="const quill = new Quill($refs.editor, { theme: 'snow' });
-
+                        
                         let timeout = null; // Declare timeout for debouncing
-
+                        
                         quill.on('text-change', () => {
                             clearTimeout(timeout);
                             timeout = setTimeout(() => {
                                 $wire.set('page.description', quill.root.innerHTML);
                             }, 500); // Debounce for 500ms
                         });
-
+                        
                         $watch('$wire.page.description', (value) => {
                             if (quill.root.innerHTML !== value) {
                                 quill.root.innerHTML = value || ''; // Update Quill content
                             }
                         });
-
+                        
                         $watch('$wire.showPageModal', (isVisible) => {
                             if (isVisible) {
                                 quill.root.innerHTML = $wire.page.description || ''; // Update Quill content
@@ -120,7 +112,7 @@
                         <x-select wire:model="page.parent_id" id="page.parent_id" class="block w-full tom-select mt-1">
                             <option value="">{{ t('none') }}</option>
                             @foreach ($this->parentPages as $parentPage)
-                            <option value="{{ $parentPage->id }}">{{ $parentPage->title }}</option>
+                                <option value="{{ $parentPage->id }}">{{ $parentPage->title }}</option>
                             @endforeach
                         </x-select>
                     </div>
@@ -131,12 +123,12 @@
                 </div>
                 <div class="flex items-center space-x-8">
                     <div class="flex items-center">
-                        <x-toggle wire:model="page.show_in_menu" :value="(bool)($page['show_in_menu'] ?? false)" />
+                        <x-toggle wire:model="page.show_in_menu" :value="(bool) ($page['show_in_menu'] ?? false)" />
                         <span class="ml-2 text-sm text-gray-600 dark:text-gray-300">{{ t('show_in_menu') }}</span>
                     </div>
 
                     <div class="flex items-center">
-                        <x-toggle wire:model="page.status" :value="(bool)($page['status'] ?? false)" />
+                        <x-toggle wire:model="page.status" :value="(bool) ($page['status'] ?? false)" />
                         <span class="ml-2 text-sm text-gray-600 dark:text-gray-300">{{ t('active') }}</span>
                     </div>
                 </div>

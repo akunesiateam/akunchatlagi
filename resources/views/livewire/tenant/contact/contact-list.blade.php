@@ -69,14 +69,12 @@
     </div>
   </div>
 
-  <x-card x-show="view === 'list'" class="rounded-lg">
-    <x-slot:content>
       <!-- List View -->
       <div x-show="view === 'list'" x-cloak class="lg:mt-0" wire:poll.30s="refreshTable">
-        <livewire:tenant.tables.contact-table />
+          <livewire:tenant.tables.filament.contact-filament-table />
+        {{-- <livewire:tenant.tables.contact-table /> --}}
       </div>
-    </x-slot:content>
-  </x-card>
+   
   <div x-show="view === 'kanban'" x-cloak class="lg:mt-0">
     {{-- Use a stable key to avoid remounts on every render --}}
     <livewire:tenant.contact.contact-kanban :key="'kanban'" />

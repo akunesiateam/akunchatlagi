@@ -1,6 +1,6 @@
+import '../../vendor/filament/tables/resources/js/index.js';
 import "./bootstrap";
 import "./config";
-import "./alpine-init";
 import "@nextapps-be/livewire-sortablejs";
 import "./../../vendor/power-components/livewire-powergrid/dist/powergrid";
 import flatpickr from "flatpickr";

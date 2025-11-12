@@ -166,7 +166,7 @@ class DepartmentList extends Component
                 $this->department->save();
 
                 $this->showDepartmentModal = false;
-                $this->dispatch('pg:eventRefresh-department-table-l3bdsm-table');
+                $this->dispatch('department-table-refresh');
 
                 $this->notify([
                     'type' => 'success',
@@ -234,7 +234,7 @@ class DepartmentList extends Component
 
                 $this->confirmingDeletion = false;
                 $this->resetForm();
-                $this->dispatch('pg:eventRefresh-department-table-l3bdsm-table');
+                $this->dispatch('department-table-refresh');
             } catch (\Exception $e) {
                 app_log('Department deletion failed: '.$e->getMessage(), 'error', $e, [
                     'currency_id' => $this->department->id ?? null,
@@ -247,7 +247,7 @@ class DepartmentList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-department-table-l3bdsm-table');
+        $this->dispatch('department-table-refresh');
     }
 
     public function render()

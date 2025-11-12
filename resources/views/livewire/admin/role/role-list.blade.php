@@ -3,28 +3,21 @@
         {{ t('role') }}
     </x-slot:title>
 
-      <x-breadcrumb :items="[
-        ['label' => t('dashboard'), 'route' => route('admin.dashboard')],
-        ['label' => t('role')],
-    ]" />
+    <x-breadcrumb :items="[['label' => t('dashboard'), 'route' => route('admin.dashboard')], ['label' => t('role')]]" />
 
     <div class="flex justify-start mb-3 items-center gap-2">
-        @if(checkPermission('admin.roles.create'))
-        <a href="{{ route('admin.roles.save') }}">
-            <x-button.primary class="w-full sm:w-auto" >
-                <x-heroicon-m-plus class="w-4 h-4 mr-1" />{{ t('new_role') }}
-            </x-button.primary>
-        </a>
+        @if (checkPermission('admin.roles.create'))
+            <a href="{{ route('admin.roles.save') }}">
+                <x-button.primary class="w-full sm:w-auto">
+                    <x-heroicon-m-plus class="w-4 h-4 mr-1" />{{ t('new_role') }}
+                </x-button.primary>
+            </a>
         @endif
     </div>
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:admin.tables.role-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:admin.tables.filament.role-filament-table />
+    </div>
 
     <!-- Delete Confirmation Modal -->
     <x-modal.confirm-box :maxWidth="'lg'" :id="'delete-role-modal'" title="{{ t('delete_role') }}"

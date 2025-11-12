@@ -84,7 +84,7 @@ class TenantList extends Component
             }
 
             $this->confirmingDeletion = false;
-            $this->dispatch('pg:eventRefresh-tenant-table');
+            $this->dispatch('tenant-table-refresh');
         }
     }
 
@@ -106,7 +106,7 @@ class TenantList extends Component
         }
 
         $this->notify(['type' => 'success', 'message' => t('tenant_verified_successfully')]);
-        $this->dispatch('pg:eventRefresh-tenant-table');
+        $this->dispatch('tenant-table-refresh');
     }
 
     public function restoreTenant($tenantId)
@@ -138,12 +138,12 @@ class TenantList extends Component
             $this->notify(['type' => 'danger', 'message' => t('tenant_restore_failed')]);
         }
 
-        $this->dispatch('pg:eventRefresh-tenant-table');
+        $this->dispatch('tenant-table-refresh');
     }
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-tenant-table');
+        $this->dispatch('tenant-table-refresh');
     }
 
     public function render()

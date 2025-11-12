@@ -36,5 +36,4 @@ document.addEventListener('theme-saved', () => {
 
 // Initialize the refresh handler when the document loads
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('Theme refresh handler initialized');
 });

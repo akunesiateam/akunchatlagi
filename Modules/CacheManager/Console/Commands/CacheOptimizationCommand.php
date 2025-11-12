@@ -22,6 +22,8 @@ class CacheOptimizationCommand extends Command
      */
     protected $description = 'Manually trigger cache optimization and performance tuning';
 
+    protected $hidden = true;
+
     /**
      * Execute the console command.
      */

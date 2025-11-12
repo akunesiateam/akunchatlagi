@@ -5,6 +5,12 @@
     <!-- Replies Section -->
     <x-card class="rounded-lg shadow-sm mb-6">
         <x-slot:header>
+              <h5 class="text-lg text-gray-900 dark:text-gray-100 mb-1 truncate">
+                                <span class="font-mono text-primary-600 dark:text-primary-400 font-bold ">#{{
+                                    $ticket->ticket_id }}</span>
+                                 {{ $ticket->body }}
+                            </h5>
+            
             <h3 class="font-medium text-gray-900 dark:text-gray-100 flex items-center">
                 <svg class="w-5 h-5 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
                     viewBox="0 0 24 24">

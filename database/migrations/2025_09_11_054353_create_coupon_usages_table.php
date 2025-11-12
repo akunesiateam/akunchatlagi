@@ -11,12 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Check if required tables exist before creating foreign key constraints
+        if (! Schema::hasTable('coupons') || ! Schema::hasTable('tenants')) {
+            return; // Skip if required tables don't exist
+        }
+
         Schema::create('coupon_usages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('coupon_id')->constrained()->onDelete('cascade');
             $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
-            $table->foreignId('invoice_id')->nullable()->constrained()->onDelete('set null');
-            $table->foreignId('subscription_id')->nullable()->constrained()->onDelete('set null');
+
+            // Add columns without foreign key constraints first
+            $table->unsignedBigInteger('invoice_id')->nullable();
+            $table->unsignedBigInteger('subscription_id')->nullable();
+
             $table->decimal('discount_amount', 10, 2);
             $table->json('metadata')->nullable(); // Store additional context
             $table->timestamps();
@@ -26,6 +34,19 @@ return new class extends Migration
             $table->index(['invoice_id']);
             $table->index(['subscription_id']);
         });
+
+        // Add foreign key constraints after table creation if referenced tables exist
+        if (Schema::hasTable('invoices')) {
+            Schema::table('coupon_usages', function (Blueprint $table) {
+                $table->foreign('invoice_id')->references('id')->on('invoices')->onDelete('set null');
+            });
+        }
+
+        if (Schema::hasTable('subscriptions')) {
+            Schema::table('coupon_usages', function (Blueprint $table) {
+                $table->foreign('subscription_id')->references('id')->on('subscriptions')->onDelete('set null');
+            });
+        }
     }
 
     /**

@@ -33,7 +33,7 @@ class RoleList extends Component
 
     public function confirmDelete($roleId)
     {
-        $this->roleId = $roleId;
+        $this->roleId = $roleId['roleId'];
         $this->confirmingDeletion = true;
     }
 
@@ -43,13 +43,13 @@ class RoleList extends Component
             Role::findOrFail($this->roleId)->delete();
             $this->confirmingDeletion = false;
             $this->notify(['type' => 'success', 'message' => t('role_delete_successfully')]);
-            $this->dispatch('pg:eventRefresh-role-table-7crbpz-table');
+            $this->dispatch('role-table-refresh');
         }
     }
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-role-table-7crbpz-table');
+        $this->dispatch('role-table-refresh');
     }
 
     public function render()

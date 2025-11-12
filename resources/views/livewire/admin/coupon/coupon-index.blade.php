@@ -22,15 +22,10 @@
     </div>
 
 
-    <!-- PowerGrid Table -->
-    <x-card>
+    <!-- Filament Table -->
         <div wire:poll.30s="refreshTable">
-            <x-slot:content>
-                <livewire:admin.tables.coupon-table/>
-            </x-slot:content>
-
+                <livewire:admin.tables.filament.coupon-filament-table/>
         </div>
-    </x-card>
 
     <!-- Confirm Delete Modal -->
     <x-modal.confirm-box

@@ -81,6 +81,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'validate' => \Corbital\Installer\Http\Middleware\ValidateBackendRequest::class,
             'senitize.inputs' => \App\Http\Middleware\SanitizeInputs::class,
             'auth.session' => \Illuminate\Session\Middleware\AuthenticateSession::class,
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);
 
         // Tenant middleware group - defines the stack for tenant requests

@@ -30,13 +30,9 @@
         </div>
     </div>
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:tenant.tables.ai-prompt-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+     <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:tenant.tables.filament.ai-prompt-filament-table />
+    </div>
 
     <x-modal.custom-modal :id="'ai_prompt-modal'" :maxWidth="'2xl'" wire:model="showAiPromptModal">
         <div class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-500/30 ">

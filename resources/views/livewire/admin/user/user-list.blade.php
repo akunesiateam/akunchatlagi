@@ -3,10 +3,7 @@
         {{ t('users') }}
     </x-slot:title>
 
-    <x-breadcrumb :items="[
-        ['label' => t('dashboard'), 'route' => route('admin.dashboard')],
-        ['label' => t('users')],
-    ]" />
+    <x-breadcrumb :items="[['label' => t('dashboard'), 'route' => route('admin.dashboard')], ['label' => t('users')]]" />
 
     <div class="flex justify-start mb-3  items-center gap-2">
         <a href="{{ route('admin.users.save') }}">
@@ -16,13 +13,10 @@
         </a>
     </div>
 
-    <x-card class=" rounded-lg">
-        <x-slot:content>
-            <div class="lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:admin.tables.user-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:admin.tables.filament.user-filament-table />
+    </div>
+
 
     <!-- Delete Confirmation Modal -->
     <x-modal.confirm-box :maxWidth="'lg'" :id="'delete-user-modal'" title="{{ t('delete_user_title') }}"

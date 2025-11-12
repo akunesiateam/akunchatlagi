@@ -132,11 +132,11 @@ final class CampaignDetailTable extends PowerGridComponent
                 ->sortable()
                 ->searchable(),
 
-            Column::make(t('name'), 'contact_name', 'contacts.firstname')
+            Column::make(t('name'), 'contact_name', 'contact.firstname')
                 ->sortable()
                 ->searchable(),
 
-            Column::make(t('phone'), 'phone', 'contacts.phone')
+            Column::make(t('phone'), 'phone', 'contact.phone')
                 ->sortable()
                 ->searchable(),
 

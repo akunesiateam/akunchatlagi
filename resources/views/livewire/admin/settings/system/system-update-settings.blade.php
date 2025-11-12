@@ -21,12 +21,20 @@
         <div class="flex-1 space-y-5">
             <x-card class="rounded-lg">
                 <x-slot:header>
-                    <x-settings-heading>
-                        {{ t('software_update_management') }}
-                    </x-settings-heading>
-                    <x-settings-description>
-                        {{ t('software_update_management_description') }}
-                    </x-settings-description>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <x-settings-heading>
+                                {{ t('software_update_management') }}
+                            </x-settings-heading>
+                            <x-settings-description>
+                                {{ t('software_update_management_description') }}
+                            </x-settings-description>
+                        </div>
+                         <x-button.danger wire:click="$set('confirmingDeactivation', true)" size="sm">
+                            <x-heroicon-o-shield-exclamation class="w-4 h-4 mr-2" />
+                            <span>{{ t('deactivate_license') }}</span>
+                        </x-button.danger>
+                    </div>
                 </x-slot:header>
                 <x-slot:content>
                     <div class="mx-auto">
@@ -393,4 +401,18 @@
             </div>
         </div>
     </div>
+
+    <!-- Deactivate License Confirmation Modal -->
+    <x-modal.confirm-box :maxWidth="'lg'" :id="'deactivate-license-modal'" title="{{ t('deactivate_license') }}"
+        wire:model.defer="confirmingDeactivation" description="{{ t('are_you_sure_you_want_to_deactivate_license') }}">
+        <div
+            class="border-neutral-200 border-neutral-500/30 flex justify-end items-center sm:block space-x-3 bg-gray-100 dark:bg-gray-700 ">
+            <x-button.cancel-button wire:click="$set('confirmingDeactivation', false)">
+                {{ t('cancel') }}
+            </x-button.cancel-button>
+            <x-button.delete-button wire:click="deactivateLicense" class="mt-3 sm:mt-0">
+                {{ t('deactivate') }}
+            </x-button.delete-button>
+        </div>
+    </x-modal.confirm-box>
 </div>

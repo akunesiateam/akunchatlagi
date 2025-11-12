@@ -52,7 +52,7 @@ class ManageCannedReply extends Component
     public function validateCannedDescription()
     {
         $this->validate([
-            'canned.description' => ['required', 'string', new PurifiedInput(t('sql_injection_error'))],
+            'canned.description' => ['required', 'string'],
         ]);
     }
 
@@ -123,7 +123,7 @@ class ManageCannedReply extends Component
                     ? t('canned_reply_save_successfully')
                     : t('canned_reply_update_successfully');
                 $this->notify(['type' => 'success', 'message' => $message]);
-                $this->dispatch('pg:eventRefresh-canned-reply-table-ysrvwi-table');
+                $this->dispatch('canned-reply-table-refresh');
             } else {
                 $this->showCannedModal = false;
             }
@@ -159,7 +159,7 @@ class ManageCannedReply extends Component
             $this->resetPage();
 
             $this->notify(['type' => 'success', 'message' => t('canned_reply_delete_successfully')]);
-            $this->dispatch('pg:eventRefresh-canned-reply-table-ysrvwi-table');
+            $this->dispatch('canned-reply-table-refresh');
         }
     }
 

@@ -29,13 +29,24 @@ return new class extends Migration
             $table->json('applicable_billing_periods')->nullable(); // ['monthly', 'yearly']
             $table->boolean('first_payment_only')->default(false);
             $table->boolean('is_active')->default(true);
-            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
+
+            // Add created_by column without foreign key constraint first
+            $table->unsignedBigInteger('created_by')->nullable();
+
             $table->timestamps();
 
             $table->index(['code', 'is_active']);
             $table->index(['starts_at', 'expires_at']);
             $table->index(['is_active', 'created_at']);
+            $table->index(['created_by']);
         });
+
+        // Add foreign key constraint after table creation if users table exists
+        if (Schema::hasTable('users')) {
+            Schema::table('coupons', function (Blueprint $table) {
+                $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
+            });
+        }
     }
 
     /**

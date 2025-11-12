@@ -173,8 +173,8 @@
                 </div>
 
                 <!-- Tickets Table -->
-                <x-card class="rounded-lg shadow-sm">
-                    <x-slot:header>
+                <div class="rounded-lg shadow-sm">
+                    <div class="mb-4">
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ t('all_tickets') }}
@@ -183,12 +183,11 @@
                                     {{ t('comprehensive_view_of_all_support_tickets') }}</p>
                             </div>
                         </div>
-                    </x-slot:header>
-                    <x-slot:content>
-                        <livewire:tickets::admin.tickets-list />
-
-                    </x-slot:content>
-                </x-card>
+                    </div>
+                   <div class="mt-8 lg:mt-0">
+                     <livewire:tickets::admin.tickets-list />
+                   </div>
+                </div>
             </div>
         </div>
 

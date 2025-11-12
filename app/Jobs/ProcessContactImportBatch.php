@@ -25,6 +25,16 @@ class ProcessContactImportBatch implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * The number of times the job may be attempted.
+     */
+    public $tries = 3;
+
+    /**
+     * The maximum number of seconds the job can run before timing out.
+     */
+    public $timeout = 300;
+
     protected $importId;
 
     protected $tenantId;
@@ -39,6 +49,14 @@ class ProcessContactImportBatch implements ShouldQueue
         $this->tenantId = $tenantId;
         $this->offset = $offset;
         $this->batchSize = $batchSize;
+    }
+
+    /**
+     * Get the unique ID for the job to prevent duplicate processing.
+     */
+    public function uniqueId(): string
+    {
+        return "contact-import-batch-{$this->importId}-{$this->offset}-{$this->batchSize}";
     }
 
     protected function getValidationRules()
@@ -253,33 +271,43 @@ class ProcessContactImportBatch implements ShouldQueue
                     }
                 } catch (\Exception $e) {
                     // Fallback to individual inserts if batch insert fails
-                    foreach ($validRecords as $record) {
+                    $successfulIndividualInserts = 0;
+                    foreach ($validRecords as $index => $record) {
                         try {
                             $contact = Contact::fromTenant($tenant_subdomain)->create($record);
                             if ($contact && $contact->exists) {
                                 $featureLimitChecker->trackUsage('contacts');
+                                $successfulIndividualInserts++;
                             }
                         } catch (\Exception $inner) {
                             $errorMessages[] = [
-                                'row' => 'Unknown',
+                                'row' => $this->offset + $index + 1,
                                 'errors' => ['system' => [$inner->getMessage()]],
                             ];
                         }
                     }
+
+                    // Update validRecords count to reflect actual successful inserts
+                    // We need to track only the successful count for increment operations
+                    $actualValidCount = $successfulIndividualInserts;
                 }
             }
 
-            // Update import progress
-            $import->processed_records += count($records);
-            $import->valid_records += count($validRecords);
-            $import->invalid_records += count($errorMessages);
-            $import->skipped_records += $skippedCount;
+            // Update import progress using atomic operations to prevent race conditions
+            $import->increment('processed_records', count($records));
+            $import->increment('valid_records', isset($actualValidCount) ? $actualValidCount : count($validRecords));
+            $import->increment('invalid_records', count($errorMessages));
+            $import->increment('skipped_records', $skippedCount);
 
-            // Merge new error messages with existing ones
-            $currentErrors = $import->error_messages ?? [];
-            $import->error_messages = array_merge($currentErrors, $errorMessages);
-
-            $import->save();
+            // Merge new error messages with existing ones using a transaction
+            if (! empty($errorMessages)) {
+                \DB::transaction(function () use ($import, $errorMessages) {
+                    $import->refresh(); // Get fresh data
+                    $currentErrors = $import->error_messages ?? [];
+                    $import->error_messages = array_merge($currentErrors, $errorMessages);
+                    $import->save();
+                });
+            }
 
             $this->checkIfCompleted($import);
         } catch (\Exception $e) {
@@ -294,10 +322,14 @@ class ProcessContactImportBatch implements ShouldQueue
 
     protected function checkIfCompleted(ContactImport $import)
     {
-        if ($import->processed_records >= $import->total_records) {
-            $import->status = ContactImport::STATUS_COMPLETED;
-            $import->save();
-        }
+        // Use a database transaction to prevent race conditions when marking as completed
+        \DB::transaction(function () use ($import) {
+            $freshImport = ContactImport::lockForUpdate()->find($import->id);
+            if ($freshImport && $freshImport->processed_records >= $freshImport->total_records) {
+                $freshImport->status = ContactImport::STATUS_COMPLETED;
+                $freshImport->save();
+            }
+        });
     }
 
     protected function transformRecord($record)

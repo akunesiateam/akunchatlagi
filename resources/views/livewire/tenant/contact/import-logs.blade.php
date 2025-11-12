@@ -26,12 +26,10 @@
         </div>
     </div>
 
-    <!-- PowerGrid Table -->
-    <x-card>
-        <x-slot:content>
-            <livewire:tenant.tables.import-contacts-logs />
-        </x-slot:content>
-    </x-card>
+    <!-- Filament Table -->
+    <div class="mt-8 lg:mt-0">
+        <livewire:tenant.tables.filament.import-contacts-logs-filament-table />
+    </div>
 
     <!-- Import Details Modal -->
     <x-modal.custom-modal :id="'import-details-modal'" :maxWidth="'5xl'" wire:model.defer="showDetailsModal">

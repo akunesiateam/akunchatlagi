@@ -71,7 +71,7 @@
                         </div>
                         <div class="ml-3">
                             <p class="text-sm text-danger-700" >
-                                {{ $envatoResponse['message'] }}
+                                {!! $envatoResponse['message'] ?? '' !!}
                             </p>
                         </div>
                     </div>

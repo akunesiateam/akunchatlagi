@@ -226,6 +226,133 @@ class CampaignDetails extends Component
         $this->dispatch('pg:eventRefresh-campaign-executed-table-q6pjqg-table');
     }
 
+    public function exportPendingDetailsAsCsv()
+    {
+        try {
+            $campaignDetails = CampaignDetail::query()
+                ->join($this->tenant_subdomain.'_contacts as contact', 'campaign_details.rel_id', '=', 'contact.id')
+                ->where('campaign_details.campaign_id', $this->campaign->id)
+                ->where('campaign_details.status', '=', 1)
+                ->select([
+                    'campaign_details.*',
+                    'contact.phone',
+                    'contact.firstname',
+                    'contact.lastname',
+                    DB::raw("CONCAT(contact.firstname, ' ', contact.lastname) as contact_name"),
+                ])
+                ->orderBy('campaign_details.created_at', 'desc')
+                ->get();
+
+            $headers = [
+                t('sr_no'),
+                t('contact_name'),
+                t('phone'),
+                t('status'),
+                t('created_at'),
+            ];
+
+            $filename = 'campaign-pending-export-'.date('Y-m-d-H-i-s').'.csv';
+
+            return response()->streamDownload(function () use ($campaignDetails, $headers) {
+                $handle = fopen('php://output', 'w');
+
+                // Add BOM for UTF-8
+                fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                // Write headers
+                fputcsv($handle, $headers);
+
+                // Write data
+                foreach ($campaignDetails as $detail) {
+                    $row = [
+                        $detail->id,
+                        $detail->contact_name,
+                        $detail->phone,
+                        $detail->body_message,
+                        $detail->message_status,
+                        $detail->created_at ? $detail->created_at->format('Y-m-d H:i:s') : '',
+                    ];
+                    fputcsv($handle, $row);
+                }
+
+                fclose($handle);
+            }, $filename, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            ]);
+
+        } catch (\Exception $e) {
+            $this->notify([
+                'message' => 'Export failed: '.$e->getMessage(),
+                'type' => 'error',
+            ]);
+        }
+    }
+
+    public function exportExecutedDetailsAsCsv()
+    {
+        try {
+            $campaignDetails = CampaignDetail::query()
+                ->join($this->tenant_subdomain.'_contacts as contact', 'campaign_details.rel_id', '=', 'contact.id')
+                ->where('campaign_details.campaign_id', $this->campaign->id)
+                ->where('campaign_details.status', '!=', 1)
+                ->select([
+                    'campaign_details.*',
+                    'contact.phone',
+                    'contact.firstname',
+                    'contact.lastname',
+                    DB::raw("CONCAT(contact.firstname, ' ', contact.lastname) as contact_name"),
+                ])
+                ->orderBy('campaign_details.created_at', 'desc')
+                ->get();
+
+            $headers = [
+                t('sr_no'),
+                t('contact_name'),
+                t('phone'),
+                t('status'),
+                t('created_at'),
+            ];
+
+            $filename = 'campaign-executed-export-'.date('Y-m-d-H-i-s').'.csv';
+
+            return response()->streamDownload(function () use ($campaignDetails, $headers) {
+                $handle = fopen('php://output', 'w');
+
+                // Add BOM for UTF-8
+                fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                // Write headers
+                fputcsv($handle, $headers);
+
+                // Write data
+                foreach ($campaignDetails as $detail) {
+
+                    $row = [
+                        $detail->id,
+                        $detail->contact_name,
+                        $detail->phone,
+                        $detail->body_message,
+                        $detail->message_status,
+                        $detail->created_at ? $detail->created_at->format('Y-m-d H:i:s') : '',
+                    ];
+                    fputcsv($handle, $row);
+                }
+
+                fclose($handle);
+            }, $filename, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            ]);
+
+        } catch (\Exception $e) {
+            $this->notify([
+                'message' => 'Export failed: '.$e->getMessage(),
+                'type' => 'error',
+            ]);
+        }
+    }
+
     public function render()
     {
         return view('livewire.tenant.campaign.campaign-details');

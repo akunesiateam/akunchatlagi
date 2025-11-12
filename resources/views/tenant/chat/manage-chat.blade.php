@@ -301,7 +301,7 @@
                 <!-- Divider -->
                 <div class="h-px w-full border-b border-[#e0e6ed] dark:border-slate-600"></div>
                 <div class="!mt-0">
-                    <div class="chat-users relative h-full min-h-[100px] sm:h-[calc(100vh_-_310px)] space-y-0.5 pr-3.5 pl-3.5 -mr-3.5 -ml-3.5 overflow-y-auto"
+                    <div class="chat-users relative sm:h-[calc(100vh_-_310px)] space-y-0.5 pr-3.5 pl-3.5 -mr-3.5 -ml-3.5 overflow-y-auto"
                         @scroll="onSidebarScroll($event)" x-ref="chatSidebar" x-cloak>
                         <template x-for="(chat, chatIndex) in sortedChats" :key="`chat-${chat.id}-${chatIndex}`"
                             x-cloak>
@@ -742,9 +742,9 @@
                                                         <a :href="message.url" target="_blank" class="glightbox">
                                                             <img :src="message.url" alt="Image"
                                                                 class="rounded-lg max-w-xs max-h-28">
+                                                            <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
+                                                                x-show="message.message" x-text="message.message"></p>
                                                         </a>
-                                                        <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
-                                                            x-show="message.caption" x-text="message.caption"></p>
                                                     </template>
 
                                                     <!-- Video -->
@@ -753,9 +753,9 @@
                                                         <a :href="message.url" class="glightbox">
                                                             <video :src="message.url" controls
                                                                 class="rounded-lg max-w-xs max-h-28"></video>
+                                                            <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
+                                                                x-show="message.message" x-text="message.message"></p>
                                                         </a>
-                                                        <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
-                                                            x-show="message.message" x-text="message.message"></p>
                                                     </template>
 
                                                     <!-- Document -->
@@ -770,9 +770,9 @@
                                                     <template x-if="message.type === 'audio'">
                                                         <audio id="audioPlayer" controls class="w-[300px]">
                                                             <source :src="message.url" type="audio/mpeg">
+                                                                <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
+                                                                    x-show="message.message" x-text="message.message"></p>
                                                         </audio>
-                                                        <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
-                                                            x-show="message.message" x-text="message.message"></p>
                                                     </template>
 
                                                     <!-- Message Timestamp & Status -->
@@ -3442,7 +3442,7 @@
                         }
 
                         this.sendingErrorMessage = 'Error sending message:',JSON.parse(error.message);
-                      
+
                         setTimeout(() => {
                             this.sendingErrorMessage = '';
                         }, 5000);
@@ -3455,7 +3455,7 @@
             sanitizeLastMessage(content) {
                 return sanitizeMessage(content).replace(/<\/?[^>]+(>|$)/g, ""); // Sanitize & strip HTML
             },
-           
+
             getOriginalMessage(refMessageId) {
                 if (typeof(this.selectedUser.messages) === "object") {
                     const message = this.selectedUser.messages.find(msg => msg.message_id === refMessageId) || {};

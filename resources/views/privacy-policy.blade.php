@@ -1,4 +1,8 @@
 <x-guest-layout class="p-2">
+    <x-slot:title>
+        {{ t('privacy_policy') }}
+    </x-slot:title>
+
     <div class="min-h-screen max-w-6xl mx-auto flex flex-col items-center bg-gray-100 dark:bg-slate-900">
         <x-card class="mt-24">
             <x-slot:header>

@@ -16,7 +16,7 @@ class CreditList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-credit-table-0f9zyv-table');
+        $this->dispatch('credit-table-refresh');
     }
 
     public function render()

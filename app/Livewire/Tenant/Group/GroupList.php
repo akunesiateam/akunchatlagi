@@ -82,7 +82,7 @@ class GroupList extends Component
                     : t('group_update_successfully');
 
                 $this->notify(['type' => 'success', 'message' => $message]);
-                $this->dispatch('pg:eventRefresh-groups-table-q5rszw-table');
+                $this->dispatch('group-table-refresh');
             } else {
                 $this->showGroupModal = false;
             }
@@ -119,7 +119,7 @@ class GroupList extends Component
             $this->resetPage();
 
             $this->notify(['type' => 'success', 'message' => t('group_delete_successfully')]);
-            $this->dispatch('pg:eventRefresh-groups-table-q5rszw-table');
+            $this->dispatch('group-table-refresh');
         }
     }
 
@@ -132,7 +132,7 @@ class GroupList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-groups-table-q5rszw-table');
+        $this->dispatch('group-table-refresh');
     }
 
     public function render()

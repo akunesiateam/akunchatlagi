@@ -82,7 +82,7 @@ class ManageSource extends Component
                     : t('source_update_successfully');
 
                 $this->notify(['type' => 'success', 'message' => $message]);
-                $this->dispatch('pg:eventRefresh-source-table-3kfsxg-table');
+                $this->dispatch('source-table-refresh');
             } else {
                 $this->showSourceModal = false;
             }
@@ -119,7 +119,7 @@ class ManageSource extends Component
             $this->resetPage();
 
             $this->notify(['type' => 'success', 'message' => t('source_delete_successfully')]);
-            $this->dispatch('pg:eventRefresh-source-table-3kfsxg-table');
+            $this->dispatch('source-table-refresh');
         }
     }
 
@@ -132,7 +132,7 @@ class ManageSource extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-source-table-3kfsxg-table');
+        $this->dispatch('source-table-refresh');
     }
 
     public function render()

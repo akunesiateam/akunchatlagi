@@ -89,7 +89,7 @@ class ManageStatus extends Component
                     : t('status_update_successfully');
 
                 $this->notify(['type' => 'success', 'message' => $message]);
-                $this->dispatch('pg:eventRefresh-status-table');
+                $this->dispatch('status-table-refresh');
             } else {
                 $this->showStatusModal = false;
             }
@@ -125,7 +125,7 @@ class ManageStatus extends Component
             $this->resetPage();
 
             $this->notify(['type' => 'success', 'message' => t('status_delete_successfully')]);
-            $this->dispatch('pg:eventRefresh-status-table');
+            $this->dispatch('status-table-refresh');
         }
     }
 
@@ -138,7 +138,7 @@ class ManageStatus extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-status-table');
+        $this->dispatch('status-table-refresh');
     }
 
     public function render()

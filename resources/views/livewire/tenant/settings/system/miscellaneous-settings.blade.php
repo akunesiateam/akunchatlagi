@@ -25,17 +25,63 @@
                         </x-settings-description>
                     </x-slot:header>
                     <x-slot:content>
-                        <div class="grid grid-cols-1 sm:grid-cols-4 z-0">
-                            <div wire:ignore>
+                        <div class="grid grid-cols-3 sm:grid-cols-4 z-0 gap-4">
+                            <div>
                                 <x-label for="tables_pagination_limit" :value="t('tables_pagination_limit')" />
                                 <x-input type="number" wire:model="tables_pagination_limit"
                                     name="tables_pagination_limit" id="tables_pagination_limit"
                                     placeholder="Enter pagination limit" />
                                 <x-input-error for="tables_pagination_limit" class="mt-2" />
                             </div>
+
+                            <div class="">
+                                <div class="flex items-center justify-start mb-1">
+                                    <x-label for="default_template" :value="t('default_template')" />
+                                </div>
+                                <div wire:ignore>
+                                    <x-select id="default_template" class="tom-select mt-1 block w-full"
+                                        wire:model.defer="default_template">
+                                        <option value="" selected>{{ t('nothing_selected') }}</option>
+                                        @foreach ($this->templates as $template)
+                                            <option value="{{ $template['template_name'] }}"
+                                                data-header="{{ $template['header_data_text'] }}"
+                                                data-body="{{ $template['body_data'] }}"
+                                                data-footer="{{ $template['footer_data'] }}"
+                                                data-buttons="{{ $template['buttons_data'] }}"
+                                                data-header-format="{{ $template['header_data_format'] }}"
+                                                data-header-params-count="{{ $template['header_params_count'] }}"
+                                                data-body-params-count="{{ $template['body_params_count'] }}"
+                                                data-footer-params-count="{{ $template['footer_params_count'] }}">
+                                                {{ $template['template_name'] . ' (' . $template['language'] . ')' }}
+                                            </option>
+                                        @endforeach
+                                    </x-select>
+                                </div>
+                                <x-input-error for="default_template" class="mt-2" />
+                            </div>
+
+
+                            <div class="">
+                                <div class="flex items-center justify-start mb-1">
+                                    <x-label for="default_template_language" :value="t('default_template_language')" />
+                                </div>
+                                <div wire:ignore>
+                                    <x-select id="default_template_language" class="tom-select mt-1 block w-full"
+                                        wire:model.defer="default_template_language">
+                                        <option value="" selected>{{ t('nothing_selected') }}</option>
+                                        @foreach ($this->languages as $key => $language)
+                                            <option value="{{ $key }}">
+                                                {{ $language }}
+                                            </option>
+                                        @endforeach
+                                    </x-select>
+                                </div>
+                                <x-input-error for="default_template_language" class="mt-2" />
+                            </div>
+
                         </div>
                     </x-slot:content>
-                    @if (checkPermission('admin.system_settings.edit'))
+                    @if (checkPermission('system.system_settings.edit'))
                         <x-slot:footer
                             class="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex justify-end">
                             <x-button.loading-button type="submit" target="save">

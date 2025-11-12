@@ -52,7 +52,6 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="16x16" href="{{ $favicon ?? url('./img/favicon-16x16.png') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ $favicon ?? url('./img/favicon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="192x192" href="{{ $favicon ?? url('./img/favicon-192x192.png') }}">
     <link rel="apple-touch-icon" href="{{ $favicon ?? url('./img/apple-touch-icon.png') }}">
 
     <!-- Fonts -->
@@ -64,6 +63,7 @@
         href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lexend:wght@100..900&display=swap">
 
     @livewireStyles
+    @filamentStyles
     @include(request()->routeIs('tenant.*') ? 'components.tenant-head-section' : 'components.admin-head-section')
     @vite(['resources/css/app.css', request()->routeIs('tenant.*') ? 'resources/css/tenant-app.css' : 'resources/css/admin-app.css'])
     @vite(\Nwidart\Modules\Module::getAssets())
@@ -144,6 +144,7 @@
 
     <!-- Scripts -->
     @livewireScripts
+    @filamentScripts
     <!-- Pass translations to JavaScript -->
     <script>
         window.translations = @json($translations ?? getLanguageJson(app('App\Services\LanguageService')->resolveLanguage()));

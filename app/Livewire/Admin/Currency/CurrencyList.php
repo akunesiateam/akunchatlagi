@@ -92,7 +92,7 @@ class CurrencyList extends Component
 
                 CurrencyCache::clearCache();
                 $this->showCurrenciesModal = false;
-                $this->dispatch('pg:eventRefresh-currency-table-n9y47e-table');
+                $this->dispatch('currency-table-refresh');
 
                 $this->notify([
                     'type' => 'success',
@@ -145,7 +145,7 @@ class CurrencyList extends Component
 
                 CurrencyCache::clearCache();
                 $this->confirmingDeletion = false;
-                $this->dispatch('pg:eventRefresh-currency-table-n9y47e-table');
+                $this->dispatch('currency-table-refresh');
             } catch (\Exception $e) {
                 app_log('Currency deletion failed: '.$e->getMessage(), 'error', $e, [
                     'currency_id' => $this->currencies->id ?? null,
@@ -158,7 +158,7 @@ class CurrencyList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-currency-table-n9y47e-table');
+        $this->dispatch('currency-table-refresh');
     }
 
     public function render()

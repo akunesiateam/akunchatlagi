@@ -60,7 +60,7 @@ class TenantLanguageManager extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-tenant-language-table-table');
+        $this->dispatch('tenant-language-table-refresh');
     }
 
     private function resetForm()
@@ -122,7 +122,7 @@ class TenantLanguageManager extends Component
 
         $this->showLanguageModal = false;
         $this->resetForm();
-        $this->dispatch('pg:eventRefresh-tenant-language-table-table');
+        $this->dispatch('tenant-language-table-refresh');
 
         $this->notify([
             'type' => 'success',
@@ -173,7 +173,7 @@ class TenantLanguageManager extends Component
 
         $this->showEditModal = false;
         $this->resetForm();
-        $this->dispatch('pg:eventRefresh-tenant-language-table-table');
+        $this->dispatch('tenant-language-table-refresh');
 
         $this->notify([
             'type' => 'success',
@@ -199,7 +199,7 @@ class TenantLanguageManager extends Component
 
         $this->confirmingDeletion = false;
         $this->language_id = null;
-        $this->dispatch('pg:eventRefresh-tenant-language-table-table');
+        $this->dispatch('tenant-language-table-refresh');
 
         $this->notify([
             'type' => 'success',

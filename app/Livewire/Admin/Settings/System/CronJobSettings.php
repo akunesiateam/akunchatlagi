@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Settings\System;
 use App\Settings\CronJobSettings as CronSettings;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 use Symfony\Component\Process\PhpExecutableFinder;
 
@@ -33,29 +34,77 @@ class CronJobSettings extends Component
 
     public function refreshStatus()
     {
-        $settings = app(CronSettings::class);
-        $lastCronRun = $settings->last_cron_run;
-        $this->status = $settings->status ?? 'unknown';
-        $this->executionTime = $settings->last_execution_time ?? 0;
+        // Get the default cache store from config
+        $defaultStore = config('cache.default', 'file');
 
-        if ($lastCronRun && $lastCronRun !== 'false') {
-            $timestamp = is_numeric($lastCronRun) ? intval($lastCronRun) : json_decode($lastCronRun);
-            if ($timestamp) {
-                $settings = get_batch_settings(['system.timezone']);
-                $timezone = $settings['system.timezone'] ?? config('app.timezone');
+        // Try to get heartbeat from cache (new optimized method)
+        $heartbeat = Cache::store($defaultStore)->get('cron:heartbeat');
+        $lastRun = Cache::store($defaultStore)->get('cron:last_run');
+        $cachedStatus = Cache::store($defaultStore)->get('cron:status');
 
-                $this->last_cron_run = Carbon::createFromTimestamp($timestamp)
-                    ->setTimezone($timezone)
-                    ->diffForHumans();
+        // Fallback to file cache if default store is empty
+        if (! $heartbeat && $defaultStore !== 'file') {
+            $heartbeat = Cache::store('file')->get('cron:heartbeat');
+            $lastRun = Cache::store('file')->get('cron:last_run');
+            $cachedStatus = Cache::store('file')->get('cron:status');
+        }
 
-                $this->last_cron_run_datetime = Carbon::createFromTimestamp($timestamp)
-                    ->setTimezone($timezone)
-                    ->format('Y-m-d H:i:s');
+        // If cache heartbeat exists, use it (new optimized way)
+        if ($heartbeat) {
+            $currentTime = now()->timestamp;
+            $heartbeatAge = $currentTime - $heartbeat;
+
+            // Determine status based on heartbeat freshness
+            if ($heartbeatAge < 90) {
+                $this->status = $cachedStatus ?: 'running';
+            } elseif ($heartbeatAge < 180) {
+                $this->status = 'delayed';
+            } else {
+                $this->status = 'failed';
+            }
+
+            // Use lastRun for execution time calculation
+            if ($lastRun) {
+                $this->executionTime = $heartbeat - ($lastRun - 90); // Approximate
+            }
+
+            // Format the time
+            $settings = get_batch_settings(['system.timezone']);
+            $timezone = $settings['system.timezone'] ?? config('app.timezone');
+
+            $this->last_cron_run = Carbon::createFromTimestamp($heartbeat)
+                ->setTimezone($timezone)
+                ->diffForHumans();
+
+            $this->last_cron_run_datetime = Carbon::createFromTimestamp($heartbeat)
+                ->setTimezone($timezone)
+                ->format('Y-m-d H:i:s');
+        } else {
+            // Fallback to old database method if cache not available
+            $settings = app(CronSettings::class);
+            $lastCronRun = $settings->last_cron_run;
+            $this->status = $settings->status ?? 'unknown';
+            $this->executionTime = $settings->last_execution_time ?? 0;
+
+            if ($lastCronRun && $lastCronRun !== 'false') {
+                $timestamp = is_numeric($lastCronRun) ? intval($lastCronRun) : json_decode($lastCronRun);
+                if ($timestamp) {
+                    $settings = get_batch_settings(['system.timezone']);
+                    $timezone = $settings['system.timezone'] ?? config('app.timezone');
+
+                    $this->last_cron_run = Carbon::createFromTimestamp($timestamp)
+                        ->setTimezone($timezone)
+                        ->diffForHumans();
+
+                    $this->last_cron_run_datetime = Carbon::createFromTimestamp($timestamp)
+                        ->setTimezone($timezone)
+                        ->format('Y-m-d H:i:s');
+                } else {
+                    $this->last_cron_run = t('never');
+                }
             } else {
                 $this->last_cron_run = t('never');
             }
-        } else {
-            $this->last_cron_run = t('never');
         }
     }
 
@@ -136,7 +185,28 @@ class CronJobSettings extends Component
 
     public function isCronStale(): bool
     {
-        // Get system timezone from settings
+        // Get the default cache store from config
+        $defaultStore = config('cache.default', 'file');
+
+        // Try to get heartbeat from cache (new optimized method)
+        $heartbeat = Cache::store($defaultStore)->get('cron:heartbeat');
+
+        // Fallback to file cache if default store is empty
+        if (! $heartbeat && $defaultStore !== 'file') {
+            $heartbeat = Cache::store('file')->get('cron:heartbeat');
+        }
+
+        // If cache heartbeat exists, check its freshness
+        if ($heartbeat) {
+            $currentTime = now()->timestamp;
+            $heartbeatAge = $currentTime - $heartbeat;
+
+            // Cron is stale if heartbeat is older than 2 minutes (120 seconds)
+            // This is more aggressive than the 48 hours check for better monitoring
+            return $heartbeatAge > 120;
+        }
+
+        // Fallback to old database method if cache not available
         $settings = get_batch_settings(['system.timezone', 'cron-job.status']);
         $timezone = $settings['system.timezone'] ?? config('app.timezone');
 
@@ -144,9 +214,6 @@ class CronJobSettings extends Component
         $lastRun = $cronSettings->last_cron_run;
 
         if (! $lastRun || $lastRun === 'false') {
-            // Update status to reflect stale condition
-            set_setting('cron-job.status', 'failed');
-
             return true;
         }
 
@@ -155,14 +222,8 @@ class CronJobSettings extends Component
         // Use the correct timezone for comparison
         $lastRunTime = Carbon::createFromTimestamp($timestamp)->setTimezone($timezone);
         $currentTime = now()->setTimezone($timezone);
-        $isStale = $lastRunTime->diffInHours($currentTime) >= 48;
 
-        // If cron is stale but status shows completed, update status
-        if ($isStale && ($settings['cron-job.status'] ?? '') === 'completed') {
-            set_setting('cron-job.status', 'failed');
-        }
-
-        return $isStale;
+        return $lastRunTime->diffInHours($currentTime) >= 48;
     }
 
     public function render()

@@ -30,13 +30,10 @@
     </div>
 
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:tenant.tables.template-bot-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+   <!-- Filament Table -->
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:tenant.tables.filament.template-bot-filament-table />
+    </div>
 
     {{-- Delete confirmation --}}
     <x-modal.confirm-box :maxWidth="'lg'" :id="'delete-tempbot-modal'" title="{{ t('delete_templatebot') }}"

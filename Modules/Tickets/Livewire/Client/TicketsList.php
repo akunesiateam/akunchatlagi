@@ -61,7 +61,7 @@ class TicketsList extends Component
 
         $this->confirmingDeletion = false;
 
-        $this->dispatch('pg:eventRefresh-client-tickets-table');
+        $this->dispatch('tenant-tickets-table-refresh');
     }
 
     public function render()

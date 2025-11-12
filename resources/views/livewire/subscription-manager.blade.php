@@ -402,13 +402,16 @@
                                 <!-- Cancel Action -->
                                 @if ($subscription->status === 'active' || $subscription->status === 'paused')
                                 <div x-data="cancelHandler()">
-                                    <x-button.soft-danger type="button" size="sm" @click="openModal(
-            '{{ t('cancel_subscription') }}',
-            '{{ t('Are you sure you want to cancel this subscription? You will still have access until the end of your billing period.') }}'
-        )">
-                                        {{ t('cancel') }}
-                                    </x-button.soft-danger>
-
+                                   <x-button.soft-danger
+    type="button"
+    size="sm"
+    @click="openModal(
+        `{{ t('cancel_subscription') }}`,
+        `{{ t('cancel_subscription_message') }}`
+    )"
+>
+    {{ t('cancel') }}
+</x-button.soft-danger>
                                     {{-- Hidden Form --}}
                                     <form x-ref="cancelForm" method="POST"
                                         action="{{ tenant_route('tenant.subscriptions.cancel', ['id' => $subscription->id]) }}"

@@ -31,6 +31,8 @@ class SystemUpdateSettings extends Component
 
     public $wmSettings = [];
 
+    public $confirmingDeactivation = false;
+
     protected $rules = [
         'purchase_key' => 'required|string',
         'username' => 'required|string',
@@ -93,6 +95,27 @@ class SystemUpdateSettings extends Component
         clear_config();
 
         $this->notify(['type' => 'success', 'message' => t('cache_cleared_successfully')], true);
+
+        return redirect(route('admin.dashboard'));
+    }
+
+    public function deactivateLicense()
+    {
+        $filepath = base_path(config('installer.storage_path', 'storage').'/'.config('installer.installed_file', '.installed'));
+        if (file_exists($filepath)) {
+            $settings = [
+                'whatsmark_latest_version' => '',
+                'wm_last_verification' => '',
+                'wm_support_until' => '',
+                'wm_validate' => false,
+                'wm_verification_id' => '',
+                'wm_verification_token' => '',
+                'wm_version' => '',
+            ];
+            set_settings_batch('whats-mark', $settings);
+            unlink($filepath);
+        }
+        $this->notify(['type' => 'success', 'message' => t('license_deactivated_successfully')], true);
 
         return redirect(route('admin.dashboard'));
     }

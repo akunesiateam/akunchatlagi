@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Tenant\Staff;
 
+use App\Models\Tenant\Contact;
 use App\Models\User;
 use App\Services\FeatureService;
 use Livewire\Component;
@@ -62,16 +63,26 @@ class StaffList extends Component
     public function delete()
     {
         if (checkPermission('tenant.staff.delete')) {
+            $isUserAssigned = Contact::fromTenant(tenant_subdomain_by_tenant_id(tenant_id()))->where('assigned_id', $this->staffId)->exists();
+
+            if ($isUserAssigned) {
+                $this->notify(['type' => 'warning', 'message' => t('staff_in_use_notify')]);
+                $this->confirmingDeletion = false;
+
+                return;
+            }
+
             $staff = User::findOrFail($this->staffId);
             if ($staff->id == auth()->id()) {
                 $this->notify(['type' => 'warning', 'message' => t('cannot_delete_yourself')]);
 
                 return;
             }
+
             $staff->delete();
             $this->notify(['type' => 'success', 'message' => t('staff_deleted_successfully')]);
             $this->confirmingDeletion = false;
-            $this->dispatch('pg:eventRefresh-staff-table');
+            $this->dispatch('staff-table-refresh');
         }
     }
 
@@ -97,7 +108,7 @@ class StaffList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-staff-table');
+        $this->dispatch('staff-table-refresh');
     }
 
     public function render()

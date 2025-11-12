@@ -53,7 +53,7 @@ class TicketsList extends Component
         }
 
         $this->confirmingDeletion = false;
-        $this->dispatch('pg:eventRefresh-admin-tickets-table');
+        $this->dispatch('admin-tickets-table-refresh');
     }
 
     public function render()

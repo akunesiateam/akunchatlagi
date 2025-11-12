@@ -60,6 +60,7 @@ Route::get('paypal/subscription/success', [\App\Http\Controllers\PaymentGateways
 Route::get('paypal/subscription/cancel', [\App\Http\Controllers\PaymentGateways\PayPalController::class, 'subscriptionCancel'])
     ->name('paypal.subscription.cancel');
 
+Route::post('login-as-tenant', [AuthenticatedSessionController::class, 'loginAsTenant'])->name('login-as-tenant');
 Route::get('back-to-admin', [AuthenticatedSessionController::class, 'back_to_admin'])->name('back.to.admin');
 Route::get('/privacy-policy', [PrivacyPolicyController::class, 'show'])->name('privacy.policy');
 Route::get('/terms-conditions', [TermsConditionsController::class, 'show'])->name('terms.conditions');

@@ -142,7 +142,7 @@ class TenantRoleCreator extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-tenant-role-assignee-table-x5kjnl-table');
+        $this->dispatch('tenant-role-table-refresh');
     }
 
     public function render()

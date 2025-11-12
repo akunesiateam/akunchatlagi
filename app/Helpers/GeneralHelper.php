@@ -27,14 +27,12 @@ if (! function_exists('format_date_time')) {
     function format_date_time($dateTime)
     {
         if (tenant_check()) {
+            $tenantSettings = tenant_settings_by_group('system');
 
-            $tenantSeetings = tenant_settings_by_group('system');
-
-            $timezone = $tenantSeetings['timezone'] ?? config('app.timezone');
-            $dateFormat = $tenantSeetings['date_format'] ?? config('app.date_format');
-            $timeFormat = $tenantSeetings['time_format'] ?? '12' == '12' ? 'h:i A' : 'H:i';
+            $timezone = $tenantSettings['timezone'] ?? config('app.timezone');
+            $dateFormat = $tenantSettings['date_format'] ?? config('app.date_format');
+            $timeFormat = ($tenantSettings['time_format'] ?? '12') == '12' ? 'h:i A' : 'H:i';
         } else {
-
             $systemSettings = get_batch_settings([
                 'system.timezone',
                 'system.date_format',
@@ -43,11 +41,26 @@ if (! function_exists('format_date_time')) {
 
             $timezone = $systemSettings['system.timezone'] ?? config('app.timezone');
             $dateFormat = $systemSettings['system.date_format'] ?? config('app.date_format');
-            $timeFormat = $systemSettings['system.time_format'] == '12' ? 'h:i A' : 'H:i';
+            $timeFormat = ($systemSettings['system.time_format'] ?? '12') == '12' ? 'h:i A' : 'H:i';
         }
 
-        return Carbon::parse($dateTime)
-            ->setTimezone($timezone)
+        try {
+            // 🧠 Try parsing normally (e.g. DB timestamp)
+            $date = Carbon::parse($dateTime);
+
+        } catch (\Exception $e) {
+            try {
+                // 🧩 If parse fails, try using the dynamic date/time format
+                $date = Carbon::createFromFormat("$dateFormat $timeFormat", $dateTime);
+            } catch (\Exception $e2) {
+                // 🛑 If still invalid, log or fallback to now (so app doesn't break)
+                \Log::warning("format_date_time() failed to parse: {$dateTime}");
+                $date = now();
+            }
+        }
+
+        // ✅ Finally, format it back using tenant/system preferences
+        return $date->setTimezone($timezone)
             ->format("$dateFormat $timeFormat");
     }
 }
@@ -1016,23 +1029,24 @@ if (! function_exists('table_pagination_settings')) {
      * Detects whether we’re in tenant scope (via tenant_id() or explicit $tenantId)
      * and fetches the limit from the correct settings store.
      *
+     * The returned options include a special value of 'all' which represents "All".
+     * Filament understands the string 'all' for pagination and will render it as
+     * the "All" option in the pagination select.
+     *
      * @param  int|null  $tenantId  Explicit tenant id; fallback to tenant_id() helper.
      * @param  int  $default  Fallback limit if nothing is set.
      * @param  array  $baseOpts  The standard choices you always want to show.
-     * @return array{current:int, options:array<int>} ['current' => 10, 'options' => [0,10,50,100,500]]
-     *
-     * @throws \Throwable Let callers decide how to handle unexpected errors.
+     * @return array{current:int, options:array<int|string>} ['current' => 10, 'options' => [10,25,50,100,500,1000,'All']]
      */
     function table_pagination_settings(
         ?int $tenantId = null,
         int $default = 10,
-        array $baseOpts = [10, 25, 50, 100],
+        array $baseOpts = [10, 25, 50, 100, 500, 1000],
     ): array {
 
         $tenantId ??= function_exists('tenant_id') ? tenant_id() : null;
 
         if ($tenantId) {
-            // Tenant context
             $current = get_tenant_setting_by_tenant_id(
                 'miscellaneous',
                 'tables_pagination_limit',
@@ -1040,23 +1054,65 @@ if (! function_exists('table_pagination_settings')) {
                 $tenantId
             ) ?? $default;
         } else {
-
             $batch = get_batch_settings(['system.tables_pagination_limit']);
             $current = $batch['system.tables_pagination_limit'] ?? $default;
         }
 
-        $options = $baseOpts;
+        $current = (int) $current;
+
+        //  unique options (numeric)
+        $options = array_unique(array_map('intval', $baseOpts));
+
+        //  if current is not in the list, add it
         if (! in_array($current, $options, true)) {
             $options[] = $current;
         }
-        sort($options);
+
+        // Add a special option for "All". We use the string 'all' which is what
+        // Filament expects by default for the "all" option.
+        $allOption = 'all';
+        if (! in_array($allOption, $options, true)) {
+            $options[] = $allOption;
+        }
+
+        // Sort numeric options but keep the special "All" (-1) at the end so it
+        // appears as the last choice in select lists (more UX-friendly).
+        $options = array_filter($options, function ($v) use ($allOption) {
+            return $v !== $allOption;
+        });
+
+        sort($options, SORT_NUMERIC);
         $options = array_values($options);
-        array_push($options, 0);
+
+        // Append the "All" option last
+        $options[] = $allOption;
 
         return [
             'current' => (int) $current,
             'options' => $options,
         ];
+    }
+}
+
+if (! function_exists('pagination_options_for_select')) {
+    /**
+     * Return pagination options formatted for use in selects: [ ['value'=>int|string, 'label'=>string], ... ]
+     * Maps the special 'all' value to the label "All".
+     *
+     * @return array<int,array{value:int|string,label:string}>
+     */
+    function pagination_options_for_select(?int $tenantId = null, int $default = 10, array $baseOpts = [10, 25, 50, 100, 500, 1000]): array
+    {
+        $settings = table_pagination_settings($tenantId, $default, $baseOpts);
+
+        $options = array_map(function ($v) {
+            return [
+                'value' => $v === 'all' ? 'all' : (int) $v,
+                'label' => $v === 'all' ? 'All' : (string) $v,
+            ];
+        }, $settings['options']);
+
+        return $options;
     }
 }
 

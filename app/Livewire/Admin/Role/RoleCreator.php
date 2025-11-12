@@ -127,7 +127,7 @@ class RoleCreator extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-role-assignee-table-pkhhln-table');
+        $this->dispatch('role-assignee-table-refresh');
     }
 
     public function render()

@@ -3,7 +3,6 @@
 namespace App\Livewire\Admin\Faq;
 
 use App\Models\Faq;
-use App\Rules\PurifiedInput;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 
@@ -39,11 +38,9 @@ class ManageFaqs extends Component
         return [
             'faq.question' => [
                 'required',
-                new PurifiedInput(t('sql_injection_error')),
             ],
             'faq.answer' => [
                 'required',
-                new PurifiedInput(t('sql_injection_error')),
             ],
             'faq.is_visible' => ['boolean', 'nullable'],
         ];

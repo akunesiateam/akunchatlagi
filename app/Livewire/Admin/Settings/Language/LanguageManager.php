@@ -179,7 +179,7 @@ class LanguageManager extends Component
         }
 
         $this->showLanguageModal = false;
-        $this->dispatch('pg:eventRefresh-language-table-d2p5da-table');
+        $this->dispatch('language-table-refresh');
 
         $this->notify([
             'type' => 'success',
@@ -226,7 +226,7 @@ class LanguageManager extends Component
             // Cache will be automatically cleared by the Language model's boot() method
 
             $this->confirmingDeletion = false;
-            $this->dispatch('pg:eventRefresh-language-table-d2p5da-table');
+            $this->dispatch('language-table-refresh');
 
             $this->notify([
                 'type' => 'success',
@@ -252,7 +252,7 @@ class LanguageManager extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-language-table-d2p5da-table');
+        $this->dispatch('language-table-refresh');
     }
 
     public function render()

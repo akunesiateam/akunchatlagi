@@ -61,13 +61,9 @@
         @endif
     </div>
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="lg:mt-0" wire:poll.10s="refreshTable">
-                <livewire:tenant.tables.whatspp-template-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+     <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:tenant.tables.filament.whatspp-template-filament-table />
+    </div>
 
     <!-- Delete Confirmation Modal -->
     <x-modal.confirm-box :maxWidth="'lg'" :id="'delete-template-modal'" title="{{ t('delete_template') }}"

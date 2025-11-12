@@ -84,6 +84,8 @@ class Dashboard extends Component
 
     public $tenant_subdomain;
 
+    public $subscriptionMessage;
+
     // flow
 
     public $totalFlowsLimit;
@@ -786,7 +788,19 @@ class Dashboard extends Component
                 ->latest()
                 ->first();
 
-            $planName = 'Free';
+            $latestSubscription = Subscription::where('tenant_id', $this->currentTenant->id)
+                ->with(['plan', 'plan.features'])
+                ->latest()
+                ->first();
+
+            $planName = $latestSubscription->plan->name ?? t('free');
+
+            $message = null;
+
+            if ($latestSubscription && $latestSubscription->status === Subscription::STATUS_CANCELLED) {
+                $message = t('subscription_cancelled_message');
+            }
+
             $nextBillingDate = null;
             $daysUntilBilling = null;
 
@@ -807,6 +821,7 @@ class Dashboard extends Component
                 'plan_name' => $planName,
                 'next_billing' => $nextBillingDate,
                 'days_until_billing' => $daysUntilBilling,
+                'message' => $message ?? t('no_active_subscription'),
             ];
         }, ['dashboard', 'subscription', 'billing']);
 
@@ -814,6 +829,7 @@ class Dashboard extends Component
         $this->planName = $subscriptionData['plan_name'];
         $this->nextBillingDate = $subscriptionData['next_billing'];
         $this->daysUntilBilling = $subscriptionData['days_until_billing'];
+        $this->subscriptionMessage = $subscriptionData['message'];
     }
 
     private function loadCachedUsageStatistics()

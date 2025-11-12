@@ -27,13 +27,9 @@
     </div>
     @endif
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:admin.tables.currency-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:admin.tables.filament.currency-filament-table />
+    </div>
 
     {{-- Delete Currency Modal --}}
     <x-modal.confirm-box :id="'delete-currency-modal'" title="{{ t('delete_currencies') }}"

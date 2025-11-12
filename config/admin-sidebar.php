@@ -221,6 +221,7 @@ return [
                         'admin.system-update.settings.view',
                         'admin.system-information.settings.view',
                         'admin.cache-management.settings.view',
+                        'admin.advanced-optimization.settings.view',
                         'admin.tenant-settings.settings.view',
                         'admin.invoice-settings.settings.view',
                         'admin.privacy-policy.settings.view',

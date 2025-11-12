@@ -206,7 +206,7 @@ class ContactList extends Component
             }
 
             $this->confirmingDeletion = false;
-            $this->dispatch('pg:eventRefresh-contact-table');
+            $this->dispatch('contact-table-refresh');
         }
     }
 
@@ -541,7 +541,7 @@ class ContactList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-contact-table');
+        $this->dispatch('contact-table-refresh');
     }
 
     public function render()

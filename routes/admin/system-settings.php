@@ -25,6 +25,7 @@ Route::middleware([AdminMiddleware::class, SanitizeInputs::class])->group(functi
         'cron-job' => App\Livewire\Admin\Settings\System\CronJobSettings::class,
         'system-update' => App\Livewire\Admin\Settings\System\SystemUpdateSettings::class,
         'announcement' => App\Livewire\Admin\Settings\System\AnnouncementSettings::class,
+        'advanced-optimization' => App\Livewire\Admin\Settings\System\AdvancedOptimizationSettings::class,
         'tenant-settings' => App\Livewire\Admin\Settings\System\TenantSettings::class,
         'invoice-settings' => App\Livewire\Admin\Settings\System\InvoiceSettings::class,
         'privacy-policy' => App\Livewire\Admin\Settings\System\PrivacyPolicySettings::class,

@@ -29,6 +29,8 @@ class PricingPlans extends Component
         $this->pricingSettings = get_batch_settings([
             'theme.pricing_section_title',
             'theme.pricing_section_subtitle',
+            'theme.plans_page_title',
+            'theme.plans_page_link',
         ]);
 
         $this->plansFeatures = collect($planRepo->getPlansWithFeatures())

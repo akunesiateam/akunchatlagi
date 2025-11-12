@@ -8,12 +8,8 @@
         ['label' => t('subscriptions')],
     ]" />
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:admin.tables.subscription-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:admin.tables.filament.subscription-filament-table />
+    </div>
 
 </div>

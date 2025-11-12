@@ -16,7 +16,7 @@ class MiscellaneousSettings extends Component
     protected function rules()
     {
         return [
-            'tables_pagination_limit' => ['nullable', 'integer', 'min:1', 'max:500', new PurifiedInput(t('sql_injection_error'))],
+            'tables_pagination_limit' => ['nullable', 'integer', 'min:1', 'max:1000', new PurifiedInput(t('sql_injection_error'))],
             'max_queue_jobs' => ['required', 'integer', 'min:100', 'max:1000', new PurifiedInput(t('sql_injection_error'))],
             'is_enable_landing_page' => 'nullable|bool',
 

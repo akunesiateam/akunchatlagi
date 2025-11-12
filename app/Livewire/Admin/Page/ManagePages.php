@@ -130,7 +130,7 @@ class ManagePages extends Component
                     // Refresh the parent pages data to include the newly created page
                     $this->refreshParentPages();
 
-                    $this->dispatch('pg:eventRefresh-page-table');
+                    $this->dispatch('page-table-refresh');
 
                     // Force UI refresh by updating a reactive property
                     $this->dispatch('parentPagesUpdated');
@@ -257,7 +257,7 @@ class ManagePages extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-page-table');
+        $this->dispatch('page-table-refresh');
     }
 
     /**

@@ -196,7 +196,7 @@
     function refreshTable() {
     // Refresh PowerGrid table
     if (window.Livewire) {
-        const component = window.Livewire.find('admin-tickets-table');
+        const component = window.Livewire.find('admin-tickets-table-refresh');
         if (component) {
             component.call('$refresh');
         } else {
@@ -214,7 +214,7 @@ function toggleQuickFilters() {
 function applyFilter(field, value) {
     // Apply filters via PowerGrid using modern Livewire patterns
     if (window.Livewire) {
-        const component = window.Livewire.find('admin-tickets-table');
+        const component = window.Livewire.find('admin-tickets-table-refresh');
         if (component) {
             // Set the filter value directly on the component
             component.set('filters.' + field, value);
@@ -230,7 +230,7 @@ function applyFilter(field, value) {
 function clearFilters() {
     // Clear filters via PowerGrid
     if (window.Livewire) {
-        const component = window.Livewire.find('admin-tickets-table');
+        const component = window.Livewire.find('admin-tickets-table-refresh');
         if (component) {
             // Clear all filters
             component.call('clearFilters');

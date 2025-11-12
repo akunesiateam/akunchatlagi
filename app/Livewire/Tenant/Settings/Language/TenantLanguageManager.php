@@ -36,7 +36,6 @@ class TenantLanguageManager extends Component
 
     public function translateLanguage($code)
     {
-
         return redirect()->to(tenant_route('tenant.languages.translations', ['code' => $code]));
     }
 
@@ -181,7 +180,7 @@ class TenantLanguageManager extends Component
         }
 
         $this->showLanguageModal = false;
-        $this->dispatch('pg:eventRefresh-tenant-language-table');
+        $this->dispatch('tenant-language-table-refresh');
 
         $this->notify([
             'type' => 'success',
@@ -224,7 +223,7 @@ class TenantLanguageManager extends Component
             // Cache will be automatically cleared by the Language model's boot() method
 
             $this->confirmingDeletion = false;
-            $this->dispatch('pg:eventRefresh-tenant-language-table');
+            $this->dispatch('tenant-language-table-refresh');
 
             $this->notify([
                 'type' => 'success',
@@ -254,7 +253,7 @@ class TenantLanguageManager extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-tenant-language-table');
+        $this->dispatch('tenant-language-table-refresh');
     }
 
     public function render()

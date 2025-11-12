@@ -19,6 +19,10 @@
                 </x-settings-description>
             </x-slot:header>
             <div class="mx-auto md:px-0">
+                {{-- <livewire:admin.tables.filament.language-line-filament-table
+                    :languageCode="$code"
+                    wire:key="filament-translation-manager-{{ $code }}" /> --}}
+
                 <livewire:admin.tables.language-line-table :languageCode="$code"
                     wire:key="translation-manager-{{ $code }}" />
             </div>

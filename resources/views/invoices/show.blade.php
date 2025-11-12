@@ -1,4 +1,4 @@
-0<x-app-layout>
+<x-app-layout>
     <x-slot:title>
         {{ t('invoice_details') }}
     </x-slot:title>

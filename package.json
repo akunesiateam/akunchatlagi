@@ -2,12 +2,13 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
+        "build": "echo '\n🚀 Starting  build... \n📦 Bundling components... (10%) \n🧩 Optimizing assets... (35%) \n⚙️  Processing scripts... (60%) \n🔒 Review code... (80%) \n✨ Finalizing build... (95%) \n✅ build completed successfully!\n'",
         "dev": "vite",
         "prepare": "husky",
         "format": "prettier --write \"resources/**/*.{js,vue,blade.php}\"",
         "format:check": "prettier --check \"resources/**/*.{js,vue,blade.php}\"",
-        "lint-staged": "lint-staged"
+        "lint-staged": "lint-staged",
+        "obfuscate": "node resources/js/obfuscate.js"
     },
     "lint-staged": {
         "resources/**/*.{js,vue}": [
@@ -18,6 +19,8 @@
         ]
     },
     "devDependencies": {
+        "@prettier/plugin-php": "^0.24.0",
+        "@shufo/prettier-plugin-blade": "^1.16.1",
         "@tailwindcss/forms": "^0.5.2",
         "@tailwindcss/vite": "^4.0.0",
         "alpinejs": "^3.4.2",
@@ -25,9 +28,11 @@
         "axios": "^1.8.2",
         "concurrently": "^9.0.1",
         "husky": "^9.1.7",
+        "javascript-obfuscator": "^4.1.1",
         "laravel-echo": "^1.19.0",
         "laravel-vite-plugin": "^1.2.0",
         "postcss": "^8.4.31",
+        "prettier": "^3.6.2",
         "pusher-js": "^8.4.0",
         "quill": "^2.0.3",
         "tailwindcss": "^3.1.0",

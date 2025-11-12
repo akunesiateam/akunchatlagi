@@ -18,13 +18,9 @@
         @endif
     </div>
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="mt-8 lg:mt-0" wire:poll.30s="refreshList">
-                <livewire:tenant.tables.custom-field-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+    <div class="mt-8 lg:mt-0" wire:poll.30s="refreshList">
+        <livewire:tenant.tables.filament.custom-field-filament-table />
+    </div>
 
     <!-- Delete Confirmation Modal -->
     @if ($confirmingDeletion)

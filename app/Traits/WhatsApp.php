@@ -759,9 +759,10 @@ trait WhatsApp
     {
         $tenant_id = $this->getWaTenantId();
         $whatsapp_cloud_api = $this->loadConfig();
+        $settings = tenant_settings_by_group('miscellaneous');
 
         try {
-            $result = $whatsapp_cloud_api->sendTemplate($number, 'hello_world', 'en_US');
+            $result = $whatsapp_cloud_api->sendTemplate($number, $settings['default_template'] ?? 'hello_world', $settings['default_language'] ?? 'en_US');
             $status = true;
             $message = t('whatsapp_message_sent_successfully');
             $data = json_decode($result->body());

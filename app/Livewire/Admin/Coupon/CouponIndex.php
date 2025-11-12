@@ -30,7 +30,6 @@ class CouponIndex extends Component
 
     public function toggleStatus($id)
     {
-
         $coupon = Coupon::find($id);
 
         if ($coupon) {
@@ -46,7 +45,7 @@ class CouponIndex extends Component
                 'type' => 'success',
             ]);
 
-            $this->dispatch('pg:eventRefresh-coupon-table');
+            $this->dispatch('coupon-table-refresh');
         }
     }
 
@@ -69,7 +68,7 @@ class CouponIndex extends Component
                     'message' => 'Coupon deleted successfully',
                     'type' => 'success',
                 ]);
-                $this->dispatch('pg:eventRefresh-coupon-table');
+                $this->dispatch('coupon-table-refresh');
 
                 $this->deletingCouponId = null;
             }
@@ -83,6 +82,6 @@ class CouponIndex extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-coupon-table');
+        $this->dispatch('coupon-table-refresh');
     }
 }

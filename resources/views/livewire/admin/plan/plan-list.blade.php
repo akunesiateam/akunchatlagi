@@ -77,7 +77,7 @@
                                 $link = route('register', ['plan_id' => $plan->id]);
                             @endphp
                             <div class="mt-3 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 truncate">
-                                <span class="truncate">{{ $link }} </span>
+                                <span class="truncate block w-48"> {{ $link }}</span>
                                 <button onclick="copyToClipboard('{{ $link }}')"
                                     class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Copy URL">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -147,7 +147,7 @@ return [
         'product_id' => '58714968',
         'api_endpoint' => 'aHR0cHM6Ly9wYXNzdGhlY29kZS5jb3JiaXRhbHRlY2guZGV2L2FwaS92Mw==',
         'required' => true,
-        'current_version' => '1.4.0',
+        'current_version' => '1.5.0',
         'verify_type' => 'envato',
         'root_path' => storage_path('app/public/updates/'),
         'module_name' => 'WhatsMarkSaaS - WhatsApp Marketing & Automation SaaS Platform with Bots, Chats, Bulk Sender & AI',

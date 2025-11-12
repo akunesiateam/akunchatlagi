@@ -28,11 +28,13 @@ class CheckStatus
 
         $cache_status = apply_filters('check_optimize_cache_status', false);
 
-        if ($cache_status) {
-            $request->session()->flash('notification', [
-                'type' => 'danger',
-                'message' => $cache_status,
-            ]);
+        if (is_array($cache_status)) {
+            if (empty($cache_status['type'])) {
+                $request->session()->flash('notification', [
+                    'type' => 'danger',
+                    'message' => $cache_status['status'],
+                ]);
+            }
         }
 
         // Skip check for subscription-related routes

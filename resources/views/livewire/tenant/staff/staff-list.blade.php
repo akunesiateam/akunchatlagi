@@ -27,14 +27,9 @@
         </div>
     </div>
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:tenant.tables.staff-table />
-            </div>
-        </x-slot:content>
-    </x-card>
-
+      <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:tenant.tables.filament.staff-filament-table />
+    </div>
 
     <!-- Delete Confirmation Modal -->
     <x-modal.confirm-box :maxWidth="'lg'" :id="'delete-staff-modal'" title="{{ t('delete_staff_title') }}"

@@ -43,13 +43,13 @@ class TenantRoleList extends Component
             Role::findOrFail($this->roleId)->delete();
             $this->confirmingDeletion = false;
             $this->notify(['type' => 'success', 'message' => t('role_delete_successfully')]);
-            $this->dispatch('pg:eventRefresh-tenant-role-table-iuvydh-table');
+            $this->dispatch('tenant-role-table-refresh');
         }
     }
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-tenant-role-table-iuvydh-table');
+        $this->dispatch('tenant-role-table-refresh');
     }
 
     public function render()

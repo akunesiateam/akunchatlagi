@@ -44,7 +44,7 @@ class CampaignList extends Component
             Campaign::findOrFail($this->campaign_id)->delete();
             $this->confirmingDeletion = false;
             $this->notify(['type' => 'success', 'message' => t('campaign_delete_successfully')]);
-            $this->dispatch('pg:eventRefresh-campaign-table-zfu4eg-table');
+            $this->dispatch('campaign-table-refresh');
         }
     }
 
@@ -70,7 +70,7 @@ class CampaignList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-campaign-table-zfu4eg-table');
+        $this->dispatch('campaign-table-refresh');
     }
 
     public function render()

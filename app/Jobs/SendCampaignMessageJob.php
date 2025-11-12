@@ -10,7 +10,9 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 class SendCampaignMessageJob implements ShouldQueue
@@ -30,29 +32,47 @@ class SendCampaignMessageJob implements ShouldQueue
     /**
      * The maximum number of seconds the job should be allowed to run
      */
-    public int $timeout;
+    public int $timeout = 120;
 
-    protected $tenant;
+    /**
+     * Maximum number of exceptions before failing
+     */
+    public int $maxExceptions = 3;
 
-    public $tenant_subdomain;
+    /**
+     * Delete the job if models no longer exist
+     */
+    public bool $deleteWhenMissingModels = true;
+
+    protected int $detailId;
+
+    protected int $campaignId;
+
+    protected int $tenantId;
 
     /**
      * Create a new job instance.
      */
     public function __construct(
-        protected CampaignDetail $detail,
-        $tenant
+        int $detailId,
+        int $campaignId,
+        int $tenantId
     ) {
-        $settings = get_batch_settings([
-            'whatsapp.queue',
-            'whatsapp.tries',
-            'whatsapp.backoff',
-        ]);
-        $this->onQueue(json_decode($settings['whatsapp.queue'], true)['name']);
-        $this->timeout = json_decode($settings['whatsapp.queue'], true)['timeout'] ?? 60;
+        $this->detailId = $detailId;
+        $this->campaignId = $campaignId;
+        $this->tenantId = $tenantId;
 
-        $this->tenant = $tenant;
-        $this->tenant_subdomain = tenant_subdomain_by_tenant_id($this->tenant->id);
+        $this->onQueue('whatsapp-messages');
+    }
+
+    /**
+     * Get the middleware the job should pass through.
+     */
+    public function middleware(): array
+    {
+        return [
+            new WithoutOverlapping("campaign_detail:{$this->detailId}"),
+        ];
     }
 
     /**
@@ -60,45 +80,78 @@ class SendCampaignMessageJob implements ShouldQueue
      */
     public function handle(): void
     {
-        // Check if campaign is paused - if so, release the job back to queue
-        $settings = get_batch_settings([
-            'whatsapp.queue',
-            'whatsapp.tries',
-            'whatsapp.backoff',
-        ]);
-        if ($this->detail->campaign->pause_campaign) {
-            $this->release(json_decode($settings['whatsapp.queue'], true)['retry_after'] ?? 180);
+        $isPaused = Cache::remember(
+            "campaign:{$this->campaignId}:paused",
+            60,
+            fn () => Campaign::where('id', $this->campaignId)->value('pause_campaign')
+        );
+
+        if ($isPaused) {
+            $this->release(180);
 
             return;
         }
 
         try {
-            // Get the associated campaign
-            $campaign = Campaign::findOrFail($this->detail->campaign_id);
+            $detail = CampaignDetail::with([
+                'campaign',
+                'campaign.whatsappTemplate' => function ($query) {
+                    $query->where('tenant_id', $this->tenantId);
+                },
+            ])->find($this->detailId);
 
-            $template = WhatsappTemplate::where(['template_id' => $campaign->template_id, 'tenant_id' => $this->tenant->id])->firstOrFail()->toArray();
+            if (! $detail) {
+                return;
+            }
+
+            $campaign = $detail->campaign;
+            // $template = $campaign->whatsappTemplate;
+
+            // Format parameters for template
+            $template = WhatsappTemplate::where(['template_id' => $campaign->template_id, 'tenant_id' => $this->tenantId])->firstOrFail()->toArray();
 
             // Format parameters for template
             $template['header_message'] = $template['header_data_text'] ?? null;
             $template['body_message'] = $template['body_data'] ?? null;
             $template['footer_message'] = $template['footer_data'] ?? null;
 
-            // Prepare data for sending
-            $contact = \App\Models\Tenant\Contact::fromTenant($this->tenant_subdomain)->where('id', $this->detail->rel_id)->first();
-            if (! $contact) {
-                throw new \Exception('Contact not found: '.$this->detail->rel_id);
+            if (! $template) {
+                $this->fail(new \Exception("Template not found for campaign {$this->campaignId}"));
+
+                return;
+            }
+
+            $tenantSubdomain = Cache::remember(
+                "tenant:{$this->tenantId}:subdomain",
+                3600,
+                fn () => tenant_subdomain_by_tenant_id($this->tenantId)
+            );
+
+            $contact = \App\Models\Tenant\Contact::fromTenant($tenantSubdomain)
+                ->select(['id', 'phone', 'firstname', 'lastname'])
+                ->find($detail->rel_id);
+
+            if (! $contact || empty($contact->phone)) {
+                $detail->update([
+                    'status' => 0,
+                    'message_status' => 'failed',
+                    'response_message' => 'Contact not found or missing phone number',
+                ]);
+
+                return;
             }
 
             // Build message parameters
             $rel_data = array_merge(
                 [
-                    'rel_type' => $this->detail->rel_type,
+                    'rel_type' => $detail->rel_type,
                     'rel_id' => $contact->id,
+                    'tenant_id' => $this->tenantId,
                 ],
                 $template,
                 [
                     'campaign_id' => $campaign->id,
-                    'header_data_format' => $template['header_data_format'] ?? null,
+                    'template_id' => $campaign->template_id,
                     'filename' => $campaign->filename ?? null,
                     'header_params' => $campaign->header_params,
                     'body_params' => $campaign->body_params,
@@ -106,32 +159,21 @@ class SendCampaignMessageJob implements ShouldQueue
                 ]
             );
 
-            $this->setWaTenantId($rel_data['tenant_id']);
+            $this->setWaTenantId($this->tenantId);
+
             // Use the WhatsApp trait to send the template
             $response = $this->sendTemplate($contact->phone, $rel_data);
 
             // Update the detail record with the response
             if (! empty($response['status'])) {
-                // Update campaign detail
-                $this->detail->update([
+                $detail->update([
                     'status' => 2,
                     'message_status' => 'sent',
                     'whatsapp_id' => $response['data']->messages[0]->id ?? null,
                     'response_message' => null,
                 ]);
             } else {
-                // Update detail with error
-                $this->detail->update([
-                    'status' => 0,
-                    'message_status' => 'failed',
-                    'response_message' => $response['message'] ?? 'Unknown error occurred',
-                ]);
-
-                if (json_decode($settings['whatsapp.queue'], true)['retry_after'] ?? 180) {
-                    $this->release(json_decode($settings['whatsapp.queue'], true)['retry_after'] ?? 180);
-
-                    return;
-                }
+                $this->handleFailedMessage($detail, $response);
             }
         } catch (Throwable $e) {
             $this->handleFailure($e);
@@ -146,28 +188,74 @@ class SendCampaignMessageJob implements ShouldQueue
     }
 
     /**
-     * Handle job failure
+     * Handle failed message sending.
+     */
+    protected function handleFailedMessage(CampaignDetail $detail, array $response): void
+    {
+        $detail->update([
+            'status' => 0,
+            'message_status' => 'failed',
+            'response_message' => $response['message'] ?? 'Unknown error occurred',
+        ]);
+
+        if ($this->attempts() < $this->tries) {
+            $this->release(180);
+        }
+    }
+
+    /**
+     * Handle job failure.
      */
     protected function handleFailure(Throwable $e): void
     {
-        $this->detail->update([
-            'status' => 0,
-            'message_status' => 'failed',
-            'response_message' => $e->getMessage(),
-        ]);
+        $detail = CampaignDetail::find($this->detailId);
 
-        if (json_decode(get_tenant_setting_by_tenant_id('whatsapp', 'logging', null, $this->tenant->id), true)) {
+        if ($detail) {
+            $detail->update([
+                'status' => 0,
+                'message_status' => 'failed',
+                'response_message' => $e->getMessage(),
+            ]);
+        }
+
+        $shouldLog = Cache::remember(
+            "tenant:{$this->tenantId}:whatsapp_logging",
+            3600,
+            fn () => (bool) json_decode(get_tenant_setting_by_tenant_id('whatsapp', 'logging', null, $this->tenantId), true)
+        );
+
+        if ($shouldLog) {
             whatsapp_log(
                 'Campaign message failed',
                 'error',
                 [
-                    'campaign_id' => $this->detail->campaign_id,
-                    'detail_id' => $this->detail->id,
+                    'campaign_id' => $this->campaignId,
+                    'detail_id' => $this->detailId,
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
                 ],
                 $e
             );
         }
+    }
+
+    /**
+     * Get the unique ID for the job.
+     */
+    public function uniqueId(): string
+    {
+        return "campaign_detail:{$this->detailId}";
+    }
+
+    /**
+     * Get the tags for the job.
+     */
+    public function tags(): array
+    {
+        return [
+            'campaign:'.$this->campaignId,
+            'tenant:'.$this->tenantId,
+            'whatsapp',
+        ];
     }
 }

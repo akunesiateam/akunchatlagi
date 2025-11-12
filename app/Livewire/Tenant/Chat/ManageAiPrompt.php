@@ -52,7 +52,7 @@ class ManageAiPrompt extends Component
     public function validatePromtAction()
     {
         $this->validate([
-            'prompt.action' => ['required', 'string', 'max:255', new PurifiedInput(t('sql_injection_error'))],
+            'prompt.action' => ['required', 'string', 'max:255'],
         ]);
     }
 
@@ -121,7 +121,7 @@ class ManageAiPrompt extends Component
                     : t('ai_prompt_updated_successfully');
 
                 $this->notify(['type' => 'success', 'message' => $message]);
-                $this->dispatch('pg:eventRefresh-ai-prompt-table-9etnvs-table');
+                $this->dispatch('ai-prompt-table-refresh');
             } else {
                 $this->showAiPromptModal = false;
             }
@@ -156,7 +156,7 @@ class ManageAiPrompt extends Component
             $this->resetPage();
 
             $this->notify(['type' => 'success', 'message' => t('ai_prompt_delete_successfully')]);
-            $this->dispatch('pg:eventRefresh-ai-prompt-table-9etnvs-table');
+            $this->dispatch('ai-prompt-table-refresh');
         }
     }
 
@@ -189,7 +189,7 @@ class ManageAiPrompt extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-ai-prompt-table-9etnvs-table');
+        $this->dispatch('ai-prompt-table-refresh');
     }
 
     public function render()

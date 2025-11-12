@@ -42,21 +42,35 @@ return new class extends Migration
     {
         if (Schema::hasTable('campaign_details')) {
             Schema::table('campaign_details', function (Blueprint $table) {
-                if (Schema::hasColumn('campaign_details', 'campaign_id')) {
+                // Check if indexes exist before dropping them
+                try {
                     $table->dropIndex('idx_campaign_processing');
+                } catch (\Exception $e) {
+                    // Index might not exist, continue
                 }
 
-                if (Schema::hasColumn('campaign_details', 'status')) {
+                try {
                     $table->dropIndex('idx_status_lookup');
+                } catch (\Exception $e) {
+                    // Index might not exist, continue
                 }
             });
         }
 
         if (Schema::hasTable('campaigns')) {
             Schema::table('campaigns', function (Blueprint $table) {
-                // drop if exists; dropIndex will throw if missing so only attempt when table exists
-                $table->dropIndex('idx_campaign_scheduling');
-                $table->dropIndex('idx_tenant_campaigns');
+                // Check if indexes exist before dropping them
+                try {
+                    $table->dropIndex('idx_campaign_scheduling');
+                } catch (\Exception $e) {
+                    // Index might not exist, continue
+                }
+
+                try {
+                    $table->dropIndex('idx_tenant_campaigns');
+                } catch (\Exception $e) {
+                    // Index might not exist, continue
+                }
             });
         }
 

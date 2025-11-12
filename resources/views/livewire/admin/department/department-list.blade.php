@@ -55,14 +55,9 @@
     </div>
     @endif
 
-    <x-card class="rounded-lg">
-        <x-slot:content>
-
-            <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:admin.tables.department-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+     <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
+        <livewire:admin.tables.filament.department-filament-table />
+    </div>
 
     <x-modal.custom-modal :id="'department-modal'" :maxWidth="'2xl'" wire:model.defer="showDepartmentModal">
         <div class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-500/30 ">

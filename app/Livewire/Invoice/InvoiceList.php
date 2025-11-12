@@ -35,7 +35,7 @@ class InvoiceList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-invoice-table-a0eyaf-table');
+        $this->dispatch('invoice-table-refresh');
     }
 
     /**

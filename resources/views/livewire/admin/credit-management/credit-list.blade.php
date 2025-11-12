@@ -2,10 +2,7 @@
     <x-slot:title>
         {{ t('credit_list') }}
     </x-slot:title>
-      <x-breadcrumb :items="[
-        ['label' => t('dashboard'), 'route' => route('admin.dashboard')],
-        ['label' => t('credit_list')],
-    ]" />
+    <x-breadcrumb :items="[['label' => t('dashboard'), 'route' => route('admin.dashboard')], ['label' => t('credit_list')]]" />
     <!-- Statistics Cards -->
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8 ">
 
@@ -16,8 +13,11 @@
                         <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             {{ t('total_credits') }}</div>
                         <div class="text-2xl font-bold text-primary-600 dark:text-gray-100">
-                            {{ get_base_currency()->format($creditBalances->sum(function ($balance) {return
-                            $balance->balance;})) }}
+                            {{ get_base_currency()->format(
+                                $creditBalances->sum(function ($balance) {
+                                    return $balance->balance;
+                                }),
+                            ) }}
                         </div>
 
                     </div>
@@ -64,9 +64,9 @@
                         <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             {{ t('highest_credit') }}</div>
                         <div class="text-2xl font-bold text-warning-600 dark:text-gray-100">
-                            {{ $creditBalances->isNotEmpty() ?
-                            get_base_currency()->format($creditBalances->max('balance')) :
-                            get_base_currency()->format(0) }}
+                            {{ $creditBalances->isNotEmpty()
+                                ? get_base_currency()->format($creditBalances->max('balance'))
+                                : get_base_currency()->format(0) }}
                         </div>
 
                     </div>
@@ -87,9 +87,9 @@
                         <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             {{ t('average_credit') }}</div>
                         <div class="text-2xl font-bold text-purple-600 dark:text-gray-100">
-                            {{ $creditBalances->isNotEmpty() ?
-                            get_base_currency()->format($creditBalances->avg('balance')) :
-                            get_base_currency()->format(0) }}
+                            {{ $creditBalances->isNotEmpty()
+                                ? get_base_currency()->format($creditBalances->avg('balance'))
+                                : get_base_currency()->format(0) }}
                         </div>
 
                     </div>
@@ -104,11 +104,8 @@
         </div>
 
     </div>
-    <x-card class="rounded-lg">
-        <x-slot:content>
-            <div class="lg:mt-0" wire:poll.30s="refreshTable">
-                <livewire:admin.tables.credit-table />
-            </div>
-        </x-slot:content>
-    </x-card>
+
+    <div class="mt-8 lg:mt-0">
+        <livewire:admin.tables.filament.credit-filament-table />
+    </div>
 </div>

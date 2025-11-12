@@ -17,7 +17,8 @@ return new class extends Migration
 
         Schema::table('invoices', function (Blueprint $table) {
             if (! Schema::hasColumn('invoices', 'coupon_id')) {
-                $table->foreignId('coupon_id')->nullable()->after('currency_id')->constrained()->onDelete('set null');
+                // Add column without foreign key constraint first
+                $table->unsignedBigInteger('coupon_id')->nullable()->after('currency_id');
             }
 
             if (! Schema::hasColumn('invoices', 'coupon_discount')) {
@@ -28,6 +29,13 @@ return new class extends Migration
                 $table->string('coupon_code')->nullable()->after('coupon_discount');
             }
         });
+
+        // Add foreign key constraint if coupons table exists and coupon_id column was just created
+        if (Schema::hasTable('coupons') && Schema::hasColumn('invoices', 'coupon_id')) {
+            Schema::table('invoices', function (Blueprint $table) {
+                $table->foreign('coupon_id')->references('id')->on('coupons')->onDelete('set null');
+            });
+        }
     }
 
     /**

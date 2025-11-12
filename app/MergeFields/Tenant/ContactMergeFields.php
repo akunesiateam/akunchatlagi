@@ -39,6 +39,10 @@ class ContactMergeFields
                 'key' => '{contact_first_name}',
             ],
             [
+                'name' => 'Contact ID',
+                'key' => '{contact_id}',
+            ],
+            [
                 'name' => 'Contact Last Name',
                 'key' => '{contact_last_name}',
             ],
@@ -86,6 +90,7 @@ class ContactMergeFields
             '{lead_source}' => $contact->source->name ?? '',
             '{lead_assigned}' => ($contact->user->firstname ?? '').' '.($contact->user->lastname ?? ''),
             '{contact_first_name}' => $contact->firstname ?? '',
+            '{contact_id}' => $contact->id ?? 0,
             '{contact_last_name}' => $contact->lastname ?? '',
             '{contact_company}' => $contact->company ?? '',
             '{contact_email}' => $contact->email ?? '',

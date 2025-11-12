@@ -36,7 +36,7 @@ class TemplateList extends Component
                     'type' => $response['status'] ? 'success' : 'danger',
                 ]);
 
-                $this->dispatch('pg:eventRefresh-whatspp-template-table-sgz2iu-table', [], 'window');
+                $this->dispatch('whatspp-template-table-refresh', [], 'window');
             } catch (\Exception $e) {
                 whatsapp_log('Error loading WhatsApp templates: '.$e->getMessage(), 'error', [
                     'file' => $e->getFile(),
@@ -53,7 +53,7 @@ class TemplateList extends Component
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-whatspp-template-table-sgz2iu-table');
+        $this->dispatch('whatspp-template-table-refresh');
     }
 
     /**

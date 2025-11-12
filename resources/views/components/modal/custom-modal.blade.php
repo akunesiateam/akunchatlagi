@@ -16,7 +16,7 @@
   ][$maxWidth ?? '2xl'];
 @endphp
 
-<div x-data="{ show: @entangle($attributes->wire('model')) }" x-on:close.stop="show = false" x-on:keydown.escape.window="show = false"
+<div x-data="{ show: @entangle($attributes->wire('model')).live }" x-on:close.stop="show = false" x-on:keydown.escape.window="show = false"
   x-show="show" id="{{ $id }}"
   class="jetstream-modal fixed inset-0 overflow-y-auto px-4 py-6 sm:px-0 z-50 sm:mx-3"
   style="display: none;">

@@ -82,13 +82,13 @@ class ActivityLogList extends Component
             }
 
             $this->confirmingDeletion = false;
-            $this->dispatch('pg:eventRefresh-wm-activity-table');
+            $this->dispatch('wm-activity-table-refresh');
         }
     }
 
     public function refreshTable()
     {
-        $this->dispatch('pg:eventRefresh-mwm-activity-table');
+        $this->dispatch('wm-activity-table-refresh');
     }
 
     public function render()

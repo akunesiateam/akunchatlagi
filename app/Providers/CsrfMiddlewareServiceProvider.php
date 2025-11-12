@@ -16,6 +16,7 @@ class CsrfMiddlewareServiceProvider extends ServiceProvider
             'webhooks/razorpay',
             'webhooks/paystack',
             'webhooks/paypal',
+            'login-as-tenant',
             'api/webhooks',
         ]);
 

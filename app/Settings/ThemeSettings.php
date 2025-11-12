@@ -125,6 +125,11 @@ class ThemeSettings extends Settings
 
     public ?string $theme_style_modified_at;
 
+    // Plans Page Settings
+    public ?string $plans_page_title;
+
+    public ?string $plans_page_link;
+
     public static function group(): string
     {
         return 'theme';
