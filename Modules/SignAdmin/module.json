@@ -1,0 +1,19 @@
+{
+    "name": "SignAdmin",
+    "alias": "sign-admin",
+    "namespace": "Modules\\SignAdmin\\",
+    "provider": "Modules\\SignAdmin\\Providers\\SignAdminServiceProvider",
+        "author": "Akunesia",
+    "url": "",
+    "version": "1.0.0",
+    "description": "Support agent signature management for multi-tenant chat.",
+    "keywords": [],
+    "order": 0,
+    "providers": [
+        "Modules\\SignAdmin\\Providers\\SignAdminServiceProvider"
+    ],
+    "aliases": [],
+    "require": [],
+    "conflicts": [],
+    "type": "core"
+}
