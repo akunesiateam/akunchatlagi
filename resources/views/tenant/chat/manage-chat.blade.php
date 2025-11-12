@@ -58,40 +58,12 @@
                                                 {{ t('access_system_settings') }} </h4>
                                             <p
                                                 class="text-sm mt-1 transition-colors duration-300 text-gray-500 dark:text-gray-400">
-                                                {{ t('navigate_to_whatsmark_system') }} </p>
+                                                {{ t('masuk ke pengaturan sistem akunchat') }} </p>
                                         </div>
                                         <span
                                             class="flex-shrink-0 ml-2 transition-all duration-300 transform group-hover:translate-x-1 text-info-500 dark:text-info-300">
                                             <x-heroicon-o-arrow-right class="w-4 h-4" />
 
-                                        </span>
-                                    </div>
-                                </a>
-
-                                <!-- Step 2 -->
-                                <a href="https://docs.corbitaltech.dev/products/whatsmark-saas/tenant" target="_blank"
-                                    class="block group relative overflow-hidden rounded-lg transition-all duration-300 bg-gray-50 hover:bg-info-50 dark:bg-gray-700/50 dark:hover:bg-gray-700">
-
-                                    <div
-                                        class="absolute inset-0 bg-gradient-to-r from-info-400/20 via-primary-400/20 to-purple-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 dark:group-hover:opacity-30">
-                                    </div>
-
-                                    <div class="relative p-4 flex items-start">
-                                        <div
-                                            class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full mr-3 transition-all duration-300 transform group-hover:scale-110 group-active:scale-95 bg-info-100 text-info-600 dark:bg-info-900/50 dark:text-info-300">
-                                            <span>2</span>
-                                        </div>
-                                        <div class="flex-grow">
-                                            <h4
-                                                class="font-medium transition-colors duration-300 text-gray-700 dark:text-gray-200">
-                                                {{ t('follow_documentation') }} </h4>
-                                            <p
-                                                class="text-sm mt-1 transition-colors duration-300 text-gray-500 dark:text-gray-400">
-                                                {{ t('read_the_whatsmark_documentation') }} </p>
-                                        </div>
-                                        <span
-                                            class="flex-shrink-0 ml-2 transition-all duration-300 transform group-hover:translate-x-1 text-info-500 dark:text-info-300">
-                                            <x-heroicon-o-arrow-right class="w-4 h-4" />
                                         </span>
                                     </div>
                                 </a>
@@ -128,7 +100,7 @@
                                     <p x-show="selectedUser"
                                         class="font-normal text-sm text-gray-800 dark:text-gray-200">
                                         <span>{{ t('from') }}</span>
-                                        <span x-text="selectedUser?.wa_no ? '+' + selectedUser.wa_no : ''"></span>
+                                        <span x-text="maskPhoneNumberJS(selectedUser?.wa_no)"></span>
                                     </p>
                                 </div>
                             </div>
@@ -301,7 +273,7 @@
                 <!-- Divider -->
                 <div class="h-px w-full border-b border-[#e0e6ed] dark:border-slate-600"></div>
                 <div class="!mt-0">
-                    <div class="chat-users relative sm:h-[calc(100vh_-_310px)] space-y-0.5 pr-3.5 pl-3.5 -mr-3.5 -ml-3.5 overflow-y-auto"
+                    <div class="chat-users relative h-full min-h-[100px] sm:h-[calc(100vh_-_310px)] space-y-0.5 pr-3.5 pl-3.5 -mr-3.5 -ml-3.5 overflow-y-auto"
                         @scroll="onSidebarScroll($event)" x-ref="chatSidebar" x-cloak>
                         <template x-for="(chat, chatIndex) in sortedChats" :key="`chat-${chat.id}-${chatIndex}`"
                             x-cloak>
@@ -325,7 +297,7 @@
                                             <div class="flex items-center justify-between w-full">
                                                 <div class="flex items-center justify-start">
                                                     <p class="font-normal text-xs truncate max-w-[100px]"
-                                                        x-text="chat.name" x-bind:data-tippy-content="chat.receiver_id">
+                                                        x-text="chat.name" x-bind:data-tippy-content="maskPhoneNumberJS(chat.receiver_id)">
                                                     </p>
                                                     <span :class="{
                                                                 'bg-violet-100 text-purple-800': chat
@@ -455,7 +427,7 @@
                                     </span>
                                 </div>
                                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400"
-                                    x-text="selectedUser?.receiver_id ?? ''"></p>
+                                    x-text="maskPhoneNumberJS(selectedUser?.receiver_id ?? '')"></p>
                             </div>
                         </div>
 
@@ -636,9 +608,10 @@
                                                     <x-heroicon-m-ellipsis-vertical
                                                         class="w-5 h-5 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white" />
                                                 </button>
-
+                                                
+                                                
                                                 <!-- Message Content -->
-                                                <div class="p-2 rounded-lg max-w-xl break-words my-2 message-item"
+                                                <div class="p-2 rounded-lg w-fit max-w-[270px] break-words my-2 message-item"
                                                     :data-message-id='message.message_id' :class="{
                                                             'bg-[#c7c8ff] dark:bg-[#2d2454]': message.sender_id ===
                                                                 selectedUser.wa_no,
@@ -711,12 +684,14 @@
                                                     <!-- Message Text -->
 
                                                     <template x-if="message.type === 'text' &&message.staff_id != 0">
+                                                        <div>
                                                         <p class="text-gray-800 dark:text-white text-sm"
                                                             x-html="formatMessage(message.message)"></p>
                                                     </template>
                                                     <template x-if="message.type === 'text' &&message.staff_id == 0">
                                                         <p class="text-gray-800 dark:text-white text-sm"
                                                             x-html="heighlightMessage(message.message)"></p>
+                                                            </div>
                                                     </template>
 
 
@@ -739,40 +714,110 @@
                                                     <!-- Image -->
                                                     <template x-if="message.type === 'image'"
                                                         x-init="$nextTick(() => { window.initGLightbox() })">
+                                                        <div>
                                                         <a :href="message.url" target="_blank" class="glightbox">
                                                             <img :src="message.url" alt="Image"
                                                                 class="rounded-lg max-w-xs max-h-28">
-                                                            <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
-                                                                x-show="message.message" x-text="message.message"></p>
                                                         </a>
+                                                        <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                            x-show="message.message && message.message !== 'image'" x-text="message.message"></p>
+                                                            </div>
                                                     </template>
 
                                                     <!-- Video -->
-                                                    <template x-if="message.type === 'video'"
-                                                        x-init="$nextTick(() => { window.initGLightbox() })">
-                                                        <a :href="message.url" class="glightbox">
-                                                            <video :src="message.url" controls
-                                                                class="rounded-lg max-w-xs max-h-28"></video>
-                                                            <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
-                                                                x-show="message.message" x-text="message.message"></p>
-                                                        </a>
+                                                    <template x-if="message.type === 'video'" x-init="$nextTick(() => { window.initGLightbox() })">
+                                                        <div>
+                                                            <a :href="message.url" class="glightbox">
+                                                                <video :src="message.url" controls class="rounded-lg max-w-xs max-h-28"></video>
+                                                            </a>
+                                                            <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                               x-show="message.message && message.message !== 'video'" 
+                                                               x-text="message.message"></p>
+                                                        </div>
                                                     </template>
 
                                                     <!-- Document -->
-                                                    <template x-if="message.type === 'document'">
-                                                        <a :href="message.url" target="_blank"
-                                                            class="bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400">
-                                                            {{ t('download_document') }}
-                                                        </a>
-                                                    </template>
-
+                                        <template x-if="message.type === 'document'">
+                                            <div>
+                                                <a :href="message.url" target="_blank"
+                                                    class="bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400">
+                                                    {{ t('download_document') }}
+                                                </a>
+                                                <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                   x-show="message.message && message.message !== 'document'" 
+                                                   x-text="message.message"></p>
+                                            </div>
+                                        </template>
+                                        
+                                        <!-- Location -->
+                                            <template x-if="message.type === 'location'">
+                                                <div class="max-w-sm">
+                                                    <div class="bg-green-100 border border-green-200 rounded-lg p-3 dark:bg-green-900 dark:border-green-700">
+                                                        <div class="flex items-start space-x-2">
+                                                            <svg class="w-5 h-5 text-green-600 mt-0.5 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                                                            </svg>
+                                                            <div class="flex-1">
+                                                                <p class="text-sm font-medium text-green-800 dark:text-green-200" 
+                                                                   x-text="message.message.replace(/ - [-\d.]+,[-\d.]+$/, '')"></p>
+                                                                <button @click="(() => {
+                                                                    const parts = message.message.split(' - ');
+                                                                    const coordPart = parts[parts.length - 1];
+                                                                    const [lat, lng] = coordPart.split(',');
+                                                                    if (lat && lng) {
+                                                                        window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+                                                                    }
+                                                                })()" 
+                                                                        class="text-green-600 hover:text-green-700 text-xs mt-1 dark:text-green-400">
+                                                                    📍 View Location
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Contact -->
+                                    <template x-if="message.type === 'contacts'">
+                                        <div class="max-w-sm">
+                                            <div class="bg-blue-100 border border-blue-200 rounded-lg p-3 dark:bg-blue-900 dark:border-blue-700">
+                                                <div class="flex items-center space-x-3">
+                                                    <div class="w-8 h-8 bg-blue-200 rounded-full flex items-center justify-center dark:bg-blue-800">
+                                                        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                                                        </svg>
+                                                    </div>
+                                                    <div class="flex-1">
+                                                        <p class="text-sm font-medium text-blue-800 dark:text-blue-200" x-text="message.message"></p>
+                                                        <div class="flex items-center justify-between mt-1">
+                                                            <p class="text-xs text-blue-600 dark:text-blue-400">Contact</p>
+                                                            <button @click="(() => {
+                                                                const parts = message.message.split(' - ');
+                                                                const phone = parts[parts.length - 1];
+                                                                if (phone) {
+                                                                    navigator.clipboard.writeText(phone);
+                                                                    alert('Phone number copied!');
+                                                                }
+                                                            })()" 
+                                                                    class="flex items-center space-x-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16">
+                                                                    <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/>
+                                                                </svg>
+                                                                <span>Copy</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
                                                     <!-- Audio -->
                                                     <template x-if="message.type === 'audio'">
                                                         <audio id="audioPlayer" controls class="w-[300px]">
                                                             <source :src="message.url" type="audio/mpeg">
-                                                                <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
-                                                                    x-show="message.message" x-text="message.message"></p>
                                                         </audio>
+                                                        <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                            x-show="message.message" x-text="message.message"></p>
                                                     </template>
 
                                                     <!-- Message Timestamp & Status -->
@@ -815,30 +860,54 @@
                                                     </div>
 
                                                     <!-- Options Menu -->
-                                                    <div x-show="activeMessageId === message.id" x-transition
-                                                        x-on:click.away="activeMessageId = null"
-                                                        class="absolute top-[-4.5rem] z-10 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-lg py-2"
-                                                        :class="message.sender_id === selectedUser.wa_no ? 'right-0' :
-                                                                'left-0'">
-                                                        <ul class="text-sm">
-                                                            <div class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
-                                                                x-on:click="replyToMessage(message)">
-                                                                <x-heroicon-c-arrow-path-rounded-square
-                                                                    class="w-5 h-5 dark:text-gray-300 text-primary-500" />
-                                                                <li class="dark:text-gray-300 text-primary-500">
-                                                                    {{ t('reply') }}
-                                                                </li>
-                                                            </div>
-                                                            <div x-on:click.stop="deleteMessage(message.id)"
-                                                                class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer">
-                                                                <x-heroicon-o-trash
-                                                                    class="w-5 h-5 dark:text-gray-300 text-danger-500" />
-                                                                <li class="dark:text-gray-300 text-primary-500">
-                                                                    {{ t('delete') }}
-                                                                </li>
-                                                            </div>
-                                                        </ul>
-                                                    </div>
+<div x-show="activeMessageId === message.id" x-transition
+    x-on:click.away="activeMessageId = null"
+    class="absolute top-[-4.5rem] z-10 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-lg py-2"
+    :class="message.sender_id === selectedUser.wa_no ? 'right-0' : 'left-0'">
+    <ul class="text-sm">
+        <!-- Reply -->
+        <div class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
+            x-on:click="replyToMessage(message)">
+            <x-heroicon-c-arrow-path-rounded-square class="w-5 h-5 dark:text-gray-300 text-primary-500" />
+            <li class="dark:text-gray-300 text-primary-500">
+                {{ t('reply') }}
+            </li>
+        </div>
+        <!-- Copy -->
+<div class="relative flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
+    x-on:click="(() => {
+        navigator.clipboard.writeText(message.message);
+        activeMessageId = null;
+        showCopyTooltip = message.id; // Set ke ID message
+        setTimeout(() => showCopyTooltip = null, 1500);
+    })()">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 dark:text-gray-300 text-primary-500">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+    </svg>
+    <li class="dark:text-gray-300 text-primary-500">
+        {{ t('copy') }}
+    </li>
+    
+    
+</div>
+
+        
+        <!-- Delete -->
+        <div x-on:click.stop="deleteMessage(message.id)"
+            class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer">
+            <x-heroicon-o-trash class="w-5 h-5 dark:text-gray-300 text-danger-500" />
+            <li class="dark:text-gray-300 text-primary-500">
+                {{ t('delete') }}
+            </li>
+        </div>
+    </ul>
+</div>
+<!-- Tooltip dengan kondisi ID -->
+    <div x-show="showCopyTooltip === message.id" x-transition.opacity
+        class="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
+        ✓ Copied!
+    </div>
+
                                                 </div> <!-- End Message Content -->
                                             </div> <!-- End Message Wrapper -->
                                         </div>
@@ -1693,7 +1762,7 @@
                                 <x-heroicon-o-phone class="w-5 h-5 text-success-500 dark:text-gray-400" />
                                 <p class="text-sm text-gray-500 dark:text-gray-400">
                                     {{ t('phone') }} <span class="text-primary-500 text-sm font-medium"
-                                        x-text="selectedUser?.receiver_id ? '+' + selectedUser.receiver_id : ''"></span>
+                                        x-text="maskPhoneNumberJS(selectedUser?.receiver_id ?? '')"></span>
                                 </p>
                             </div>
                         </div>
@@ -2615,6 +2684,7 @@
             previewType: '',
             fileName: '',
             attachment: null,
+            showCopyTooltip: null, //NEW AKUNESIA
             attachmentType: '',
             searchText: '',
             searchMessagesText: '',
@@ -2625,7 +2695,6 @@
             showReactionList: false,
             activeMessageId: null,
             showEmojiPicker: false,
-            isRecording: false,
             isRecording: false,
             audioBlob: null,
             recordedAudio: null,
@@ -2747,12 +2816,20 @@
 
             },
             formatMessage(text) {
-
-                text = this.highlightSearch(text);
-
-                // Then replace newlines with <br> for display formatting
-                return text.replace(/\n/g, '<br>');
+            text = this.highlightSearch(text);
+            
+            // Jangan replace emoji, biarkan apa adanya
+            text = text.replace(/\*([^*]+)\*/g, '<strong class="font-semibold">$1</strong>');
+            
+            // Format prices saja
+            text = text.replace(/(Rp\s*[\d.,]+)/g, '<span class="font-semibold text-green-600 dark:text-green-400">$1</span>');
+            
+            // Line breaks
+            text = text.replace(/\n/g, '<br>');
+            
+            return text;
             },
+            
             heighlightMessage(text) {
                 // First, highlight the search term if any
                 return text = this.highlightSearch(text);
@@ -3442,7 +3519,7 @@
                         }
 
                         this.sendingErrorMessage = 'Error sending message:',JSON.parse(error.message);
-
+                        showNotification('Network error. Please try again.', 'danger');
                         setTimeout(() => {
                             this.sendingErrorMessage = '';
                         }, 5000);
@@ -3455,7 +3532,7 @@
             sanitizeLastMessage(content) {
                 return sanitizeMessage(content).replace(/<\/?[^>]+(>|$)/g, ""); // Sanitize & strip HTML
             },
-
+           
             getOriginalMessage(refMessageId) {
                 if (typeof(this.selectedUser.messages) === "object") {
                     const message = this.selectedUser.messages.find(msg => msg.message_id === refMessageId) || {};
@@ -4187,6 +4264,7 @@
                 document.addEventListener('keydown', markInteracted);
                 document.addEventListener('touchstart', markInteracted);
             },
+            
             playNotificationSound() {
                 // Only play if notifications are enabled
                 if (!this.isNotificationSoundEnable) return;
@@ -4211,6 +4289,19 @@
 
                     // Trigger desktop notification for new chat messages
                     this.triggerChatDesktopNotification(data.chat);
+                    
+                    // NEW: Send to Service Worker for background notifications
+                  //  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    //    navigator.serviceWorker.controller.postMessage({
+                      //      type: 'NEW_CHAT_MESSAGE',
+                        //    data: {
+                          //      chatId: data.chat.id,
+                            //    message: data.chat.messages[0]?.message || 'New message',
+                              //  senderName: data.chat.name || 'WhatsApp Contact'
+                        //    }
+                    //    });
+                //    }
+    
                 });
             },
             appendNewChats(newChats) {
@@ -4554,4 +4645,53 @@
             },
         }
     }
+</script>
+<script>
+// JavaScript helper untuk masking di frontend
+function maskPhoneNumberJS(phoneNumber) {
+    // Check if masking is enabled for current user
+    const maskingEnabled = {{ get_tenant_setting_from_db('masking_number', 'enabled') ? 'true' : 'false' }};
+    const isAdmin = {{ auth()->user()->is_admin == 1 ? 'true' : 'false' }};
+    
+    // If disabled or user is admin, return original
+    if (!maskingEnabled || isAdmin) {
+        return phoneNumber || '';
+    }
+    
+    // If empty or too short, return as is
+    if (!phoneNumber || phoneNumber.length < 8) {
+        return phoneNumber || '';
+    }
+    
+    // Apply masking
+    phoneNumber = phoneNumber.toString().trim();
+    
+    // Handle phone with country code (+)
+    if (phoneNumber.startsWith('+')) {
+        const matches = phoneNumber.match(/^(\+\d{1,3})(\d+)$/);
+        
+        if (matches && matches.length === 3) {
+            const countryCode = matches[1]; // e.g., +62
+            const restNumber = matches[2];  // e.g., 81234567890
+            
+            if (restNumber.length <= 6) {
+                return phoneNumber; // Too short to mask
+            }
+            
+            const firstPart = restNumber.substring(0, 3); // First 3 digits
+            const lastPart = restNumber.slice(-2);        // Last 2 digits
+            
+            return countryCode + firstPart + '******' + lastPart;
+        }
+    }
+    
+    // Fallback: mask without country code detection
+    if (phoneNumber.length > 6) {
+        const firstPart = phoneNumber.substring(0, 4);
+        const lastPart = phoneNumber.slice(-2);
+        return firstPart + '******' + lastPart;
+    }
+    
+    return phoneNumber;
+}
 </script>

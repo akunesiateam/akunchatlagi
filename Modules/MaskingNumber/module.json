@@ -1,0 +1,19 @@
+{
+    "name": "MaskingNumber",
+    "alias": "masking-number",
+    "namespace": "Modules\\MaskingNumber\\",
+    "provider": "Modules\\MaskingNumber\\Providers\\MaskingNumberServiceProvider",
+    "author": "Akunesia",
+    "url": "",
+    "version": "1.0.0",
+    "description": "The MaskingNumber Module",
+    "keywords": [],
+    "order": 0,
+    "providers": [
+        "Modules\\MaskingNumber\\Providers\\MaskingNumberServiceProvider"
+    ],
+    "aliases": [],
+    "require": [],
+    "conflicts": [],
+    "type": "core"
+}
