@@ -4573,3 +4573,52 @@
         }
     }
 </script>
+<script>
+// JavaScript helper untuk masking di frontend
+function maskPhoneNumberJS(phoneNumber) {
+    // Check if masking is enabled for current user
+    const maskingEnabled = {{ get_tenant_setting_from_db('masking_number', 'enabled') ? 'true' : 'false' }};
+    const isAdmin = {{ auth()->user()->is_admin == 1 ? 'true' : 'false' }};
+    
+    // If disabled or user is admin, return original
+    if (!maskingEnabled || isAdmin) {
+        return phoneNumber || '';
+    }
+    
+    // If empty or too short, return as is
+    if (!phoneNumber || phoneNumber.length < 8) {
+        return phoneNumber || '';
+    }
+    
+    // Apply masking
+    phoneNumber = phoneNumber.toString().trim();
+    
+    // Handle phone with country code (+)
+    if (phoneNumber.startsWith('+')) {
+        const matches = phoneNumber.match(/^(\+\d{1,3})(\d+)$/);
+        
+        if (matches && matches.length === 3) {
+            const countryCode = matches[1]; // e.g., +62
+            const restNumber = matches[2];  // e.g., 81234567890
+            
+            if (restNumber.length <= 6) {
+                return phoneNumber; // Too short to mask
+            }
+            
+            const firstPart = restNumber.substring(0, 3); // First 3 digits
+            const lastPart = restNumber.slice(-2);        // Last 2 digits
+            
+            return countryCode + firstPart + '******' + lastPart;
+        }
+    }
+    
+    // Fallback: mask without country code detection
+    if (phoneNumber.length > 6) {
+        const firstPart = phoneNumber.substring(0, 4);
+        const lastPart = phoneNumber.slice(-2);
+        return firstPart + '******' + lastPart;
+    }
+    
+    return phoneNumber;
+}
+</script>
