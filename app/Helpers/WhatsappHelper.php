@@ -79,7 +79,7 @@ if (! function_exists('get_meta_allowed_extension')) {
     {
         return [
             'image' => [
-                'extension' => '.jpeg, .png',
+                'extension' => '.jpeg, .png, .jpg',
                 'size' => 5,
             ],
             'video' => [

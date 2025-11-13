@@ -112,6 +112,9 @@ Route::middleware(['auth', TenantMiddleware::class, CheckTenantDeleted::class, E
 
             Route::get('/activity-log', ActivityLogList::class)->name('activity-log.list');
             Route::get('/activity-log/{logId?}', ActivityLogDetails::class)->name('activity-log.details');
+            
+            Route::get('bot-countdown/{chatId}', [ManageChat::class, 'getBotCountdown'])->name('bot_countdown');
+            Route::post('bot-restart/{chatId}', [ManageChat::class, 'restartBot'])->name('bot_restart');
 
             // Chat
             Route::get('ai-prompt', ManageAiPrompt::class)->name('ai-prompt');

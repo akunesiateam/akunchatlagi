@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 
 class FacebookApiService
 {
-    protected $apiVersion = 'v21.0';
+    protected $apiVersion = 'v24.0';
 
     protected $baseUrl = 'https://graph.facebook.com';
 

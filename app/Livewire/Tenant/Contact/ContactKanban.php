@@ -74,7 +74,7 @@ class ContactKanban extends Component
                         'title' => $contact->firstname.' '.$contact->lastname,
                         'content' => [
                             'company' => $contact->company,
-                            'phone' => $contact->phone,
+                            'phone' => mask_phone_number($contact->phone), // ✅ MASKING DI SINI
                             'email' => $contact->email,
                             'type' => $contact->type,
                             'assigned' => $contact->user ? $contact->user->firstname.' '.$contact->user->lastname : null,
@@ -182,7 +182,7 @@ class ContactKanban extends Component
                     'title' => $contact->firstname.' '.$contact->lastname,
                     'content' => [
                         'company' => $contact->company,
-                        'phone' => $contact->phone,
+                        'phone' => mask_phone_number($contact->phone), // ✅ MASKING DI SINI
                         'email' => $contact->email,
                         'type' => $contact->type,
                         'assigned' => $contact->user ? $contact->user->firstname.' '.$contact->user->lastname : null,

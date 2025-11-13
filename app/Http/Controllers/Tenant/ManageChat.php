@@ -63,6 +63,7 @@ class ManageChat extends Controller
             'sources' => Source::all(),
             'languages' => Languages::all(),
             'selectedAgent' => [],
+            'user_can_assign' => 1,
             'readOnlyPermission' => (! (Auth::user()->is_admin) && checkPermission('tenant.chat.read_only')) ? 0 : 1,
             'user_is_admin' => Auth::user()->is_admin,
             'enable_supportagent' => get_tenant_setting_from_db('whats-mark', 'Only agents can chat'),

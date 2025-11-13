@@ -4,12 +4,16 @@ namespace Modules\EmbeddedSignup\Livewire\Tenant;
 
 use Livewire\Component;
 use Modules\EmbeddedSignup\Services\EmbeddedSignupService;
+use Illuminate\Support\Facades\Log;  // ← TAMBAHKAN INI
+use Illuminate\Support\Facades\Http; // ← TAMBAHKAN INI
 
 class EmbeddedSignupFlow extends Component
 {
     public $currentStep = 'initial';
 
     public $isProcessing = false;
+    
+    public $connectionType = 'new'; // ← TAMBAH BARIS INI!
 
     public $errorMessage = '';
 
@@ -116,6 +120,7 @@ class EmbeddedSignupFlow extends Component
             'app_id' => $appId,
             'config_id' => $configId,
             'redirect_url' => $redirectUrl,
+            'connection_type' => $this->connectionType, // TAMBAH INI
         ]);
     }
 

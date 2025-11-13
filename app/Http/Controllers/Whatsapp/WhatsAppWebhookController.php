@@ -607,7 +607,9 @@ class WhatsAppWebhookController extends Controller
         $chat = Chat::fromTenant($this->tenant_subdomain)->where('receiver_id', $to)->where('wa_no', $wa_no)->where('wa_no_id', $wa_no_id)->where('tenant_id', $this->tenant_id)->first();
 
         if (! $chat) {
-            $chat = Chat::fromTenant($this->tenant_subdomain)->createOrUpdate([
+            //$chat = Chat::fromTenant($this->tenant_subdomain)->createOrUpdate
+            $chat = Chat::fromTenant($this->tenant_subdomain)->firstOrCreate
+            ([
                 'receiver_id' => $to,
                 'wa_no' => $wa_no,
                 'wa_no_id' => $wa_no_id,

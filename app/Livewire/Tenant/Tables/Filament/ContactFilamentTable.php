@@ -115,7 +115,8 @@ class ContactFilamentTable extends BaseFilamentTable
                 ->label(t('phone'))
                 ->toggleable()
                 ->searchable()
-                ->sortable(),
+                ->sortable()
+                ->formatStateUsing(fn ($state) => mask_phone_number($state)),
 
             TextColumn::make('assigned_id')
                 ->label(t('assigned'))
@@ -609,7 +610,8 @@ class ContactFilamentTable extends BaseFilamentTable
             $contact->id,
             $contact->firstname.' '.$contact->lastname,
             t($contact->type),
-            $contact->phone,
+            //$contact->phone,
+            mask_phone_number($contact->phone), // ✅ MASKING DI SINI
             $contact->user ? ($contact->user->firstname.' '.$contact->user->lastname) : t('not_assigned'),
             $contact->status->name ?? t('no_status'),
             $contact->source->name ?? t('no_source'),

@@ -6,8 +6,84 @@
                 <div class="text-center">
                     @if ($availability['available'])
                         @if ($currentStep === 'initial')
-                            <div
-                                class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-r from-info-100 to-sky-100 dark:from-info-900/50 dark:to-primary-900/50 mb-8">
+                    {{-- TAMBAHAN BARU: Radio Button Connection Type --}}
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                            Pilih Opsi Koneksi
+                        </h3>
+                        
+                        <div class="space-y-3">
+                            {{-- Option 1: New Number --}}
+                            <label wire:click="$set('connectionType', 'new')"
+                                class="flex items-start p-4 border-2 rounded-lg cursor-pointer transition
+                                @if($connectionType === 'new') border-blue-500 bg-blue-50 dark:bg-blue-900/20 @else border-slate-200 dark:border-slate-700 hover:border-blue-300 @endif">
+                                <input type="radio" 
+                                    wire:model.live="connectionType" 
+                                    value="new" 
+                                    class="mt-1 mr-3 text-blue-600">
+                                <div class="text-left flex-1">
+                                    <div class="font-medium text-slate-900 dark:text-white">
+                                        Hubungkan Nomor Baru
+                                    </div>
+                                    <div class="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                        Pastikan nomor belum terdaftar di produk whatsapp bisnis maupun whatsapp biasa
+                                    </div>
+                                </div>
+                            </label>
+                
+                            {{-- Option 2: Existing Business App (Co-Existence) --}}
+                          <label wire:click="$set('connectionType', 'coexistence')"
+                                class="flex items-start p-4 border-2 rounded-lg cursor-pointer transition
+                                @if($connectionType === 'coexistence') border-blue-500 bg-blue-50 dark:bg-blue-900/20 @else border-slate-200 dark:border-slate-700 hover:border-blue-300 @endif">
+                                <input type="radio" 
+                                    wire:model.live="connectionType" 
+                                    value="coexistence" 
+                                    class="mt-1 mr-3 text-blue-600">
+                                <div class="text-left flex-1">
+                                    <div class="font-medium text-slate-900 dark:text-white">
+                                        Hubungkan Nomor WhatsApp Bisnis App
+                                    </div>
+                                    <div class="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                        Nomor WhatsApp Bisnis WAJIB lebih dari 7 Hari dan sudah ada aktifitas bisnis/chat.
+                                    </div>
+                                    <div class="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center">
+                                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        Nomor yang sudah memiliki Whatsapp Bisnis App
+                                    </div>
+                                </div>
+                            </label>
+                            {{-- Option 2: Existing Business App (DISABLED) --}}
+                          <!--  <label class="flex items-start p-4 border-2 rounded-lg opacity-50 cursor-not-allowed border-slate-200 dark:border-slate-700">
+                                <input type="radio" 
+                                    disabled
+                                    class="mt-1 mr-3 text-blue-600 cursor-not-allowed">
+                                <div class="text-left flex-1">
+                                    <div class="font-medium text-slate-900 dark:text-white flex items-center gap-2">
+                                        Nomor WhatsApp Bisnis App
+                                        <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded dark:bg-amber-900 dark:text-amber-200">
+                                            Soon
+                                        </span>
+                                    </div>
+                                    <div class="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                        Nomor WhatsApp Bisnis WAJIB lebih dari 7 Hari dan sudah ada aktifitas bisnis/chat.
+                                    </div>
+                                    <div class="text-xs text-slate-500 dark:text-slate-500 mt-1 flex items-center">
+                                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        Fitur dalam pengembangan - akan segera tersedia
+                                    </div>
+                                </div>
+                            </label>-->
+                        </div>
+                    </div>
+                
+                    {{-- EXISTING CODE: Facebook Logo & Button --}}
+                    <div
+                        class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-r from-info-100 to-sky-100 dark:from-info-900/50 dark:to-primary-900/50 mb-8">
+                        
                                 <svg class="h-10 w-10 text-[#1877F2] dark:text-info-400" viewBox="0 0 24 24"
                                     fill="currentColor">
                                     <path
@@ -255,138 +331,167 @@
 </div>
 
     @push('scripts')
-        <script>
-            let embeddedSignupData = {
-                phoneNumberId: '',
-                waBaId: '',
-                businessId: ''
-            };
+    <script>
+        let embeddedSignupData = {
+            phoneNumberId: '',
+            waBaId: '',
+            businessId: '',
+            isCoexistence: false
+        };
 
-            if (!window.fbEmbeddedSignupLoaded) {
-                window.fbEmbeddedSignupLoaded = true;
+        if (!window.fbEmbeddedSignupLoaded) {
+            window.fbEmbeddedSignupLoaded = true;
 
-                if (window.FB) {
-                    delete window.FB;
-                }
-
-                const existingScript = document.getElementById('facebook-jssdk');
-                if (existingScript) {
-                    existingScript.remove();
-                }
-
-                (function(d, s, id) {
-                    var js, fjs = d.getElementsByTagName(s)[0];
-                    if (d.getElementById(id)) return;
-                    js = d.createElement(s);
-                    js.id = id;
-                    js.src = "https://connect.facebook.net/en_US/sdk.js";
-                    fjs.parentNode.insertBefore(js, fjs);
-                }(document, 'script', 'facebook-jssdk'));
+            if (window.FB) {
+                delete window.FB;
             }
 
-            window.addEventListener('message', function(event) {
-                if (event.origin !== "https://www.facebook.com") return;
+            const existingScript = document.getElementById('facebook-jssdk');
+            if (existingScript) {
+                existingScript.remove();
+            }
 
-                try {
-                    let data;
+            (function(d, s, id) {
+                var js, fjs = d.getElementsByTagName(s)[0];
+                if (d.getElementById(id)) return;
+                js = d.createElement(s);
+                js.id = id;
+                js.src = "https://connect.facebook.net/en_US/sdk.js";
+                fjs.parentNode.insertBefore(js, fjs);
+            }(document, 'script', 'facebook-jssdk'));
+        }
 
-                    if (typeof event.data === 'string') {
-                        try {
-                            data = JSON.parse(event.data);
-                        } catch (e) {
-                            return;
-                        }
-                    } else if (typeof event.data === 'object') {
-                        data = event.data;
-                    } else {
+        window.addEventListener('message', function(event) {
+            if (event.origin !== "https://www.facebook.com") return;
+
+            try {
+                let data;
+
+                if (typeof event.data === 'string') {
+                    try {
+                        data = JSON.parse(event.data);
+                    } catch (e) {
                         return;
                     }
-
-                    if (data && data.type === 'WA_EMBEDDED_SIGNUP') {
-                        if (data.event === 'FINISH' && data.data) {
-                            embeddedSignupData = {
-                                phoneNumberId: data.data.phone_number_id || '',
-                                waBaId: data.data.waba_id || '',
-                                businessId: data.data.business_id || ''
-                            };
-                        } else if (data.event === 'CANCEL') {
-                            embeddedSignupData = {
-                                phoneNumberId: '',
-                                waBaId: '',
-                                businessId: ''
-                            };
-                        }
-                    }
-                } catch (error) {
-                    // Continue silently
+                } else if (typeof event.data === 'object') {
+                    data = event.data;
+                } else {
+                    return;
                 }
-            });
 
-            window.fbAsyncInit = function() {
-                FB.init({
-                    appId: '{{ $availability['app_id'] ?? '' }}',
-                    cookie: true,
-                    xfbml: true,
-                    version: 'v21.0'
-                });
+                if (data && data.type === 'WA_EMBEDDED_SIGNUP') {
+                    // Regular signup finish
+                    if (data.event === 'FINISH' && data.data) {
+                        embeddedSignupData = {
+                            phoneNumberId: data.data.phone_number_id || '',
+                            waBaId: data.data.waba_id || '',
+                            businessId: data.data.business_id || '',
+                            isCoexistence: false
+                        };
+                    } 
+                    // Co-existence signup finish
+                    else if (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' && data.data) {
+                        embeddedSignupData = {
+                            phoneNumberId: data.data.phone_number_id || '',
+                            waBaId: data.data.waba_id || '',
+                            businessId: data.data.business_id || '',
+                            isCoexistence: true
+                        };
+                        console.log('Co-Existence Signup Data:', embeddedSignupData);
+                    } 
+                    // Cancel event
+                    else if (data.event === 'CANCEL') {
+                        embeddedSignupData = {
+                            phoneNumberId: '',
+                            waBaId: '',
+                            businessId: '',
+                            isCoexistence: false
+                        };
+                    }
+                }
+            } catch (error) {
+                // Continue silently
+            }
+        });
+
+        window.fbAsyncInit = function() {
+            FB.init({
+                appId: '{{ $availability['app_id'] ?? '' }}',
+                cookie: true,
+                xfbml: true,
+                version: 'v24.0'
+            });
+        };
+
+        Livewire.on('launch-facebook-dialog', (eventData) => {
+            const data = Array.isArray(eventData) ? eventData[0] : eventData;
+
+            embeddedSignupData = {
+                phoneNumberId: '',
+                waBaId: '',
+                businessId: '',
+                isCoexistence: false
             };
 
-            Livewire.on('launch-facebook-dialog', (eventData) => {
-                const data = Array.isArray(eventData) ? eventData[0] : eventData;
-
-                embeddedSignupData = {
-                    phoneNumberId: '',
-                    waBaId: '',
-                    businessId: ''
+            try {
+                // Build extras based on connection type
+                let extras = {
+                    "sessionInfoVersion": 3,
+                    "features": ["marketing_messages_lite"],
+                    setup: {
+                        external_business_id: '{{ tenant_id() }}'
+                    }
                 };
 
-                try {
-                    FB.login(function(response) {
-                        if (response.authResponse) {
-                            setTimeout(() => {
-                                const responseData = {
-                                    authResponse: response.authResponse,
-                                    phoneNumberId: embeddedSignupData.phoneNumberId,
-                                    waBaId: embeddedSignupData.waBaId,
-                                    businessId: embeddedSignupData.businessId
-                                };
-
-                                @this.call('processSignupResponse', responseData);
-                            }, 3000);
-                        } else {
-                            @this.set('isProcessing', false);
-                            @this.set('currentStep', 'initial');
-                            @this.set('errorMessage', 'Facebook authentication failed');
-                        }
-                    }, {
-                        config_id: data.config_id,
-                        redirect_uri: data.redirect_url,
-                        response_type: 'code',
-                        override_default_response_type: true,
-                        extras: {
-                            "sessionInfoVersion": 3,
-                            "version": "v3",
-                            "features": ["marketing_messages_lite"], // optional
-                            setup: {
-                                external_business_id: '{{ tenant_id() }}'
-                            }
-                        }
-                    });
-                } catch (error) {
-                    @this.set('isProcessing', false);
-                    @this.set('currentStep', 'error');
-                    @this.set('errorMessage', 'Error launching Facebook login');
+                // If co-existence mode, use different extras
+                if (data.connection_type === 'coexistence') {
+                    extras = {
+                        "version": "v3",
+                        "featureType": "whatsapp_business_app_onboarding"
+                    };
                 }
-            });
 
-            Livewire.on('signup-completed', (eventData) => {
-                const data = Array.isArray(eventData) ? eventData[0] : eventData;
-                if (data.redirect_url) {
-                    setTimeout(() => {
-                        window.location.href = data.redirect_url;
-                    }, data.delay || 2000);
-                }
-            });
-        </script>
-    @endpush
+                FB.login(function(response) {
+                    if (response.authResponse) {
+                        setTimeout(() => {
+                            const responseData = {
+                                authResponse: response.authResponse,
+                                phoneNumberId: embeddedSignupData.phoneNumberId,
+                                waBaId: embeddedSignupData.waBaId,
+                                businessId: embeddedSignupData.businessId,
+                                connectionType: data.connection_type,
+                                isCoexistence: embeddedSignupData.isCoexistence || false
+                            };
+
+                            @this.call('processSignupResponse', responseData);
+                        }, 3000);
+                    } else {
+                        @this.set('isProcessing', false);
+                        @this.set('currentStep', 'initial');
+                        @this.set('errorMessage', 'Facebook authentication failed');
+                    }
+                }, {
+                    config_id: data.config_id,
+                    redirect_uri: data.redirect_url,
+                    response_type: 'code',
+                    override_default_response_type: true,
+                    extras: extras
+                });
+            } catch (error) {
+                @this.set('isProcessing', false);
+                @this.set('currentStep', 'error');
+                @this.set('errorMessage', 'Error launching Facebook login');
+            }
+        });
+
+        Livewire.on('signup-completed', (eventData) => {
+            const data = Array.isArray(eventData) ? eventData[0] : eventData;
+            if (data.redirect_url) {
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, data.delay || 2000);
+            }
+        });
+    </script>
+@endpush
 </div>
