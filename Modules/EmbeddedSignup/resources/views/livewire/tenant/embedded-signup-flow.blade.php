@@ -6,84 +6,8 @@
                 <div class="text-center">
                     @if ($availability['available'])
                         @if ($currentStep === 'initial')
-                    {{-- TAMBAHAN BARU: Radio Button Connection Type --}}
-                    <div class="mb-8">
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-                            Pilih Opsi Koneksi
-                        </h3>
-                        
-                        <div class="space-y-3">
-                            {{-- Option 1: New Number --}}
-                            <label wire:click="$set('connectionType', 'new')"
-                                class="flex items-start p-4 border-2 rounded-lg cursor-pointer transition
-                                @if($connectionType === 'new') border-blue-500 bg-blue-50 dark:bg-blue-900/20 @else border-slate-200 dark:border-slate-700 hover:border-blue-300 @endif">
-                                <input type="radio" 
-                                    wire:model.live="connectionType" 
-                                    value="new" 
-                                    class="mt-1 mr-3 text-blue-600">
-                                <div class="text-left flex-1">
-                                    <div class="font-medium text-slate-900 dark:text-white">
-                                        Hubungkan Nomor Baru
-                                    </div>
-                                    <div class="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                                        Pastikan nomor belum terdaftar di produk whatsapp bisnis maupun whatsapp biasa
-                                    </div>
-                                </div>
-                            </label>
-                
-                            {{-- Option 2: Existing Business App (Co-Existence) --}}
-                          <label wire:click="$set('connectionType', 'coexistence')"
-                                class="flex items-start p-4 border-2 rounded-lg cursor-pointer transition
-                                @if($connectionType === 'coexistence') border-blue-500 bg-blue-50 dark:bg-blue-900/20 @else border-slate-200 dark:border-slate-700 hover:border-blue-300 @endif">
-                                <input type="radio" 
-                                    wire:model.live="connectionType" 
-                                    value="coexistence" 
-                                    class="mt-1 mr-3 text-blue-600">
-                                <div class="text-left flex-1">
-                                    <div class="font-medium text-slate-900 dark:text-white">
-                                        Hubungkan Nomor WhatsApp Bisnis App
-                                    </div>
-                                    <div class="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                                        Nomor WhatsApp Bisnis WAJIB lebih dari 7 Hari dan sudah ada aktifitas bisnis/chat.
-                                    </div>
-                                    <div class="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center">
-                                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                        </svg>
-                                        Nomor yang sudah memiliki Whatsapp Bisnis App
-                                    </div>
-                                </div>
-                            </label>
-                            {{-- Option 2: Existing Business App (DISABLED) --}}
-                          <!--  <label class="flex items-start p-4 border-2 rounded-lg opacity-50 cursor-not-allowed border-slate-200 dark:border-slate-700">
-                                <input type="radio" 
-                                    disabled
-                                    class="mt-1 mr-3 text-blue-600 cursor-not-allowed">
-                                <div class="text-left flex-1">
-                                    <div class="font-medium text-slate-900 dark:text-white flex items-center gap-2">
-                                        Nomor WhatsApp Bisnis App
-                                        <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded dark:bg-amber-900 dark:text-amber-200">
-                                            Soon
-                                        </span>
-                                    </div>
-                                    <div class="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                                        Nomor WhatsApp Bisnis WAJIB lebih dari 7 Hari dan sudah ada aktifitas bisnis/chat.
-                                    </div>
-                                    <div class="text-xs text-slate-500 dark:text-slate-500 mt-1 flex items-center">
-                                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                                        </svg>
-                                        Fitur dalam pengembangan - akan segera tersedia
-                                    </div>
-                                </div>
-                            </label>-->
-                        </div>
-                    </div>
-                
-                    {{-- EXISTING CODE: Facebook Logo & Button --}}
-                    <div
-                        class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-r from-info-100 to-sky-100 dark:from-info-900/50 dark:to-primary-900/50 mb-8">
-                        
+                            <div
+                                class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-r from-info-100 to-sky-100 dark:from-info-900/50 dark:to-primary-900/50 mb-8">
                                 <svg class="h-10 w-10 text-[#1877F2] dark:text-info-400" viewBox="0 0 24 24"
                                     fill="currentColor">
                                     <path
@@ -93,9 +17,29 @@
                             <h3 class="text-xl font-semibold text-slate-900 dark:text-white mb-2">
                                 {{ t('sign_in_with_facebook') }}
                             </h3>
-                            <p class="text-slate-600 dark:text-slate-400 mb-8">
+                            <p class="text-slate-600 dark:text-slate-400 mb-6">
                                 {{ t('emb_signup_info') }}
                             </p>
+
+                            {{-- Coexistence Option --}}
+                            <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <div class="flex items-start space-x-3">
+                                    <input type="checkbox"
+                                           id="enable-coexistence"
+                                           wire:model.live="enableCoexistence"
+                                           class="mt-1 rounded border-gray-300 dark:border-gray-600 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 dark:bg-gray-700">
+                                    <div class="flex-1">
+                                        <label for="enable-coexistence" class="text-sm font-medium text-blue-900 dark:text-blue-100 cursor-pointer">
+                                            Enable WhatsApp Business App Integration
+                                        </label>
+                                        <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                                            Connect your existing WhatsApp Business app account and sync your contacts & message history.
+                                            You'll be able to use both the app and this platform.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <button wire:click="launchEmbeddedSignup"
                                 class="inline-flex items-center justify-center px-4 py-2 text-sm border border-transparent rounded-md font-medium disabled:opacity-50 disabled:pointer-events-none transition bg-[#1877F2]  hover:bg-[#1e66c5] text-white"
                                 @if ($isProcessing) disabled @endif>
@@ -331,167 +275,148 @@
 </div>
 
     @push('scripts')
-    <script>
-        let embeddedSignupData = {
-            phoneNumberId: '',
-            waBaId: '',
-            businessId: '',
-            isCoexistence: false
-        };
-
-        if (!window.fbEmbeddedSignupLoaded) {
-            window.fbEmbeddedSignupLoaded = true;
-
-            if (window.FB) {
-                delete window.FB;
-            }
-
-            const existingScript = document.getElementById('facebook-jssdk');
-            if (existingScript) {
-                existingScript.remove();
-            }
-
-            (function(d, s, id) {
-                var js, fjs = d.getElementsByTagName(s)[0];
-                if (d.getElementById(id)) return;
-                js = d.createElement(s);
-                js.id = id;
-                js.src = "https://connect.facebook.net/en_US/sdk.js";
-                fjs.parentNode.insertBefore(js, fjs);
-            }(document, 'script', 'facebook-jssdk'));
-        }
-
-        window.addEventListener('message', function(event) {
-            if (event.origin !== "https://www.facebook.com") return;
-
-            try {
-                let data;
-
-                if (typeof event.data === 'string') {
-                    try {
-                        data = JSON.parse(event.data);
-                    } catch (e) {
-                        return;
-                    }
-                } else if (typeof event.data === 'object') {
-                    data = event.data;
-                } else {
-                    return;
-                }
-
-                if (data && data.type === 'WA_EMBEDDED_SIGNUP') {
-                    // Regular signup finish
-                    if (data.event === 'FINISH' && data.data) {
-                        embeddedSignupData = {
-                            phoneNumberId: data.data.phone_number_id || '',
-                            waBaId: data.data.waba_id || '',
-                            businessId: data.data.business_id || '',
-                            isCoexistence: false
-                        };
-                    } 
-                    // Co-existence signup finish
-                    else if (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' && data.data) {
-                        embeddedSignupData = {
-                            phoneNumberId: data.data.phone_number_id || '',
-                            waBaId: data.data.waba_id || '',
-                            businessId: data.data.business_id || '',
-                            isCoexistence: true
-                        };
-                        console.log('Co-Existence Signup Data:', embeddedSignupData);
-                    } 
-                    // Cancel event
-                    else if (data.event === 'CANCEL') {
-                        embeddedSignupData = {
-                            phoneNumberId: '',
-                            waBaId: '',
-                            businessId: '',
-                            isCoexistence: false
-                        };
-                    }
-                }
-            } catch (error) {
-                // Continue silently
-            }
-        });
-
-        window.fbAsyncInit = function() {
-            FB.init({
-                appId: '{{ $availability['app_id'] ?? '' }}',
-                cookie: true,
-                xfbml: true,
-                version: 'v24.0'
-            });
-        };
-
-        Livewire.on('launch-facebook-dialog', (eventData) => {
-            const data = Array.isArray(eventData) ? eventData[0] : eventData;
-
-            embeddedSignupData = {
+        <script>
+            let embeddedSignupData = {
                 phoneNumberId: '',
                 waBaId: '',
-                businessId: '',
-                isCoexistence: false
+                businessId: ''
             };
 
-            try {
-                // Build extras based on connection type
-                let extras = {
-                    "sessionInfoVersion": 3,
-                    "features": ["marketing_messages_lite"],
-                    setup: {
-                        external_business_id: '{{ tenant_id() }}'
-                    }
-                };
+            if (!window.fbEmbeddedSignupLoaded) {
+                window.fbEmbeddedSignupLoaded = true;
 
-                // If co-existence mode, use different extras
-                if (data.connection_type === 'coexistence') {
-                    extras = {
-                        "version": "v3",
-                        "featureType": "whatsapp_business_app_onboarding"
-                    };
+                if (window.FB) {
+                    delete window.FB;
                 }
 
-                FB.login(function(response) {
-                    if (response.authResponse) {
-                        setTimeout(() => {
-                            const responseData = {
-                                authResponse: response.authResponse,
-                                phoneNumberId: embeddedSignupData.phoneNumberId,
-                                waBaId: embeddedSignupData.waBaId,
-                                businessId: embeddedSignupData.businessId,
-                                connectionType: data.connection_type,
-                                isCoexistence: embeddedSignupData.isCoexistence || false
-                            };
+                const existingScript = document.getElementById('facebook-jssdk');
+                if (existingScript) {
+                    existingScript.remove();
+                }
 
-                            @this.call('processSignupResponse', responseData);
-                        }, 3000);
+                (function(d, s, id) {
+                    var js, fjs = d.getElementsByTagName(s)[0];
+                    if (d.getElementById(id)) return;
+                    js = d.createElement(s);
+                    js.id = id;
+                    js.src = "https://connect.facebook.net/en_US/sdk.js";
+                    fjs.parentNode.insertBefore(js, fjs);
+                }(document, 'script', 'facebook-jssdk'));
+            }
+
+            window.addEventListener('message', function(event) {
+                if (event.origin !== "https://www.facebook.com") return;
+
+                try {
+                    let data;
+
+                    if (typeof event.data === 'string') {
+                        try {
+                            data = JSON.parse(event.data);
+                        } catch (e) {
+                            return;
+                        }
+                    } else if (typeof event.data === 'object') {
+                        data = event.data;
                     } else {
-                        @this.set('isProcessing', false);
-                        @this.set('currentStep', 'initial');
-                        @this.set('errorMessage', 'Facebook authentication failed');
+                        return;
                     }
-                }, {
-                    config_id: data.config_id,
-                    redirect_uri: data.redirect_url,
-                    response_type: 'code',
-                    override_default_response_type: true,
-                    extras: extras
-                });
-            } catch (error) {
-                @this.set('isProcessing', false);
-                @this.set('currentStep', 'error');
-                @this.set('errorMessage', 'Error launching Facebook login');
-            }
-        });
 
-        Livewire.on('signup-completed', (eventData) => {
-            const data = Array.isArray(eventData) ? eventData[0] : eventData;
-            if (data.redirect_url) {
-                setTimeout(() => {
-                    window.location.href = data.redirect_url;
-                }, data.delay || 2000);
-            }
-        });
-    </script>
-@endpush
+                    if (data && data.type === 'WA_EMBEDDED_SIGNUP') {
+                        if (data.event === 'FINISH' || data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+                            embeddedSignupData = {
+                                phoneNumberId: data.data.phone_number_id || '',
+                                waBaId: data.data.waba_id || '',
+                                businessId: data.data.business_id || '',
+                                sessionEvent: data.event || 'FINISH'
+                            };
+                        } else if (data.event === 'CANCEL') {
+                            embeddedSignupData = {
+                                phoneNumberId: '',
+                                waBaId: '',
+                                businessId: '',
+                                sessionEvent: 'CANCEL'
+                            };
+                        }
+                    }
+                } catch (error) {
+                    // Continue silently
+                }
+            });
+
+            window.fbAsyncInit = function() {
+                FB.init({
+                    appId: '{{ $availability['app_id'] ?? '' }}',
+                    cookie: true,
+                    xfbml: true,
+                    version: 'v21.0'
+                });
+            };
+
+            Livewire.on('launch-facebook-dialog', (eventData) => {
+                const data = Array.isArray(eventData) ? eventData[0] : eventData;
+
+                embeddedSignupData = {
+                    phoneNumberId: '',
+                    waBaId: '',
+                    businessId: '',
+                    sessionEvent: ''
+                };
+
+                try {
+                    // Prepare extras object based on coexistence setting
+                    const extras = {
+                        "sessionInfoVersion": data.enable_coexistence ? 3 : 2,
+                        setup: {
+                            external_business_id: '{{ tenant_id() }}'
+                        }
+                    };
+
+                    // Add coexistence feature type if enabled
+                    if (data.enable_coexistence) {
+                        extras.featureType = 'whatsapp_business_app_onboarding';
+                    }
+
+                    FB.login(function(response) {
+                        if (response.authResponse) {
+                            setTimeout(() => {
+                                const responseData = {
+                                    authResponse: response.authResponse,
+                                    phoneNumberId: embeddedSignupData.phoneNumberId,
+                                    waBaId: embeddedSignupData.waBaId,
+                                    businessId: embeddedSignupData.businessId,
+                                    sessionEvent: embeddedSignupData.sessionEvent
+                                };
+
+                                @this.call('processSignupResponse', responseData);
+                            }, 3000);
+                        } else {
+                            @this.set('isProcessing', false);
+                            @this.set('currentStep', 'initial');
+                            @this.set('errorMessage', 'Facebook authentication failed');
+                        }
+                    }, {
+                        config_id: data.config_id,
+                        redirect_uri: data.redirect_url,
+                        response_type: 'code',
+                        override_default_response_type: true,
+                        extras: extras
+                    });
+                } catch (error) {
+                    @this.set('isProcessing', false);
+                    @this.set('currentStep', 'error');
+                    @this.set('errorMessage', 'Error launching Facebook login');
+                }
+            });
+
+            Livewire.on('signup-completed', (eventData) => {
+                const data = Array.isArray(eventData) ? eventData[0] : eventData;
+                if (data.redirect_url) {
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url;
+                    }, data.delay || 2000);
+                }
+            });
+        </script>
+    @endpush
 </div>

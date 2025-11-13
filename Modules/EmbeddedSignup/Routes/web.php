@@ -1,9 +1,12 @@
 <?php
 
+use App\Http\Middleware\EnsureTenantSecurity;
 use App\Http\Middleware\SanitizeInputs;
 use App\Http\Middleware\TenantMiddleware;
 use Illuminate\Support\Facades\Route;
+use Modules\EmbeddedSignup\Http\Controllers\CoexistenceWebhookController;
 use Modules\EmbeddedSignup\Http\Controllers\Tenant\EmbeddedSignupController as TenantEmbeddedSignupController;
+use Modules\EmbeddedSignup\Livewire\Tenant\CoexistenceManagement;
 use Modules\EmbeddedSignup\Livewire\Tenant\EmbeddedSignupFlow;
 
 /*
@@ -16,7 +19,7 @@ use Modules\EmbeddedSignup\Livewire\Tenant\EmbeddedSignupFlow;
 |
 */
 
-Route::middleware(['auth', 'web', SanitizeInputs::class, TenantMiddleware::class])->group(
+Route::middleware(['auth', 'web', SanitizeInputs::class, TenantMiddleware::class, EnsureTenantSecurity::class])->group(
     function () {
         Route::prefix('/{subdomain}')->as('tenant.')->group(function () {
 
@@ -28,9 +31,14 @@ Route::middleware(['auth', 'web', SanitizeInputs::class, TenantMiddleware::class
             // WABA embedded signup callback
             Route::get('/waba/embedded-signup/callback', [TenantEmbeddedSignupController::class, 'callback'])->name('waba.embedded.callback');
 
-            // API routes for availability and config
+            // API route for availability check
             Route::get('/api/embedded-signup/availability', [TenantEmbeddedSignupController::class, 'availability'])->name('embedded-signup.availability');
-            Route::get('/api/embedded-signup/config', [TenantEmbeddedSignupController::class, 'config'])->name('embedded-signup.config');
+
+            // Coexistence management
+            Route::get('/coexistence/manage', CoexistenceManagement::class)->name('coexistence.manage');
         });
     }
 );
+
+// Coexistence webhook routes (no auth required for webhooks)
+Route::post('/webhooks/coexistence', [CoexistenceWebhookController::class, 'handleWebhook'])->name('webhooks.coexistence');

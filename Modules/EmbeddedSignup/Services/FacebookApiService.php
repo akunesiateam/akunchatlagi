@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 
 class FacebookApiService
 {
-    protected $apiVersion = 'v24.0';
+    protected $apiVersion = 'v21.0';
 
     protected $baseUrl = 'https://graph.facebook.com';
 
@@ -135,15 +135,23 @@ class FacebookApiService
     }
 
     /**
-     * Get phone number details
+     * Get phone number details with optional fields
      */
-    public function getPhoneNumberDetails(string $phoneNumberId, string $accessToken): array
+    public function getPhoneNumberDetails(string $phoneNumberId, string $accessToken, ?array $fields = null): array
     {
         try {
-            $response = Http::get("{$this->baseUrl}/{$this->apiVersion}/{$phoneNumberId}", [
-                'fields' => 'id,display_phone_number,verified_name,platform_type,status',
+            $params = [
                 'access_token' => $accessToken,
-            ]);
+            ];
+
+            // Add specific fields if requested
+            if ($fields) {
+                $params['fields'] = implode(',', $fields);
+            } else {
+                $params['fields'] = 'id,display_phone_number,verified_name,platform_type,status,is_on_biz_app';
+            }
+
+            $response = Http::get("{$this->baseUrl}/{$this->apiVersion}/{$phoneNumberId}", $params);
 
             if ($response->successful()) {
                 return [
@@ -202,10 +210,50 @@ class FacebookApiService
     /**
      * Subscribe to webhooks
      */
-    public function subscribeToWebhooks(string $wabaId, string $accessToken, string $webhookUrl, string $verifyToken): array
+    public function subscribeToWebhooks(string $wabaId, string $accessToken, string $webhookUrl, string $verifyToken, ?array $webhookFields = null): array
     {
         try {
-            $response = Http::post("{$this->baseUrl}/{$this->apiVersion}/{$wabaId}/subscribed_apps", [
+            $params = [
+                'access_token' => $accessToken,
+            ];
+
+            // Add webhook fields if provided (for coexistence)
+            if ($webhookFields) {
+                $params['fields'] = implode(',', $webhookFields);
+            }
+
+            $response = Http::post("{$this->baseUrl}/{$this->apiVersion}/{$wabaId}/subscribed_apps", $params);
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'data' => $response->json(),
+                ];
+            }
+
+            return [
+                'success' => false,
+                'error' => $response->json(),
+                'status' => $response->status(),
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ];
+        }
+    }
+
+    /**
+     * Initiate SMB app data sync (for coexistence)
+     */
+    public function initiateSmbAppDataSync(string $phoneNumberId, string $accessToken, string $syncType): array
+    {
+        try {
+            $response = Http::post("{$this->baseUrl}/{$this->apiVersion}/{$phoneNumberId}/smb_app_data", [
+                'messaging_product' => 'whatsapp',
+                'sync_type' => $syncType,
                 'access_token' => $accessToken,
             ]);
 

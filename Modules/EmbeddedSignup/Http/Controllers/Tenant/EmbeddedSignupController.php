@@ -49,26 +49,6 @@ class EmbeddedSignupController extends Controller
     }
 
     /**
-     * Get embedded signup configuration for the tenant
-     */
-    public function config()
-    {
-        try {
-            $config = [
-                'app_id' => get_setting('whatsapp.wm_fb_app_id'),
-                'config_id' => get_setting('whatsapp.wm_fb_config_id'),
-                'enabled' => \Corbital\ModuleManager\Facades\ModuleManager::isActive('EmbeddedSignup'),
-            ];
-
-            return response()->json($config);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Failed to load configuration',
-            ], 500);
-        }
-    }
-
-    /**
      * Check if embedded signup is available for the current tenant
      */
     public function availability()

@@ -31,6 +31,7 @@ class EmbeddedSignupServiceProvider extends ServiceProvider
         $this->registerLivewireComponents();
         $this->registerHooks();
         $this->registerMiddleware();
+        $this->registerCommands();
         // Routes are now handled by RouteServiceProvider
         $this->registerLicenseHooks($this->moduleName);
     }
@@ -48,6 +49,7 @@ class EmbeddedSignupServiceProvider extends ServiceProvider
         // Register services
         $this->app->singleton(\Modules\EmbeddedSignup\Services\EmbeddedSignupService::class);
         $this->app->singleton(\Modules\EmbeddedSignup\Services\FacebookApiService::class);
+        $this->app->singleton(\Modules\EmbeddedSignup\Services\CoexistenceService::class);
     }
 
     /**
@@ -199,6 +201,20 @@ class EmbeddedSignupServiceProvider extends ServiceProvider
 
                 return redirect()->to(tenant_route('tenant.dashboard'));
             }
+        }
+    }
+
+    /**
+     * Register console commands.
+     *
+     * @return void
+     */
+    protected function registerCommands()
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Modules\EmbeddedSignup\Console\Commands\SyncCoexistenceCommand::class,
+            ]);
         }
     }
 

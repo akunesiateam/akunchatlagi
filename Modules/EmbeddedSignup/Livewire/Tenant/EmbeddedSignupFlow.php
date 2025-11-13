@@ -4,16 +4,12 @@ namespace Modules\EmbeddedSignup\Livewire\Tenant;
 
 use Livewire\Component;
 use Modules\EmbeddedSignup\Services\EmbeddedSignupService;
-use Illuminate\Support\Facades\Log;  // ← TAMBAHKAN INI
-use Illuminate\Support\Facades\Http; // ← TAMBAHKAN INI
 
 class EmbeddedSignupFlow extends Component
 {
     public $currentStep = 'initial';
 
     public $isProcessing = false;
-    
-    public $connectionType = 'new'; // ← TAMBAH BARIS INI!
 
     public $errorMessage = '';
 
@@ -35,12 +31,18 @@ class EmbeddedSignupFlow extends Component
 
     public $availability = [];
 
+    public $enableCoexistence = false;
+
+    public $tenantId = null;
+
     protected $embeddedSignupService;
 
     public function mount()
     {
+        // Store tenant_id for later use in AJAX requests
+        $this->tenantId = tenant_id();
 
-        $tenant_id = tenant_id();
+        $tenant_id = $this->tenantId;
         $data = [];
 
         if ($tenant_id) {
@@ -120,8 +122,13 @@ class EmbeddedSignupFlow extends Component
             'app_id' => $appId,
             'config_id' => $configId,
             'redirect_url' => $redirectUrl,
-            'connection_type' => $this->connectionType, // TAMBAH INI
+            'enable_coexistence' => $this->enableCoexistence,
         ]);
+    }
+
+    public function toggleCoexistence()
+    {
+        $this->enableCoexistence = ! $this->enableCoexistence;
     }
 
     public function processSignupResponse($responseData)
@@ -136,16 +143,53 @@ class EmbeddedSignupFlow extends Component
         $this->clearErrors();
 
         try {
-            // Log the processing attempt
-            whatsapp_log('Livewire processing signup response - STRICT MODE', 'info', [
+            // COMPREHENSIVE META RESPONSE DEBUGGING
+            whatsapp_log('=== META EMBEDDED SIGNUP DEBUG START ===', 'info', [
+                'timestamp' => now()->toISOString(),
+                'tenant_id' => tenant_id(),
+                'tenant_subdomain' => tenant_subdomain(),
+                'coexistence_enabled' => $this->enableCoexistence,
+                'current_url' => request()->fullUrl(),
+                'session_id' => session()->getId(),
+            ]);
+
+            // Log complete response structure
+            whatsapp_log('META RESPONSE - Full Structure', 'info', [
+                'response_data_raw' => $responseData,
+                'response_type' => gettype($responseData),
+                'response_keys' => is_array($responseData) ? array_keys($responseData) : 'not_array',
+                'json_encoded' => json_encode($responseData, JSON_PRETTY_PRINT),
+            ]);
+
+            // Log specific Meta fields with safe access
+            whatsapp_log('META RESPONSE - Parsed Fields', 'info', [
+                'auth_response' => $responseData['authResponse'] ?? null,
+                'phone_number_id' => $responseData['phoneNumberId'] ?? null,
+                'waba_id' => $responseData['waBaId'] ?? null,
+                'business_id' => $responseData['businessId'] ?? null,
+                'auth_code' => $responseData['authResponse']['code'] ?? null,
+                'user_access_token' => $responseData['authResponse']['userAccessToken'] ?? null,
+            ]);
+
+            whatsapp_log('Livewire processing signup response - ENHANCED DEBUG', 'info', [
                 'response_data_keys' => array_keys($responseData),
                 'has_auth_response' => ! empty($responseData['authResponse']),
                 'has_phone_number_id' => ! empty($responseData['phoneNumberId']),
                 'has_waba_id' => ! empty($responseData['waBaId']),
-                'tenant_id' => tenant_id(),
+                'tenant_id_from_function' => tenant_id(),
+                'tenant_id_from_property' => $this->tenantId,
+                'coexistence_will_run' => $this->enableCoexistence,
             ]);
 
-            $result = $this->embeddedSignupService->processEmbeddedSignup($responseData);
+            $result = $this->embeddedSignupService->processEmbeddedSignup($responseData, $this->tenantId);
+
+            // Log the service result
+            whatsapp_log('EMBEDDED SIGNUP SERVICE RESULT', 'info', [
+                'result_structure' => $result,
+                'success' => $result['success'] ?? 'unknown',
+                'message' => $result['message'] ?? 'no_message',
+                'data_keys' => isset($result['data']) ? array_keys($result['data']) : 'no_data_key',
+            ]);
 
             if ($result['success']) {
                 $this->handleSuccessResponse($result);
@@ -166,13 +210,33 @@ class EmbeddedSignupFlow extends Component
     private function handleSuccessResponse(array $result): void
     {
         $this->successMessage = $result['message'];
-        $this->signupData = $result['data'];
+
+        // Handle different result structures (standard vs coexistence)
+        if (isset($result['data'])) {
+            // Standard embedded signup structure
+            $this->signupData = $result['data'];
+            $wabaId = $result['data']['waba_id'] ?? 'unknown';
+            $phoneNumberId = $result['data']['phone_number_id'] ?? 'unknown';
+            $dataSource = $result['data']['data_source'] ?? 'unknown';
+        } else {
+            // Coexistence service structure (flat data)
+            $this->signupData = [
+                'waba_id' => $result['waba_id'] ?? null,
+                'phone_number_id' => $result['phone_number_id'] ?? null,
+                'sync_started' => $result['sync_started'] ?? false,
+            ];
+            $wabaId = $result['waba_id'] ?? 'unknown';
+            $phoneNumberId = $result['phone_number_id'] ?? 'unknown';
+            $dataSource = 'coexistence';
+        }
+
         $this->currentStep = 'success';
 
         whatsapp_log('Embedded signup completed successfully in Livewire', 'info', [
-            'waba_id' => $result['data']['waba_id'] ?? 'unknown',
-            'phone_number_id' => $result['data']['phone_number_id'] ?? 'unknown',
-            'data_source' => $result['data']['data_source'] ?? 'unknown',
+            'waba_id' => $wabaId,
+            'phone_number_id' => $phoneNumberId,
+            'data_source' => $dataSource,
+            'sync_started' => $this->signupData['sync_started'] ?? false,
         ]);
 
         // Redirect to WABA dashboard after a brief delay
