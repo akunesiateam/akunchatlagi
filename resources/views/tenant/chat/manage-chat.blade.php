@@ -638,7 +638,7 @@
                                                 
                                                 
                                                 <!-- Message Content -->
-                                                <div class="p-2 rounded-lg w-fit max-w-[270px] break-words my-2 message-item"
+                                                <div class="p-2 rounded-lg w-fit max-w-[200px] break-words my-2 message-item"
                                                     :data-message-id='message.message_id' :class="{
                                                             'bg-[#c7c8ff] dark:bg-[#2d2454]': message.sender_id ===
                                                                 selectedUser.wa_no,
@@ -760,7 +760,7 @@
                                                                     class="rounded-lg max-w-xs max-h-32 hover:opacity-80 transition-opacity">
                                                             </a>
                                                             <p class="text-gray-500 text-xs mt-1 dark:text-gray-400"
-                                                                x-text="message.message"></p>
+                                                                x-show="message.message && message.message !== 'sticker'" x-text="message.message"></p>
                                                         </div>
                                                     </template>
                                                     

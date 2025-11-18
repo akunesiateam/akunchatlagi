@@ -518,7 +518,7 @@ class WhatsAppWebhookController extends Controller
         
         // Retrieve media URL for specific media types
         $attachment = '';
-        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video') {
+        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video' || $messageType == 'sticker') {
             $media_id = $messageEntry[$messageType]['id'];
             // Make sure to use setWaTenantId when retrieving URL
             $attachment = $this->setWaTenantId($this->tenant_id)->retrieveUrl($media_id);
@@ -598,7 +598,7 @@ class WhatsAppWebhookController extends Controller
 
         // Extract message content based on type
         $message = $this->extractMessageContent($messageEntry, $messageType);
-        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video') {
+        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video' || $messageType == 'sticker') {
             $media_id = $messageEntry[$messageType]['id'];
             // Make sure to use setWaTenantId when retrieving URL
             $attachment = $this->setWaTenantId($this->tenant_id)->retrieveUrl($media_id);
@@ -759,7 +759,15 @@ protected function extractMessageContent(array $messageEntry, string $messageTyp
             break;
 
         case 'sticker':
-            $content = 'sticker';
+            $animated = $messageEntry['sticker']['animated'] ?? false;
+            $stickerId = $messageEntry['sticker']['id'] ?? '';
+            
+            if ($animated) {
+                $content = '🎬 Animated Sticker';
+            } else {
+                $content = '📎 Sticker';
+            }
+            
             break;
 
         // ✅ Tambahan baru: dukungan pesan ORDER via katalog + trigger "ORDER:"
