@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureTenantSecurity;
 use App\Http\Middleware\SanitizeInputs;
 use App\Http\Middleware\TenantMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -18,7 +19,7 @@ use Modules\AiAssistant\Livewire\Tenant\AiAssistantSettings;
 |
 */
 
-Route::middleware(['auth', 'web', SanitizeInputs::class, TenantMiddleware::class, 'assistant.token'])->group(
+Route::middleware(['auth', 'web', SanitizeInputs::class, TenantMiddleware::class, EnsureTenantSecurity::class, 'assistant.token'])->group(
     function () {
         Route::prefix('/{subdomain}')->as('tenant.')->group(
             function () {

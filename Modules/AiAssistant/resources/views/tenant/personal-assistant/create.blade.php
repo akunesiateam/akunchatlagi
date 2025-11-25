@@ -318,6 +318,7 @@
                 uploadError: '',
                 dragOver: false,
                 submitting: false,
+                tenant_subdomain: {!! json_encode(tenant_subdomain()) !!},
 
                 handleDrop(event) {
                     this.dragOver = false;
@@ -413,7 +414,7 @@
                             }
 
                             showNotification(result.message, 'success');
-                            window.location.href = `/admin/personal-assistants/`;
+                            window.location.href = `/${this.tenant_subdomain}/personal-assistants/`;
                         } else {
                             this.errors = result.errors || {};
 

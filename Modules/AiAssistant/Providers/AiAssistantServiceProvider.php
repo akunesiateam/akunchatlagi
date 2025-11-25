@@ -151,48 +151,50 @@ class AiAssistantServiceProvider extends ServiceProvider
                 echo view('AiAssistant::tenant.personal-assistant.components.dashboard-stats-card', compact('totalUsed', 'totalAssistant'))->render();
             });
 
-            add_filter('messagebot.before_save', function ($messageBot, $livewire) {
-                $messageBot->assistant_id = empty($livewire->selectedAssistantId) ? 0 : intval($livewire->selectedAssistantId) ?? 0;
+            add_filter('message_bot.before_save', function ($data) {
+                $data['message_bot']->assistant_id = empty($data['livewire']->selectedAssistantId) ? 0 : intval($data['livewire']->selectedAssistantId) ?? 0;
 
-                return $messageBot;
+                return $data['message_bot'];
             }, 10, 2);
         }
 
-        add_action('after_scheduling_tasks_registered', function (Schedule $schedule) {
-            $schedule->command('documents:process-pending')
-                ->everyMinute()
-                ->withoutOverlapping();
-        });
+        if ($this->isModuleEnabled()) {
+            add_action('after_scheduling_tasks_registered', function (Schedule $schedule) {
+                $schedule->command('documents:process-pending')
+                    ->everyMinute()
+                    ->withoutOverlapping();
+            });
 
-        add_action('before_process_bot_sending', function ($data) {
-            $chatInteraction = Chat::fromTenant($data['tenant_subdomain'])->where('receiver_id', $data['message']['from'])->first();
-            if ($this->shouldProcessAIChat($chatInteraction, $data['trigger_msg'])) {
-                $this->processAIMessage($chatInteraction, $data['trigger_msg']);
-                exit;
-            }
+            add_action('before_process_bot_sending', function ($data) {
+                $chatInteraction = Chat::fromTenant($data['tenant_subdomain'])->where('receiver_id', $data['message']['from'])->first();
+                if ($this->shouldProcessAIChat($chatInteraction, $data['trigger_msg'])) {
+                    $this->processAIMessage($chatInteraction, $data['trigger_msg']);
+                    exit;
+                }
 
-            if ($chatInteraction->is_ai_chat || $chatInteraction->is_bots_stoped) {
-                exit;
-            }
-        });
+                if ($chatInteraction->is_ai_chat || $chatInteraction->is_bots_stoped) {
+                    exit;
+                }
+            });
 
-        add_action('before_process_messagebot_sending_message', function ($data) {
-            if (! empty($data['message']['assistant_id'])) {
-                $chatInteraction = Chat::fromTenant($data['tenant_subdomain'])->where('receiver_id', $data['contact_number'])->first();
-                $this->initializeAIChat($chatInteraction, $data['message']['assistant_id'], $data['trigger_msg']);
+            add_action('before_process_messagebot_sending_message', function ($data) {
+                if (! empty($data['message']['assistant_id'])) {
+                    $chatInteraction = Chat::fromTenant($data['tenant_subdomain'])->where('receiver_id', $data['contact_number'])->first();
+                    $this->initializeAIChat($chatInteraction, $data['message']['assistant_id'], $data['trigger_msg']);
 
-                return;
-            }
-        });
+                    return;
+                }
+            });
 
-        add_action('before_send_flow_message', function ($data) {
-            if ($data['node_type'] == 'aiAssistant') {
-                $chatInteraction = Chat::fromTenant($data['tenant_subdomain'])->where('receiver_id', $data['contact_number'])->first();
-                $this->initializeAIChat($chatInteraction, $data['node_data']['output'][0]['personal_assistant'], $data['context']['trigger_message']);
+            add_action('before_send_flow_message', function ($data) {
+                if ($data['node_type'] == 'aiAssistant') {
+                    $chatInteraction = Chat::fromTenant($data['tenant_subdomain'])->where('receiver_id', $data['contact_number'])->first();
+                    $this->initializeAIChat($chatInteraction, $data['node_data']['output'][0]['personal_assistant'], $data['context']['trigger_message']);
 
-                return true;
-            }
-        }, 0, 1);
+                    return true;
+                }
+            }, 0, 1);
+        }
     }
 
     /**
@@ -269,7 +271,7 @@ class AiAssistantServiceProvider extends ServiceProvider
                 $subdomain = tenant_subdomain();
                 if ($request->is("{$subdomain}/personal-assistants/*") || $request->is("{$subdomain}/personal-assistants/")) {
                     if (app('module.hooks')->requiresEnvatoValidation($module_name)) {
-                        app('module.manager')->deactivate($module_name);
+                        // app('module.manager')->deactivate($module_name);
 
                         return redirect()->to(tenant_route('tenant.dashboard'));
                     }
@@ -291,7 +293,7 @@ class AiAssistantServiceProvider extends ServiceProvider
         if ($request->is("{$subdomain}/personal-assistants/*") || $request->is("{$subdomain}/personal-assistants/")) {
             $result = $updateChecker->validateRequest('59227043');
             if (! $result) {
-                app('module.manager')->deactivate($module_name);
+                // app('module.manager')->deactivate($module_name);
 
                 return redirect()->to(tenant_route('tenant.dashboard'));
             }

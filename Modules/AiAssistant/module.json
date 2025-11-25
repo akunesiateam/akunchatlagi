@@ -5,7 +5,7 @@
     "provider": "Modules\\AiAssistant\\Providers\\AiAssistantServiceProvider",
     "author": "Corbital Technologies",
     "url": "https://codecanyon.net/user/corbitaltech",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "automating customer support, product FAQs, onboarding help, and more with AI-powered chatbots and virtual assistants.",
     "keywords": [],
     "order": 0,
@@ -19,5 +19,6 @@
     "requires_at": "1.3.2",
     "license_required": true,
     "license_product_id": "59227043",
-    "license_grace_period": 3
+    "license_grace_period": 3,
+    "skv": true
 }

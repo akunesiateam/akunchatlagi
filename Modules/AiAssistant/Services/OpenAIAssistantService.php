@@ -722,7 +722,9 @@ class OpenAIAssistantService
     {
         $fileIds = $assistant->documents->pluck('openai_file_id')->toArray();
         foreach ($fileIds as $fileId) {
-            $this->deleteFile($fileId);
+            if (! is_null($fileId)) {
+                $this->deleteFile($fileId);
+            }
         }
 
         try {

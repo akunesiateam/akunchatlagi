@@ -84,26 +84,7 @@ return new class extends Migration
             });
         }
 
-        // 4. ai_qa_cache
-        if (! Schema::hasTable('ai_qa_cache')) {
-            Schema::create('ai_qa_cache', function (Blueprint $table) {
-                $table->id();
-                $table->unsignedBigInteger('tenant_id')->nullable();
-                $table->unsignedBigInteger('assistant_id');
-                $table->text('question');
-                $table->string('question_normalized', 500);
-                $table->text('answer');
-                $table->decimal('similarity_score', 3, 2)->default(1.00);
-                $table->integer('usage_count')->default(1);
-                $table->timestamp('last_used_at')->nullable();
-                $table->timestamps();
-
-                $table->index(['assistant_id', 'question_normalized'], 'ai_qa_cache_assistant_normalized_index');
-                $table->index(['usage_count', 'last_used_at'], 'ai_qa_cache_usage_index');
-            });
-        }
-
-        // 5. message_bots modification
+        // 4. message_bots modification
         if (Schema::hasTable('message_bots') && ! Schema::hasColumn('message_bots', 'assistant_id')) {
             Schema::table('message_bots', function (Blueprint $table) {
                 $table->unsignedBigInteger('assistant_id')->nullable()->after('filename');

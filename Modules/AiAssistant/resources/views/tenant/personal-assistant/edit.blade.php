@@ -314,6 +314,7 @@
                 uploadError: '',
                 dragOver: false,
                 submitting: false,
+                tenant_subdomain: {!! json_encode(tenant_subdomain()) !!},
 
                 handleDrop(event) {
                     this.dragOver = false;

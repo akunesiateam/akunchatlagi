@@ -6,7 +6,6 @@ use App\Http\Controllers\Tenant\ManageChat;
 use App\Models\Tenant\ChatMessage;
 use App\Services\pusher\PusherService;
 use App\Traits\WhatsApp;
-use Illuminate\Support\Facades\DB;
 use Modules\AiAssistant\Models\Tenant\PersonalAssistant;
 use Modules\AiAssistant\Services\OpenAIAssistantService;
 
@@ -42,24 +41,7 @@ trait AiAssistant
                 return false;
             }
 
-            // STEP 1: Check cache for similar question
-            $cachedResponse = $this->checkCacheForSimilarQuestion($assistant->id, $userMessage);
-
-            if ($cachedResponse) {
-                whatsapp_log('AI Cache Hit', 'info', [
-                    'assistant_id' => $assistant->id,
-                    'chat_id' => $chatInteraction->id,
-                    'cache_id' => $cachedResponse['id'],
-                ]);
-
-                // Update usage stats for cached response
-                $this->updateCacheUsageStats($cachedResponse['id']);
-
-                // Send cached response
-                return $this->sendAIResponse($chatInteraction, $cachedResponse['answer']);
-            }
-
-            // STEP 2: No cache hit, get fresh AI response
+            // STEP - No cache hit, get fresh AI response
             $apiKey = get_tenant_setting_by_tenant_id('whats-mark', 'openai_secret_key', null, $chatInteraction->tenant_id);
 
             $openAIService = new OpenAIAssistantService($apiKey);
@@ -77,9 +59,6 @@ trait AiAssistant
                     $chatInteraction->update(['ai_message_json' => json_encode($aiData)]);
                 }
 
-                // STEP 3: Cache the new response
-                $this->cacheNewAIResponse($assistant->id, $userMessage, $response['message']);
-
                 // Send fresh response
                 return $this->sendAIResponse($chatInteraction, $response['message']);
             }
@@ -93,60 +72,6 @@ trait AiAssistant
 
             return false;
         }
-    }
-
-    /**
-     * SIMPLE CACHE CHECK: Look for similar questions in cache
-     */
-    protected function checkCacheForSimilarQuestion($assistantId, $userMessage)
-    {
-        $normalized = $this->normalizeQuestion($userMessage);
-
-        // 1. Try exact match first
-        $exactMatch = DB::table('ai_qa_cache')
-            ->where('assistant_id', $assistantId)
-            ->where('question_normalized', $normalized)
-            ->first();
-
-        if ($exactMatch) {
-            return (array) $exactMatch;
-        }
-
-        // 2. Try similarity search (simple keyword matching)
-        $keywords = $this->extractSimpleKeywords($normalized);
-
-        if (count($keywords) < 2) {
-            return null; // Too few keywords for meaningful search
-        }
-
-        // Look for questions containing most of these keywords
-        $similarQuestions = DB::table('ai_qa_cache')
-            ->where('assistant_id', $assistantId)
-            ->where(function ($query) use ($keywords) {
-                foreach ($keywords as $keyword) {
-                    $query->orWhere('question_normalized', 'LIKE', "%{$keyword}%");
-                }
-            })
-            ->orderBy('usage_count', 'desc')
-            ->orderBy('last_used_at', 'desc')
-            ->limit(5)
-            ->get();
-
-        // Find best match based on keyword overlap
-        $bestMatch = null;
-        $bestScore = 0;
-
-        foreach ($similarQuestions as $question) {
-            $similarity = $this->calculateSimpleSimilarity($normalized, $question->question_normalized);
-
-            // If similarity is good enough (80%), use it
-            if ($similarity >= 0.8 && $similarity > $bestScore) {
-                $bestMatch = $question;
-                $bestScore = $similarity;
-            }
-        }
-
-        return $bestMatch ? (array) $bestMatch : null;
     }
 
     /**
@@ -175,28 +100,6 @@ trait AiAssistant
     }
 
     /**
-     * EXTRACT KEYWORDS: Get important words from question
-     */
-    protected function extractSimpleKeywords($text)
-    {
-        // Common stop words to ignore
-        $stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'what', 'how', 'where', 'when', 'why', 'who'];
-
-        $words = explode(' ', $text);
-        $keywords = [];
-
-        foreach ($words as $word) {
-            $word = trim($word);
-            // Keep words that are 3+ characters and not stop words
-            if (strlen($word) >= 3 && ! in_array($word, $stopWords)) {
-                $keywords[] = $word;
-            }
-        }
-
-        return array_unique($keywords);
-    }
-
-    /**
      * NORMALIZE QUESTION: Clean up text for comparison
      */
     protected function normalizeQuestion($question)
@@ -207,59 +110,6 @@ trait AiAssistant
         $normalized = preg_replace('/\s+/', ' ', $normalized);
 
         return $normalized;
-    }
-
-    /**
-     * CACHE NEW RESPONSE: Store fresh AI response in cache
-     */
-    protected function cacheNewAIResponse($assistantId, $userMessage, $aiResponse)
-    {
-        $normalized = $this->normalizeQuestion($userMessage);
-
-        // Check if this exact question already exists (race condition protection)
-        $existing = DB::table('ai_qa_cache')
-            ->where('assistant_id', $assistantId)
-            ->where('question_normalized', $normalized)
-            ->first();
-
-        if ($existing) {
-            // Update existing entry with new answer
-            DB::table('ai_qa_cache')
-                ->where('id', $existing->id)
-                ->update([
-                    'answer' => $aiResponse,
-                    'usage_count' => $existing->usage_count + 1,
-                    'last_used_at' => now(),
-                    'updated_at' => now(),
-                ]);
-        } else {
-            // Insert new cache entry
-            DB::table('ai_qa_cache')->insert([
-                'assistant_id' => $assistantId,
-                'question' => $userMessage,
-                'question_normalized' => $normalized,
-                'answer' => $aiResponse,
-                'similarity_score' => 1.00,
-                'usage_count' => 1,
-                'last_used_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-    }
-
-    /**
-     * UPDATE CACHE USAGE: Increment usage stats when cache is used
-     */
-    protected function updateCacheUsageStats($cacheId)
-    {
-        DB::table('ai_qa_cache')
-            ->where('id', $cacheId)
-            ->increment('usage_count');
-
-        DB::table('ai_qa_cache')
-            ->where('id', $cacheId)
-            ->update(['last_used_at' => now()]);
     }
 
     protected function isStopKeyword($message)
