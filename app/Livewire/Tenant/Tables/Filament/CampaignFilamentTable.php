@@ -36,7 +36,7 @@ class CampaignFilamentTable extends BaseFilamentTable
                 DB::raw('(SELECT COUNT(*) FROM campaign_details
         WHERE campaign_details.campaign_id = campaigns.id
         AND campaign_details.tenant_id = '.$tenantId.'
-        AND message_status = "delivered") as delivered'),
+        AND (message_status = "delivered" OR message_status = "read")) as delivered'),
                 DB::raw('(SELECT COUNT(*) FROM campaign_details
         WHERE campaign_details.campaign_id = campaigns.id
         AND campaign_details.tenant_id = '.$tenantId.'

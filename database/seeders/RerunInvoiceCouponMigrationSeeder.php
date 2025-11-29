@@ -32,6 +32,10 @@ class RerunInvoiceCouponMigrationSeeder extends Seeder
             if (! Schema::hasColumn('invoices', 'coupon_code')) {
                 $table->string('coupon_code')->nullable()->after('coupon_discount');
             }
+
+            if (! Schema::hasColumn('invoices', 'coupon_snapshot')) {
+                $table->json('coupon_snapshot')->nullable()->after('coupon_code')->comment('Snapshot of coupon data when applied');
+            }
         });
 
         $fk = DB::table('information_schema.KEY_COLUMN_USAGE')

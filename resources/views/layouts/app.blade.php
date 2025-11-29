@@ -5,8 +5,9 @@
     $tenantSubdomain = tenant_subdomain();
     if ($isTenant) {
         $systemSettings = tenant_settings_by_group('system');
-        $pusherSettings = tenant_settings_by_group('pusher');
     }
+    // Always get global pusher settings (for both admin and tenant)
+    $pusherSettings = get_settings_by_group('pusher');
     $themeSettings = get_batch_settings([
         'system.active_language',
         'theme.seo_meta_title',
@@ -72,11 +73,11 @@
     {{-- JS leaflet --}}
     <script>
         window.pusherConfig = {
-            key: '{{ $pusherSettings['app_key'] ?? '' }}',
-            cluster: '{{ $pusherSettings['cluster'] ?? '' }}',
-            notification_enabled: {{ !empty($pusherSettings['real_time_notify']) ? 'true' : 'false' }},
-            desktop_notification: {{ !empty($pusherSettings['desk_notify']) ? 'true' : 'false' }},
-            auto_dismiss_notification: {{ !empty($pusherSettings['dismiss_desk_notification']) ? $pusherSettings['dismiss_desk_notification'] : 0 }},
+            key: '{{ $pusherSettings ? ($pusherSettings->app_key ?? '') : '' }}',
+            cluster: '{{ $pusherSettings ? ($pusherSettings->cluster ?? '') : '' }}',
+            notification_enabled: {{ $pusherSettings && !empty($pusherSettings->real_time_notify) ? 'true' : 'false' }},
+            desktop_notification: {{ $pusherSettings && !empty($pusherSettings->desk_notify) ? 'true' : 'false' }},
+            auto_dismiss_notification: {{ $pusherSettings && !empty($pusherSettings->dismiss_desk_notification) ? $pusherSettings->dismiss_desk_notification : 0 }},
             notification_icon: '{{ $favicon ?? url('./img/wm-notification.png') }}'
         };
 

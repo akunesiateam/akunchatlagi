@@ -23,16 +23,17 @@ trait ChatNotification
             // Use current tenant ID if not provided
             $tenantId = $tenantId ?? tenant_id();
 
-            $pusherSettings = tenant_settings_by_group('pusher', $tenantId);
+            // Check if global Pusher is configured
+            $pusherSettings = get_settings_by_group('pusher');
 
-            // Only trigger if Pusher is configured
             if (
-                ! empty($pusherSettings['app_key']) &&
-                ! empty($pusherSettings['app_secret']) &&
-                ! empty($pusherSettings['app_id']) &&
-                ! empty($pusherSettings['cluster'])
+                $pusherSettings &&
+                ! empty($pusherSettings->app_key) &&
+                ! empty($pusherSettings->app_secret) &&
+                ! empty($pusherSettings->app_id) &&
+                ! empty($pusherSettings->cluster)
             ) {
-                $pusherService = new PusherService($tenantId);
+                $pusherService = new PusherService;
                 $chatData = ManageChat::newChatMessage($chatId, $messageDbId, $tenantId);
 
                 // Add notification metadata directly to the chat data
@@ -45,12 +46,12 @@ trait ChatNotification
                     'is_incoming' => $isIncoming, // true for customer messages, false for staff messages
                 ];
 
-                // Enhanced payload with notification metadata for desktop notifications
-                $pusherService->trigger('whatsmark-saas-chat-channel', 'whatsmark-saas-chat-event', [
+                // Use tenant-specific channel and event naming
+                $pusherService->triggerForTenant('chat', 'new-message', [
                     'chat' => $chatData,
-                ]);
+                ], $tenantId);
 
-                whatsapp_log('Chat notification triggered successfully (trait static)', 'debug', [
+                whatsapp_log('Chat notification triggered successfully (trait)', 'debug', [
                     'chat_id' => $chatId,
                     'message_id' => $messageDbId,
                     'tenant_id' => $tenantId,
@@ -85,20 +86,21 @@ trait ChatNotification
     public static function triggerChatNotificationStatic($chatId, $messageDbId, $tenantId, $isIncoming = true): bool
     {
         try {
-            $pusherSettings = tenant_settings_by_group('pusher', $tenantId);
+            // Check if global Pusher is configured
+            $pusherSettings = get_settings_by_group('pusher');
 
-            // Only trigger if Pusher is configured
             if (
-                ! empty($pusherSettings['app_key']) &&
-                ! empty($pusherSettings['app_secret']) &&
-                ! empty($pusherSettings['app_id']) &&
-                ! empty($pusherSettings['cluster'])
+                $pusherSettings &&
+                ! empty($pusherSettings->app_key) &&
+                ! empty($pusherSettings->app_secret) &&
+                ! empty($pusherSettings->app_id) &&
+                ! empty($pusherSettings->cluster)
             ) {
-                $pusherService = new PusherService($tenantId);
+                $pusherService = new PusherService;
                 $chatData = ManageChat::newChatMessage($chatId, $messageDbId, $tenantId);
 
-                // Enhanced payload with notification metadata for desktop notifications
-                $pusherService->trigger('whatsmark-saas-chat-channel', 'whatsmark-saas-chat-event', [
+                // Use tenant-specific channel and event naming
+                $pusherService->triggerForTenant('chat', 'new-message', [
                     'chat' => $chatData,
                     'notification' => [
                         'type' => 'new_message',
@@ -108,7 +110,7 @@ trait ChatNotification
                         'timestamp' => now()->toISOString(),
                         'is_incoming' => $isIncoming, // true for customer messages, false for staff messages
                     ],
-                ]);
+                ], $tenantId);
 
                 whatsapp_log('Static chat notification triggered successfully', 'debug', [
                     'chat_id' => $chatId,

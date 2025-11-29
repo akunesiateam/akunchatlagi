@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Tenant\Settings\System;
+namespace App\Livewire\Admin\Settings\System;
 
 use App\Rules\PurifiedInput;
 use App\Services\pusher\PusherService;
@@ -38,29 +38,29 @@ class PusherSettings extends Component
 
     public function mount()
     {
-        if (! checkPermission('tenant.system_settings.view')) {
+        if (! checkPermission('admin.system_settings.view')) {
             $this->notify(['type' => 'danger', 'message' => t('access_denied_note')], true);
 
-            return redirect()->to(tenant_route('tenant.dashboard'));
+            return redirect(route('admin.dashboard'));
         }
+        $settings = get_settings_by_group('pusher');
 
-        $settings = tenant_settings_by_group('pusher');
-
-        $this->app_id = $settings['app_id'] ?? false;
-        $this->app_key = $settings['app_key'] ?? '';
-        $this->app_secret = $settings['app_secret'] ?? '';
-        $this->cluster = $settings['cluster'] ?? '';
-        $this->real_time_notify = $settings['real_time_notify'] ?? false;
-        $this->desk_notify = $settings['desk_notify'] ?? false;
-        $this->dismiss_desk_notification = $settings['dismiss_desk_notification'] ?? 0;
+        // Handle case where settings might be null (first time setup)
+        $this->app_id = $settings ? ($settings->app_id ?? '') : '';
+        $this->app_key = $settings ? ($settings->app_key ?? '') : '';
+        $this->app_secret = $settings ? ($settings->app_secret ?? '') : '';
+        $this->cluster = $settings ? ($settings->cluster ?? '') : '';
+        $this->real_time_notify = $settings ? ($settings->real_time_notify ?? false) : false;
+        $this->desk_notify = $settings ? ($settings->desk_notify ?? false) : false;
+        $this->dismiss_desk_notification = $settings ? ($settings->dismiss_desk_notification ?? 0) : 0;
     }
 
     public function save()
     {
-        if (checkPermission('tenant.system_settings.edit')) {
+        if (checkPermission('admin.system_settings.edit')) {
             $this->validate();
 
-            $originalSettings = tenant_settings_by_group('pusher');
+            $originalSettings = get_settings_by_group('pusher');
 
             $newSettings = [
                 'app_id' => $this->app_id,
@@ -74,13 +74,20 @@ class PusherSettings extends Component
 
             // Filter only modified or undefined settings
             $modifiedSettings = array_filter($newSettings, function ($value, $key) use ($originalSettings) {
-                return ! array_key_exists($key, $originalSettings) || $originalSettings[$key] !== $value;
+                // Handle case where originalSettings might be null (first time setup)
+                if (! $originalSettings) {
+                    return true; // Save all settings if none exist
+                }
+
+                // Check if property exists and is different
+                $originalValue = $originalSettings->$key ?? null;
+
+                return $value !== $originalValue;
             }, ARRAY_FILTER_USE_BOTH);
 
             if (! empty($modifiedSettings)) {
-                foreach ($modifiedSettings as $key => $value) {
-                    save_tenant_setting('pusher', $key, $value);
-                }
+
+                set_settings_batch('pusher', $modifiedSettings);
 
                 $this->notify(['type' => 'success', 'message' => t('setting_save_successfully')]);
             }
@@ -89,8 +96,8 @@ class PusherSettings extends Component
 
     public function testConnection(PusherService $pusherService)
     {
-        $pushersettings = tenant_settings_by_group('pusher');
-        if (! $pushersettings['app_key'] || ! $pushersettings['app_secret'] || ! $pushersettings['app_id']) {
+        $pushersettings = get_settings_by_group('pusher');
+        if (! $pushersettings || ! $pushersettings->app_key || ! $pushersettings->app_secret || ! $pushersettings->app_id) {
             $this->notify([
                 'type' => 'danger',
                 'message' => t('fill_required_pusher_credential'),
@@ -137,6 +144,6 @@ class PusherSettings extends Component
 
     public function render()
     {
-        return view('livewire.tenant.settings.system.pusher-settings');
+        return view('livewire.admin.settings.system.pusher-settings');
     }
 }

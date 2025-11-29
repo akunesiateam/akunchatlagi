@@ -238,6 +238,8 @@ return [
                         'tenant.settings.ai-integration',
                         'tenant.settings.auto-clear-chat-history',
                         'tenant.settings.whatsapp-web-hooks',
+                        'tenant.settings.opt-in-out',
+                        'tenant.settings.whatsapp-session-management',
                     ],
                 ],
                 'system_settings' => [
@@ -251,7 +253,6 @@ return [
                     'active_routes' => [
                         'tenant.settings.general',
                         'tenant.settings.email',
-                        'tenant.settings.pusher',
                         'tenant.settings.cache-management',
                     ],
                 ],

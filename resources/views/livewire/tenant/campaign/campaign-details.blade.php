@@ -176,7 +176,7 @@
         </div>
 
         {{-- Statistics Cards with Modern Design --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-6 mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6 mb-6">
 
             <!-- Total Sent -->
             <div
@@ -229,6 +229,33 @@
                     </div>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
                         {{ $deliverCount }} {{ t('messages_delivered') }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Messages Not Received by Contacts -->
+            <div
+                class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 dark:bg-slate-800 dark:border-slate-700">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide cursor-help"
+                           data-tippy-content="Messages not yet received by contacts - still in transit or waiting for delivery confirmation">
+                            {{ t('not_received') }}
+                        </p>
+                    </div>
+                    <div
+                        class="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
+                        <x-heroicon-o-arrow-path class="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="flex items-baseline gap-2">
+                        <span
+                            class="text-3xl font-bold text-gray-800 dark:text-gray-200">{{ $totalSentOnlyPercent }}%</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">{{ t('rate') }}</span>
+                    </div>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                        {{ $sentOnlyCount }} {{ t('messages_not_received') }}
                     </p>
                 </div>
             </div>

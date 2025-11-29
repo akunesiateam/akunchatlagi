@@ -23,7 +23,9 @@ class EnsureTenantForLivewire
                 // Make sure the tenant is set as current in Spatie's mechanism
                 BaseTenant::checkCurrent();
 
-                if (! BaseTenant::current() || BaseTenant::current()->getKey() !== $tenant->getKey()) {
+                // Cache BaseTenant::current() result to avoid duplicate calls
+                $currentBaseTenant = BaseTenant::current();
+                if (! $currentBaseTenant || $currentBaseTenant->getKey() !== $tenant->getKey()) {
                     $tenant->makeCurrent();
                 }
             }

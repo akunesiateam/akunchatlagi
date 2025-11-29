@@ -279,6 +279,8 @@ class TenantCacheManager
                 $table->index('status_id');
                 $table->index('source_id');
                 $table->json('group_id')->nullable();
+                $table->tinyInteger('is_opted_out')->nullable();
+                $table->dateTime('opted_out_date')->nullable();
                 $table->index('assigned_id');
                 $table->index('type');
                 $table->index('phone');

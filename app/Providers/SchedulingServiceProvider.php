@@ -91,6 +91,12 @@ class SchedulingServiceProvider extends ServiceProvider
             ->onFailure(function () {
                 Cache::forget('schedule:campaigns:process-scheduled:running');
             });
+
+        // Run every hour to check for session reset messages to be sent
+        $schedule->command('whatsapp:send-session-reset-message')
+            ->hourly()
+            ->withoutOverlapping(3)
+            ->runInBackground();
     }
 
     /**
@@ -107,7 +113,7 @@ class SchedulingServiceProvider extends ServiceProvider
             ->runInBackground()
             ->skip(function () {
                 // Skip if already ran today
-                if (Cache::has('schedule:chat-history-cleanup:last-run:' . now()->format('Y-m-d'))) {
+                if (Cache::has('schedule:chat-history-cleanup:last-run:'.now()->format('Y-m-d'))) {
                     return true;
                 }
 
@@ -115,7 +121,7 @@ class SchedulingServiceProvider extends ServiceProvider
             })
             ->between('00:00', '23:59')
             ->before(function () {
-                Cache::put('schedule:chat-history-cleanup:last-run:' . now()->format('Y-m-d'), true, 86400);
+                Cache::put('schedule:chat-history-cleanup:last-run:'.now()->format('Y-m-d'), true, 86400);
             })
             ->after(function () {})
             ->onFailure(function () {});
@@ -128,7 +134,7 @@ class SchedulingServiceProvider extends ServiceProvider
             ->runInBackground()
             ->skip(function () {
                 // Skip if already ran this hour
-                if (Cache::has('schedule:tenant-cleanup:last-run:' . now()->format('Y-m-d-H'))) {
+                if (Cache::has('schedule:tenant-cleanup:last-run:'.now()->format('Y-m-d-H'))) {
                     return true;
                 }
 
@@ -136,7 +142,7 @@ class SchedulingServiceProvider extends ServiceProvider
             })
             ->between('00:00', '23:59')
             ->before(function () {
-                Cache::put('schedule:tenant-cleanup:last-run:' . now()->format('Y-m-d-H'), true, 3600);
+                Cache::put('schedule:tenant-cleanup:last-run:'.now()->format('Y-m-d-H'), true, 3600);
             })
             ->after(function () {})
             ->onFailure(function () {});
@@ -177,7 +183,7 @@ class SchedulingServiceProvider extends ServiceProvider
             ->withoutOverlapping(1440) // Lock expires after 24 hours
             ->skip(function () {
                 // Skip if already ran today
-                if (Cache::has('schedule:subscription-renewals:last-run:' . now()->format('Y-m-d'))) {
+                if (Cache::has('schedule:subscription-renewals:last-run:'.now()->format('Y-m-d'))) {
                     return true;
                 }
 
@@ -185,7 +191,7 @@ class SchedulingServiceProvider extends ServiceProvider
             })
             ->between('00:00', '23:59')
             ->before(function () {
-                Cache::put('schedule:subscription-renewals:last-run:' . now()->format('Y-m-d'), true, 86400);
+                Cache::put('schedule:subscription-renewals:last-run:'.now()->format('Y-m-d'), true, 86400);
             })
             ->after(function () {})
             ->onFailure(function () {});
@@ -197,7 +203,7 @@ class SchedulingServiceProvider extends ServiceProvider
             ->withoutOverlapping(1440) // Lock expires after 24 hours
             ->skip(function () {
                 // Skip if already ran today
-                if (Cache::has('schedule:renewal-reminders:last-run:' . now()->format('Y-m-d'))) {
+                if (Cache::has('schedule:renewal-reminders:last-run:'.now()->format('Y-m-d'))) {
                     return true;
                 }
 
@@ -205,7 +211,7 @@ class SchedulingServiceProvider extends ServiceProvider
             })
             ->between('00:00', '23:59')
             ->before(function () {
-                Cache::put('schedule:renewal-reminders:last-run:' . now()->format('Y-m-d'), true, 86400);
+                Cache::put('schedule:renewal-reminders:last-run:'.now()->format('Y-m-d'), true, 86400);
             })
             ->after(function () {})
             ->onFailure(function () {});

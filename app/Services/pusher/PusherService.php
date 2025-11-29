@@ -12,7 +12,8 @@ use Pusher\Pusher;
  * messaging capabilities for chat notifications, status updates, and live features.
  *
  * Key Features:
- * - Tenant-specific Pusher configuration
+ * - Global Pusher configuration managed by super admin
+ * - Tenant-aware channel and event naming for isolation
  * - Real-time message broadcasting
  * - Batch event processing
  * - Connection resilience and retry logic
@@ -29,28 +30,29 @@ use Pusher\Pusher;
  * - System status notifications
  * - Live dashboard updates
  *
- * The service automatically handles tenant context switching and maintains
- * separate Pusher configurations for each tenant, ensuring proper isolation
- * and security in the multi-tenant environment.
+ * The service uses global admin Pusher credentials while ensuring tenant
+ * isolation through channel and event naming patterns. This approach
+ * centralizes configuration while maintaining security and separation.
  *
  * Usage Example:
  * ```php
- * // Initialize for current tenant
+ * // Initialize with global settings
  * $pusher = new PusherService();
  *
- * // Trigger real-time notification
- * $result = $pusher->trigger(
- *     'tenant-123-chat',
+ * // Trigger tenant-specific notification
+ * $result = $pusher->triggerForTenant(
+ *     'chat',
  *     'new-message',
- *     ['message' => 'Hello from WhatsApp!', 'sender' => 'Customer']
+ *     ['message' => 'Hello from WhatsApp!', 'sender' => 'Customer'],
+ *     123
  * );
  *
- * // Batch multiple events
- * $events = [
- *     ['channel' => 'tenant-123-notifications', 'name' => 'status-update', 'data' => [...]],
- *     ['channel' => 'tenant-123-dashboard', 'name' => 'metrics-update', 'data' => [...]]
- * ];
- * $pusher->triggerBatch($events);
+ * // Manual tenant-specific channels
+ * $result = $pusher->trigger(
+ *     $pusher->getTenantChannel('chat', 123),
+ *     $pusher->getTenantEvent('new-message', 123),
+ *     ['message' => 'Hello!']
+ * );
  * ```
  *
  * @author WhatsApp SaaS Team
@@ -97,60 +99,58 @@ class PusherService
     /**
      * Create a new Pusher service instance.
      *
-     * Initializes the Pusher client with tenant-specific configuration.
-     * If no tenant ID is provided, uses the current tenant context.
-     *
-     * @param  int|string|null  $tenant_id  The tenant ID for configuration lookup
+     * Initializes the Pusher client with global admin configuration.
+     * Tenant context is maintained separately for channel/event naming.
      *
      * @example
      * ```php
-     * // Use current tenant
+     * // Initialize with global settings
      * $pusher = new PusherService();
-     *
-     * // Use specific tenant
-     * $pusher = new PusherService(123);
      * ```
      */
-    public function __construct($tenant_id = null)
+    public function __construct()
     {
-        if (empty($tenant_id)) {
-            $tenant_id = tenant_id();
-        }
-        $this->initializePusher($tenant_id);
+        $this->initializePusher();
     }
 
     /**
      * Initialize the Pusher client with improved error handling.
      *
-     * Retrieves tenant-specific Pusher configuration and creates a new
+     * Retrieves global admin Pusher configuration and creates a new
      * Pusher client instance. Implements retry logic for connection failures
      * and validates all required configuration parameters.
-     *
-     * @param  int|string  $tenant_id  The tenant ID for configuration lookup
      *
      * @throws \Exception When Pusher initialization fails repeatedly
      *
      * @example
      * ```php
-     * // Reinitialize with different tenant
-     * $this->initializePusher(456);
+     * // Reinitialize connection
+     * $this->initializePusher();
      * ```
      *
-     * @see tenant_settings_by_group() For configuration retrieval
+     * @see get_settings_by_group() For global configuration retrieval
      */
-    protected function initializePusher($tenant_id): void
+    protected function initializePusher(): void
     {
         if ($this->connectionRetries >= self::MAX_RETRIES) {
             return;
         }
 
         try {
-            $pusher_settings = tenant_settings_by_group('pusher', $tenant_id);
+            $pusher_settings = get_settings_by_group('pusher');
+
+            // Handle case where settings might be null (not configured yet)
+            if (! $pusher_settings) {
+                $this->pusher = null;
+
+                return;
+            }
+
             // Get settings with appropriate fallbacks
-            $appKey = $pusher_settings['app_key'];
-            $appSecret = $pusher_settings['app_secret'];
-            $appId = $pusher_settings['app_id'];
-            $cluster = $pusher_settings['cluster'];
+            $appKey = $pusher_settings->app_key ?? null;
+            $appSecret = $pusher_settings->app_secret ?? null;
+            $appId = $pusher_settings->app_id ?? null;
+            $cluster = $pusher_settings->cluster ?? null;
 
             // Validate required settings
             if (empty($appKey) || empty($appSecret) || empty($appId) || empty($cluster)) {
@@ -233,7 +233,7 @@ class PusherService
 
             // Try to reinitialize on connection issues
             if (strpos($e->getMessage(), 'cURL error 28') !== false || strpos($e->getMessage(), 'Connection') !== false || strpos($e->getMessage(), 'Unable to parse URI') !== false) {
-                $this->initializePusher(tenant_id());
+                $this->initializePusher();
             }
 
             return ['status' => false, 'message' => 'Pusher trigger failed: '.$e->getMessage()];
@@ -279,8 +279,8 @@ class PusherService
                 return false;
             }
 
-            // Always pass an array as the 2nd parameter
-            $this->pusher->triggerBatch($events, []);
+            // Pass events to triggerBatch
+            $this->pusher->triggerBatch($events);
 
             return true;
         } catch (\Exception $e) {
@@ -383,6 +383,82 @@ class PusherService
     public function isPusherReady(): bool
     {
         return $this->pusher !== null;
+    }
+
+    /**
+     * Generate a tenant-specific channel name.
+     *
+     * Creates a channel name that includes tenant isolation while using
+     * global Pusher credentials. This ensures tenant data separation.
+     *
+     * @param  string  $baseChannel  The base channel name
+     * @param  int|string|null  $tenantId  The tenant ID (uses current if null)
+     * @return string The tenant-specific channel name
+     *
+     * @example
+     * ```php
+     * $channel = $pusher->getTenantChannel('chat', 123);
+     * // Returns: 'tenant-123-chat'
+     * ```
+     */
+    public function getTenantChannel(string $baseChannel, $tenantId = null): string
+    {
+        $tenantId = $tenantId ?? tenant_id();
+
+        return "tenant-{$tenantId}-{$baseChannel}";
+    }
+
+    /**
+     * Generate a tenant-specific event name.
+     *
+     * Creates an event name that includes tenant isolation for better
+     * organization and potential filtering on the frontend.
+     *
+     * @param  string  $baseEvent  The base event name
+     * @param  int|string|null  $tenantId  The tenant ID (uses current if null)
+     * @return string The tenant-specific event name
+     *
+     * @example
+     * ```php
+     * $event = $pusher->getTenantEvent('new-message', 123);
+     * // Returns: 'tenant-123-new-message'
+     * ```
+     */
+    public function getTenantEvent(string $baseEvent, $tenantId = null): string
+    {
+        $tenantId = $tenantId ?? tenant_id();
+
+        return "tenant-{$tenantId}-{$baseEvent}";
+    }
+
+    /**
+     * Trigger an event on a tenant-specific channel.
+     *
+     * Convenience method that automatically generates tenant-specific
+     * channel and event names while using global Pusher credentials.
+     *
+     * @param  string  $baseChannel  The base channel name
+     * @param  string  $baseEvent  The base event name
+     * @param  array  $data  The data payload to send
+     * @param  int|string|null  $tenantId  The tenant ID (uses current if null)
+     * @return array Status array with 'status' (bool) and 'message' (string)
+     *
+     * @example
+     * ```php
+     * // Trigger tenant-specific chat notification
+     * $result = $pusher->triggerForTenant('chat', 'new-message', [
+     *     'message' => 'Hello!',
+     *     'sender' => 'Customer'
+     * ], 123);
+     * ```
+     */
+    public function triggerForTenant(string $baseChannel, string $baseEvent, array $data, $tenantId = null): array
+    {
+        $tenantId = $tenantId ?? tenant_id();
+        $channel = $this->getTenantChannel($baseChannel, $tenantId);
+        $event = $this->getTenantEvent($baseEvent, $tenantId);
+
+        return $this->trigger($channel, $event, $data);
     }
 
     /**

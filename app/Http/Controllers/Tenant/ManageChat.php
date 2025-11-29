@@ -63,7 +63,6 @@ class ManageChat extends Controller
             'sources' => Source::all(),
             'languages' => Languages::all(),
             'selectedAgent' => [],
-            'user_can_assign' => 1,
             'readOnlyPermission' => (! (Auth::user()->is_admin) && checkPermission('tenant.chat.read_only')) ? 0 : 1,
             'user_is_admin' => Auth::user()->is_admin,
             'enable_supportagent' => get_tenant_setting_from_db('whats-mark', 'Only agents can chat'),
@@ -268,9 +267,9 @@ class ManageChat extends Controller
                     'last_message' => $body ?? '',
                     'time_sent' => now(),
                 ]);
-                $pusher_settings = tenant_settings_by_group('pusher', $this->tenant_id);
+                $pusher_settings = get_settings_by_group('pusher');
                 if (
-                    ! empty($pusher_settings['app_key']) && ! empty($pusher_settings['app_secret']) && ! empty($pusher_settings['app_id']) && ! empty($pusher_settings['cluster'])
+                    $pusher_settings && ! empty($pusher_settings->app_key) && ! empty($pusher_settings->app_secret) && ! empty($pusher_settings->app_id) && ! empty($pusher_settings->cluster)
                 ) {
                     // Use centralized notification method with enhanced metadata
                     \App\Http\Controllers\Whatsapp\WhatsAppWebhookController::triggerChatNotificationStatic($chat_id, $chatMessageId, $this->tenant_id, false);
@@ -1025,78 +1024,6 @@ class ManageChat extends Controller
                 'error' => $e->getMessage(),
                 'line' => $e->getLine(),
                 'file' => basename($e->getFile()),
-            ], 500);
-        }
-    }
-    
-    /**
-     * Get bot countdown status for a chat
-     */
-    public function getBotCountdown($subdomain, $chatId)
-{
-    try {
-        $chat = Chat::fromTenant($this->tenant_subdomain)->findOrFail($chatId);
-        
-        // Get restart hours setting
-        $restartHours = (int)get_tenant_setting_from_db('whats-mark', 'restart_bots_after', 6);
-        
-        $response = [
-            'is_bot_stopped' => $chat->is_bots_stoped ? true : false,
-            'bot_stopped_time' => $chat->bot_stoped_time,
-            'restart_hours' => $restartHours,
-            'seconds_remaining' => 0
-        ];
-        
-        // Calculate remaining time if bot is stopped
-        if ($chat->is_bots_stoped && $chat->bot_stoped_time) {
-            $stopTime = \Carbon\Carbon::parse($chat->bot_stoped_time);
-            $restartTime = $stopTime->copy()->addHours($restartHours);
-            $now = \Carbon\Carbon::now();
-            
-            if ($now < $restartTime) {
-                $response['seconds_remaining'] = $now->diffInSeconds($restartTime);
-            } else {
-                // Time has passed, auto-restart bot
-                $chat->update([
-                    'is_bots_stoped' => 0,
-                    'bot_stoped_time' => null
-                ]);
-                $response['is_bot_stopped'] = false;
-            }
-        }
-        
-        return response()->json($response);
-        
-    } catch (\Exception $e) {
-        return response()->json([
-            'error' => 'Failed to get countdown status',
-            'message' => $e->getMessage()
-        ], 500);
-    }
-}
-
-    /**
-     * Manually restart bot for a chat
-     */
-    public function restartBot($subdomain, $chatId)
-    {
-        try {
-            $chat = Chat::fromTenant($this->tenant_subdomain)->findOrFail($chatId);
-            
-            $chat->update([
-                'is_bots_stoped' => 0,
-                'bot_stoped_time' => null
-            ]);
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Bot has been restarted successfully'
-            ]);
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to restart bot: ' . $e->getMessage()
             ], 500);
         }
     }

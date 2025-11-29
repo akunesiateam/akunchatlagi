@@ -10,9 +10,11 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\ThrottlesExceptions;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class SendCampaignMessageJob implements ShouldQueue
@@ -72,6 +74,7 @@ class SendCampaignMessageJob implements ShouldQueue
     {
         return [
             new WithoutOverlapping("campaign_detail:{$this->detailId}"),
+            new ThrottlesExceptions(10, 5), // Max 10 exceptions per 5 minutes
         ];
     }
 
@@ -93,16 +96,29 @@ class SendCampaignMessageJob implements ShouldQueue
         }
 
         try {
-            $detail = CampaignDetail::with([
+            // Fetch model
+            $detail = CampaignDetail::find($this->detailId);
+
+            // Check existence
+            if (! $detail || ! $detail->exists) {
+                return;
+            }
+
+            // Refresh to get latest data from database
+            $detail->refresh();
+
+            // Validate status hasn't changed (might have been processed already)
+            if ($detail->status !== 1) {
+                return; // Already processed or status changed
+            }
+
+            // NOW load relationships after refresh
+            $detail->load([
                 'campaign',
                 'campaign.whatsappTemplate' => function ($query) {
                     $query->where('tenant_id', $this->tenantId);
                 },
-            ])->find($this->detailId);
-
-            if (! $detail) {
-                return;
-            }
+            ]);
 
             $campaign = $detail->campaign;
             // $template = $campaign->whatsappTemplate;
@@ -128,7 +144,7 @@ class SendCampaignMessageJob implements ShouldQueue
             );
 
             $contact = \App\Models\Tenant\Contact::fromTenant($tenantSubdomain)
-                ->select(['id', 'phone', 'firstname', 'lastname'])
+                ->select(['id', 'phone', 'firstname', 'lastname', 'is_opted_out'])
                 ->find($detail->rel_id);
 
             if (! $contact || empty($contact->phone)) {
@@ -136,6 +152,18 @@ class SendCampaignMessageJob implements ShouldQueue
                     'status' => 0,
                     'message_status' => 'failed',
                     'response_message' => 'Contact not found or missing phone number',
+                ]);
+
+                return;
+            }
+
+            // prevent sending to opted-out contacts
+            if ($contact->is_opted_out == 1) {
+
+                $detail->update([
+                    'status' => 0,
+                    'message_status' => 'failed',
+                    'response_message' => 'User has opted-out for campaign',
                 ]);
 
                 return;
@@ -175,6 +203,9 @@ class SendCampaignMessageJob implements ShouldQueue
             } else {
                 $this->handleFailedMessage($detail, $response);
             }
+
+            // Clear memory after processing
+            DB::connection()->disableQueryLog();
         } catch (Throwable $e) {
             $this->handleFailure($e);
 

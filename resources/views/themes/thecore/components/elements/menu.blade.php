@@ -70,22 +70,22 @@ $linktextColor = $announcement->link_text_color ? "color: {$announcement->link_t
                     <li>
                         <a href="#home" x-on:click="activeSection = 'home'"
                             :class="{ 'bg-primary-500 text-white lg:bg-transparent lg:text-primary-500': activeSection === 'home' }"
-                            class="block py-2 pl-3 pr-4 rounded lg:p-0">Home</a>
+                            class="block py-2 pl-3 pr-4 rounded lg:p-0">{{ t('home') }}</a>
                     </li>
                     <li>
                         <a href="#features" x-on:click="activeSection = 'features'"
                             :class="{ 'bg-primary-500 text-white lg:bg-transparent lg:text-primary-500': activeSection === 'features' }"
-                            class="block py-2 pl-3 pr-4 rounded lg:p-0">Features</a>
+                            class="block py-2 pl-3 pr-4 rounded lg:p-0">{{ t('features') }}</a>
                     </li>
                     <li>
                         <a href="#pricing" x-on:click="activeSection = 'pricing'"
                             :class="{ 'bg-primary-500 text-white lg:bg-transparent lg:text-primary-500': activeSection === 'pricing' }"
-                            class="block py-2 pl-3 pr-4 rounded lg:p-0">Pricing</a>
+                            class="block py-2 pl-3 pr-4 rounded lg:p-0">{{ t('pricing') }}</a>
                     </li>
                     <li>
                         <a href="#faq" x-on:click="activeSection = 'faq'"
                             :class="{ 'bg-primary-500 text-white lg:bg-transparent lg:text-primary-500': activeSection === 'faq' }"
-                            class="block py-2 pl-3 pr-4 rounded lg:p-0">FAQs</a>
+                            class="block py-2 pl-3 pr-4 rounded lg:p-0">{{ t('faqs') }}</a>
                     </li>
                     <x-frontend-menu />
                 </ul>

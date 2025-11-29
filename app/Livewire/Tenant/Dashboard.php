@@ -116,9 +116,7 @@ class Dashboard extends Component
             if (Tenant::checkCurrent()) {
                 $tenant = Tenant::current();
                 if ($tenant instanceof Tenant) {
-                    // Sync session with current tenant for consistency
-                    session(['current_tenant_id' => $tenant->id]);
-
+                    // makeCurrent() already handles all context management
                     return $tenant;
                 }
             }

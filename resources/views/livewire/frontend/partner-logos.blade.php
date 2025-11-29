@@ -9,10 +9,11 @@
             <!-- Section Header -->
             <div class="text-center mb-12" data-aos="fade-up" data-aos-duration="800">
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 font-display">
-                    Trusted by Leading Companies
+                    {{ t('trusted_by_leading_companies') }}
                 </h2>
                 <p class="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-                    Join thousands of satisfied clients who trust our platform for their business growth
+                     {{ t('trusted_subtext') }}
+                   
                 </p>
             </div>
 

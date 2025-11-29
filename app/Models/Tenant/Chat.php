@@ -70,6 +70,8 @@ class Chat extends BaseModel
         'ai_message_json',
         'is_bots_stoped',
         'bot_stoped_time',
+        'session_reset_sent',
+        'session_reset_sent_at',
         'created_at',
         'updated_at',
     ];

@@ -386,7 +386,7 @@ class ContactList extends Component
 
     protected function processContactChat(Contact $contact, $filename = null)
     {
-        $this->pusher_settings = tenant_settings_by_group('pusher', $this->tenant_id);
+        $this->pusher_settings = get_settings_by_group('pusher');
         $this->whatsapp_settings = tenant_settings_by_group('whatsapp', $this->tenant_id);
 
         $template = WhatsappTemplate::where('template_id', $this->template_id)->firstOrFail();
@@ -508,7 +508,6 @@ class ContactList extends Component
             $chatMessageId = $chatMessage->id;
             Chat::fromTenant($this->tenant_subdomain)->where('id', $chat_id)->update([
                 'last_message' => $body ?? '',
-                'last_msg_time' => now(),
             ]);
             if (! empty($this->pusher_settings['app_key']) && ! empty($this->pusher_settings['app_secret']) && ! empty($this->pusher_settings['app_id']) && ! empty($this->pusher_settings['cluster'])) {
                 // Use centralized notification method with enhanced metadata

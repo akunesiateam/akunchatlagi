@@ -344,6 +344,8 @@
                                             $invoice->formatAmount($subtotal) }}</span>
                                     </div>
 
+
+
                                     @if (count($taxDetails) > 0)
 
 
@@ -397,6 +399,7 @@
                                             }
 
                                             $fee = $invoice->fee ?: 0;
+                                            // Total without coupon discount (coupon is only applied after credit deduction)
                                             $calculatedTotal = $subtotal + $taxAmount + $fee;
 
                                             // Use calculated total if different from invoice total
@@ -407,32 +410,48 @@
                                             }
                                             @endphp
 
-                                            @if (count($creditTransactions ?? []) > 0)
-                                            <div
-                                                class="flex justify-between py-3 border-t border-gray-200 dark:border-gray-600 mt-2">
-                                                <span class="text-gray-900 dark:text-white">{{ t('credit_applied')
-                                                    }}:</span>
-                                                <span class="text-gray-900 dark:text-white">{{
-                                                    $invoice->formatAmount($creditTransactions->sum('amount')) }}</span>
-                                            </div>
-                                            <div
-                                                class="flex justify-between py-3 border-t border-gray-200 dark:border-gray-600 mt-2">
-                                                <span class="text-gray-900 dark:text-white">{{ $invoice->status ==
-                                                    'paid' ? t('amount_paid') : t('amount_due') }}:</span>
-                                                @php
-                                                $final = $calculatedTotal - $creditTransactions->sum('amount');
-                                                @endphp
-                                                <span class="text-gray-900 dark:text-white">{{
-                                                    $invoice->formatAmount($final ?? 0) }}</span>
-                                            </div>
-                                            @endif
+                                            @php
+                                            // Calculate payment breakdown using actually applied credit (from debit transactions)
+                                            $creditTransactions = $invoice->getCreditTransactions();
+                                            $creditAmount = $creditTransactions->sum('amount');
+                                            $couponDiscountAfterCredit = $invoice->hasCoupon() ? $invoice->getCouponDiscountAfterCredit($creditAmount) : 0;
+                                            $finalAmountPaid = $invoice->finalPayableAmount($creditAmount);
+                                            $hasPaymentAdjustments = $creditAmount > 0 || $couponDiscountAfterCredit > 0;
+                                            @endphp
 
+                                            <!-- Total Before Discounts -->
                                             <div
                                                 class="flex justify-between py-3 font-bold border-t border-gray-200 dark:border-gray-600 mt-2">
                                                 <span class="text-gray-900 dark:text-white">{{ t('total') }}:</span>
-
                                                 <span class="text-gray-900 dark:text-white">{{ $totalDisplay }}</span>
                                             </div>
+
+                                            @if ($hasPaymentAdjustments)
+                                            <!-- Payment Adjustments Section -->
+                                            <div class="border-t border-gray-200 dark:border-gray-600 mt-3 pt-3 bg-gray-50 dark:bg-gray-900/50 -mx-6 px-6 py-4">
+                                                <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 uppercase tracking-wide">{{ t('payment_adjustments') }}</h4>
+
+                                                @if ($creditAmount > 0)
+                                                <div class="flex justify-between py-2">
+                                                    <span class="text-sm text-gray-600 dark:text-gray-300">{{ t('credit_applied') }}:</span>
+                                                    <span class="text-sm text-gray-900 dark:text-white">-{{ $invoice->formatAmount($creditAmount) }}</span>
+                                                </div>
+                                                @endif
+
+                                                @if ($couponDiscountAfterCredit > 0)
+                                                <div class="flex justify-between py-2">
+                                                    <span class="text-sm text-gray-600 dark:text-gray-300">{{ t('coupon_discount') }} ({{ $invoice->coupon_code }}):</span>
+                                                    <span class="text-sm text-success-600 dark:text-success-400 font-medium">-{{ $invoice->formatAmount($couponDiscountAfterCredit) }}</span>
+                                                </div>
+                                                @endif
+
+                                                <!-- Final Amount After All Deductions -->
+                                                <div class="flex justify-between py-3 font-bold text-lg border-t-2 border-primary-500 dark:border-primary-400 mt-3 pt-3">
+                                                    <span class="text-gray-900 dark:text-white">{{ $invoice->status == 'paid' ? t('amount_paid') : t('amount_due') }}:</span>
+                                                    <span class="text-primary-600 dark:text-primary-400">{{ $invoice->formatAmount($finalAmountPaid) }}</span>
+                                                </div>
+                                            </div>
+                                            @endif
 
                                 </div>
                             </div>

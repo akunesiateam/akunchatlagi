@@ -2,7 +2,6 @@
 
 use App\Http\Middleware\SetLocale;
 use App\Listeners\TenantCacheManager;
-use App\Multitenancy\PathTenantFinder;
 use App\Services\PlanFeatureCache;
 use Corbital\Installer\Http\Middleware\CheckDatabaseVersion;
 use Illuminate\Foundation\Application;
@@ -24,8 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
      * Configure application routing
      */
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        commands: __DIR__.'/../routes/console.php',
+        web: __DIR__ . '/../routes/web.php',
+        commands: __DIR__ . '/../routes/console.php',
         health: '/up',
         then: function () {
             // Admin routes with shared middleware
@@ -34,10 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->as('admin.')
                 ->group(function () {
                     // Group admin routes from different files
-                    require __DIR__.'/../routes/admin/admin.php';
-                    require __DIR__.'/../routes/admin/payment-settings.php';
-                    require __DIR__.'/../routes/admin/website-settings.php';
-                    require __DIR__.'/../routes/admin/system-settings.php';
+                    require __DIR__ . '/../routes/admin/admin.php';
+                    require __DIR__ . '/../routes/admin/payment-settings.php';
+                    require __DIR__ . '/../routes/admin/website-settings.php';
+                    require __DIR__ . '/../routes/admin/system-settings.php';
                 });
 
             // API routes
@@ -61,9 +60,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
             // Register tenant route files
             $tenantRoutes->group(function () {
-                require __DIR__.'/../routes/tenant/tenant.php';
-                require __DIR__.'/../routes/tenant/system-settings.php';
-                require __DIR__.'/../routes/tenant/whatsmark-settings.php';
+                require __DIR__ . '/../routes/tenant/tenant.php';
+                require __DIR__ . '/../routes/tenant/system-settings.php';
+                require __DIR__ . '/../routes/tenant/whatsmark-settings.php';
             });
         },
     )
@@ -104,6 +103,27 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(\Corbital\ModuleManager\Http\Middleware\ValidateModuleBackendRequest::class);
     })
     /**
+     * Configure scheduled tasks
+     */
+    ->withSchedule(function ($schedule) {
+        // Horizon snapshot for metrics/charts - runs every hour when queue is Redis
+        $schedule->command('horizon:snapshot')
+            ->hourly()
+            ->when(function () {
+                try {
+                    // Only run if queue connection is Redis
+                    return config('queue.default') === 'redis';
+                } catch (\Exception $e) {
+                    // Log the error but don't fail silently
+                    \Illuminate\Support\Facades\Log::warning('Failed to check queue config for Horizon snapshot: ' . $e->getMessage());
+
+                    return false;
+                }
+            })
+            ->withoutOverlapping(30) // Prevent overlapping runs, timeout after 30 minutes
+            ->onOneServer(); // Only run on one server in multi-server setup
+    })
+    /**
      * Register additional service providers
      */
     ->withProviders([
@@ -115,9 +135,6 @@ return Application::configure(basePath: dirname(__DIR__))
      * Register custom bindings in the service container
      */
     ->withBindings([
-        // Custom tenant finder implementation
-        'tenant.finder' => PathTenantFinder::class,
-
         // PlanFeatureCache singleton for consistent feature availability checks
         PlanFeatureCache::class => function () {
             return new PlanFeatureCache;

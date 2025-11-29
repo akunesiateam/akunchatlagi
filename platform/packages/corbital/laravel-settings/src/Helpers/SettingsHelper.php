@@ -2,7 +2,6 @@
 
 use Corbital\Settings\Facades\Settings;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 if (! function_exists('get_settings_classes')) {
@@ -33,9 +32,6 @@ if (! function_exists('get_settings_by_group')) {
      */
     function get_settings_by_group(string $group, mixed $default = null)
     {
-        if (! Schema::hasTable('settings')) {
-            return null;
-        }
         // Static cache for in-memory storage
         static $instances = [];
         static $lastInvalidationCheck = null;

@@ -235,6 +235,15 @@ class MessageController extends Controller
             $contact = $contactResult['contact'];
             $contactCreated = $contactResult['created'];
 
+            // Check if contact has opted out
+            if ($contact->is_opted_out) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Contact has opted out of receiving messages',
+                    'error_code' => 'CONTACT_OPTED_OUT',
+                ], 403);
+            }
+
             // Check if WhatsApp connection is configured for this tenant
             $whatsappSettings = $this->getWhatsAppConnectionSettings($tenant_id);
 
@@ -726,7 +735,6 @@ class MessageController extends Controller
             } else {
                 $chat->update([
                     'last_message' => $message,
-                    'last_msg_time' => now(),
                     'updated_at' => now(),
                 ]);
             }
@@ -1105,6 +1113,15 @@ class MessageController extends Controller
 
             $contact = $contactResult['contact'];
             $contactCreated = $contactResult['created'];
+
+            // Check if contact has opted out
+            if ($contact->is_opted_out) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Contact has opted out of receiving messages',
+                    'error_code' => 'CONTACT_OPTED_OUT',
+                ], 403);
+            }
 
             // 5. GET WHATSAPP SETTINGS
             $whatsappSettings = $this->getWhatsAppConnectionSettings($tenant_id);
@@ -1886,6 +1903,15 @@ class MessageController extends Controller
 
             $contact = $contactResult['contact'];
             $contactCreated = $contactResult['created'];
+
+            // Check if contact has opted out
+            if ($contact->is_opted_out) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Contact has opted out of receiving messages',
+                    'error_code' => 'CONTACT_OPTED_OUT',
+                ], 403);
+            }
 
             // Check if WhatsApp connection is configured for this tenant
             $whatsappSettings = $this->getWhatsAppConnectionSettings($tenant_id);

@@ -21,7 +21,6 @@ Route::middleware(['auth', SanitizeInputs::class, TenantMiddleware::class])->gro
     Route::prefix('/{subdomain}')->as('tenant.')->group(function () {
         $settings = [
             'general' => App\Livewire\Tenant\Settings\System\GeneralSettings::class,
-            'pusher' => App\Livewire\Tenant\Settings\System\PusherSettings::class,
             'miscellaneous' => App\Livewire\Tenant\Settings\System\MiscellaneousSettings::class,
         ];
 

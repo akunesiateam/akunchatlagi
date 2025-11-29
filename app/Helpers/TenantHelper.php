@@ -11,80 +11,99 @@ use Spatie\Multitenancy\Models\Tenant as BaseTenant;
 
 if (! function_exists('current_tenant')) {
     /**
-     * Get the current tenant using Spatie's optimized resolution.
+     * Get the current tenant using optimized resolution strategy.
+     *
+     * Resolution order:
+     * 1. Spatie's Tenant::current() (primary)
+     * 2. Authenticated user's tenant_id (fallback)
+     * 3. Livewire AJAX request referer parsing (essential for Livewire)
      */
     function current_tenant(): ?Tenant
     {
-        // Use a static variable to avoid repeated logic in same request
-        static $cachedTenant = null;
-
-        if ($cachedTenant !== null) {
-            return $cachedTenant;
-        }
-
         // Primary: Use Spatie's tenant resolution
         $tenant = BaseTenant::current();
 
+        // Convert BaseTenant to App\Models\Tenant if needed
         if ($tenant && get_class($tenant) === BaseTenant::class) {
             $tenant = Cache::remember(
-                "tenant_{$tenant->getKey()}",
-                now()->addMinutes(60),
+                "tenant:{$tenant->getKey()}",
+                now()->addMinutes(30),
                 fn () => Tenant::find($tenant->getKey())
             );
         }
 
-        // Fallback: Try from authenticated user's tenant_id
+        // Fallback 1: Try from authenticated user's tenant_id
         if (! $tenant && Auth::check() && Auth::user()->tenant_id) {
             $tenant = Cache::remember(
-                'tenant_'.Auth::user()->tenant_id,
-                now()->addMinutes(60),
+                'tenant:'.Auth::user()->tenant_id,
+                now()->addMinutes(30),
                 fn () => Tenant::find(Auth::user()->tenant_id)
             );
+
+            // Set as current tenant for subsequent calls
+            if ($tenant) {
+                $tenant->makeCurrent();
+            }
         }
 
-        // Essential: Handle Livewire AJAX requests by parsing referer URL
-        if (! $tenant) {
-            $subdomain = request()->route('subdomain');
+        // Fallback 2: Handle Livewire AJAX requests (CRITICAL - DO NOT REMOVE)
+        // Livewire update/message requests don't have route parameters,
+        // so we parse the referer URL to get the tenant subdomain
+        if (! $tenant && in_array(request()->path(), ['livewire/update', 'livewire/message'])) {
+            $subdomain = extractSubdomainFromLivewireRequest();
 
-            // Parse Livewire requests (essential for AJAX functionality)
-            if (! $subdomain && in_array(request()->path(), ['livewire/update', 'livewire/message']) && request()->header('referer')) {
-                $referer = request()->header('referer');
-                $parts = parse_url($referer);
-                $useTenantPrefix = config('multitenancy.use_tenant_prefix', false);
-                $tenantPrefix = config('multitenancy.tenant_prefix_name', '');
-
-                if (isset($parts['path'])) {
-                    $pathParts = explode('/', trim($parts['path'], '/'));
-
-                    if (! empty($pathParts[0])) {
-                        $subdomain = $pathParts[0];
-                    }
-
-                    // Handle tenant prefix configuration
-                    if ($useTenantPrefix && $pathParts[0] === $tenantPrefix && ! empty($pathParts[1])) {
-                        $subdomain = $pathParts[1];
-                    }
-                }
-            }
-
-            // Resolve tenant by subdomain if found
             if ($subdomain) {
                 $tenant = Cache::remember(
-                    "tenant_subdomain_{$subdomain}",
-                    now()->addMinutes(60),
+                    "tenant:subdomain:{$subdomain}",
+                    now()->addMinutes(30),
                     fn () => Tenant::where('subdomain', $subdomain)->first()
                 );
 
-                // Store tenant ID in session for persistence
+                // Set as current tenant for Livewire functionality
                 if ($tenant) {
-                    session(['current_tenant_id' => $tenant->getKey()]);
+                    $tenant->makeCurrent();
                 }
             }
         }
 
-        $cachedTenant = $tenant instanceof Tenant ? $tenant : null;
+        return $tenant instanceof Tenant ? $tenant : null;
+    }
+}
 
-        return $cachedTenant;
+if (! function_exists('extractSubdomainFromLivewireRequest')) {
+    /**
+     * Extract tenant subdomain from Livewire AJAX request referer.
+     * This is essential for Livewire to work properly in multi-tenant context.
+     */
+    function extractSubdomainFromLivewireRequest(): ?string
+    {
+        $referer = request()->header('referer');
+
+        if (! $referer) {
+            return null;
+        }
+
+        $parts = parse_url($referer);
+
+        if (! isset($parts['path'])) {
+            return null;
+        }
+
+        $pathParts = explode('/', trim($parts['path'], '/'));
+
+        if (empty($pathParts[0])) {
+            return null;
+        }
+
+        // Check if using tenant prefix pattern (e.g., /tenant/{subdomain})
+        $useTenantPrefix = config('multitenancy.use_tenant_prefix', false);
+        $tenantPrefix = config('multitenancy.tenant_prefix_name', '');
+
+        if ($useTenantPrefix && $pathParts[0] === $tenantPrefix && ! empty($pathParts[1])) {
+            return $pathParts[1];
+        }
+
+        return $pathParts[0];
     }
 }
 

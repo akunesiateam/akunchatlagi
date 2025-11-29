@@ -227,6 +227,7 @@ return [
                         'admin.privacy-policy.settings.view',
                         'admin.terms-conditions.settings.view',
                         'admin.miscellaneous.settings.view',
+                        'admin.pusher.settings.view',
                     ],
                 ],
             ],
