@@ -1,0 +1,8 @@
+[29-Nov-2025 06:38:44 UTC] PHP Fatal error:  Maximum execution time of 30 seconds exceeded in /home/akunesiadev/chat/storage/framework/views/99d3da4f1c6ef55d45df0f0a483ebb59.php on line 8
+[29-Nov-2025 06:39:12 UTC] PHP Fatal error:  Maximum execution time of 30 seconds exceeded in /home/akunesiadev/chat/vendor/nesbot/carbon/src/Carbon/CarbonTimeZone.php on line 53
+[29-Nov-2025 06:40:07 UTC] PHP Fatal error:  Maximum execution time of 30 seconds exceeded in /home/akunesiadev/chat/storage/framework/views/39158809357fb0ec797d1b3e1a1d8acd.php on line 1
+[29-Nov-2025 06:40:13 UTC] PHP Fatal error:  Maximum execution time of 30 seconds exceeded in /home/akunesiadev/chat/storage/framework/views/14db4cdce3e2d3152976d45b78b23225.php on line 1
+[29-Nov-2025 06:41:38 UTC] PHP Fatal error:  Maximum execution time of 30 seconds exceeded in /home/akunesiadev/chat/vendor/laravel/framework/src/Illuminate/View/ComponentAttributeBag.php on line 36
+[29-Nov-2025 06:42:02 UTC] PHP Fatal error:  Maximum execution time of 30 seconds exceeded in /home/akunesiadev/chat/vendor/laravel/framework/src/Illuminate/View/ComponentAttributeBag.php on line 314
+[29-Nov-2025 06:42:29 UTC] PHP Fatal error:  Maximum execution time of 30 seconds exceeded in /home/akunesiadev/chat/storage/framework/views/6fbb71905832e4f11a6eeba43c13f5be.php on line 1
+[29-Nov-2025 08:13:05 UTC] PHP Fatal error:  Maximum execution time of 30 seconds exceeded in /home/akunesiadev/chat/vendor/livewire/livewire/src/Mechanisms/ExtendBlade/ExtendedCompilerEngine.php on line 43
