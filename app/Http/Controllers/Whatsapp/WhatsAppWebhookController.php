@@ -18,6 +18,8 @@ use App\Traits\WhatsApp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;  // ← TAMBAHKAN INI
+use Illuminate\Support\Facades\Http; // ← TAMBAHKAN INI
 use Netflie\WhatsAppCloudApi\WhatsAppCloudApi;
 use stdClass;
 
@@ -31,7 +33,7 @@ class WhatsAppWebhookController extends Controller
 
     public $tenant_id = null;
 
-    public $tenant_subdoamin = null;
+    public $tenant_subdomain = null;
 
     public $pusher_settings;
 
@@ -85,73 +87,147 @@ class WhatsAppWebhookController extends Controller
      * Process incoming webhook payload
      */
     protected function processWebhookPayload()
-    {
-        $feedData = file_get_contents('php://input');
+{
+    $feedData = file_get_contents('php://input');
 
-        if (! empty($feedData)) {
-            $payload = json_decode($feedData, true);
+    if (! empty($feedData)) {
+        $payload = json_decode($feedData, true);
 
-            // Special ping message handling
-            if (isset($payload['message']) && $payload['message'] === 'ctl_whatsmark_saas_ping' && isset($payload['identifier'])) {
-                echo json_encode(['status' => true, 'message' => 'Webhook verified']);
-
-                return;
-            }
-
-            $entry = reset($payload['entry']);
-            $business_id = $entry['id'] ?? null;
-
-            $this->isTemplateWebhook($payload);
-
-            $phoneNumberId = $entry['changes'][0]['value']['metadata']['phone_number_id'] ?? null;
-            $this->tenant_id = getTenantIdFromWhatsappDetails($business_id, $phoneNumberId);
-
-            if (empty($this->tenant_id)) {
-                return;
-            }
-
-            $this->pusher_settings = get_settings_by_group('pusher');
-
-            $this->tenant_subdoamin = tenant_subdomain_by_tenant_id($this->tenant_id);
-
-            // Set the tenant ID in the trait for all subsequent API calls
-            $this->setWaTenantId($this->tenant_id);
-
-            whatsapp_log(
-                'Webhook Payload Received',
-                'info',
-                [
-                    'payload' => $feedData,
-                    'tenant_id' => $this->tenant_id,
-                ],
-                null,
-                $this->tenant_id
-            );
-
-            // Check for message ID to prevent duplicate processing
-            $message_id = $payload['entry'][0]['changes'][0]['value']['messages'][0]['id'] ?? '';
-            if (! empty($message_id)) {
-                // Check if message already processed (similar to original code)
-                $found = $this->checkMessageProcessed($message_id);
-                if ($found) {
-                    whatsapp_log(
-                        'Duplicate Message Detected',
-                        'warning',
-                        [
-                            'message_id' => $message_id,
-                        ]
-                    );
-
-                    return;
-                }
-            }
-
-            // Process the payload
-            $this->processPayloadData($payload);
-
-            // Forward webhook data if enabled
-            $this->forwardWebhookData($feedData, $payload);
+        // Special ping message handling
+        if (isset($payload['message']) && $payload['message'] === 'ctl_whatsmark_saas_ping' && isset($payload['identifier'])) {
+            echo json_encode(['status' => true, 'message' => 'Webhook verified']);
+            return;
         }
+
+        // ✅ VALIDASI STRUKTUR PAYLOAD DULU
+        if (empty($payload['entry']) || !is_array($payload['entry'])) {
+            Log::warning('Invalid webhook payload: no entry', ['payload' => $payload]);
+            return;
+        }
+
+        // Extract business info first for tenant validation
+        $entry = reset($payload['entry']);
+        
+        // ✅ VALIDASI CHANGES EXISTS
+        if (empty($entry['changes']) || !is_array($entry['changes'])) {
+            Log::warning('Invalid webhook payload: no changes', ['entry' => $entry]);
+            return;
+        }
+        
+        // ✅ VALIDASI VALUE EXISTS SEBELUM AKSES
+        $firstChange = $entry['changes'][0] ?? null;
+        if (empty($firstChange['value']) || !is_array($firstChange['value'])) {
+            Log::warning('Invalid webhook payload: no value in changes', [
+                'entry_id' => $entry['id'] ?? null,
+                'changes' => $entry['changes']
+            ]);
+            return;
+        }
+        
+        $business_id = $entry['id'] ?? null;
+        $phoneNumberId = $firstChange['value']['metadata']['phone_number_id'] ?? null;
+        
+        // Get tenant ID early - this is our main filter
+        $this->tenant_id = getTenantIdFromWhatsappDetails($business_id, $phoneNumberId);
+        
+        // Early return if no valid tenant found - NO LOGGING for invalid tenants
+        if (empty($this->tenant_id)) {
+            Log::info('Webhook received for invalid tenant', [
+                'business_id' => $business_id,
+                'phone_number_id' => $phoneNumberId
+            ]);
+            return;
+        }
+        
+        // Get tenant subdomain for additional validation
+        $this->tenant_subdomain = tenant_subdomain_by_tenant_id($this->tenant_id);
+        
+        // Additional check: ensure tenant has valid subdomain
+        if (empty($this->tenant_subdomain)) {
+            Log::warning('Tenant found but no subdomain configured', [
+                'tenant_id' => $this->tenant_id,
+                'business_id' => $business_id,
+                'phone_number_id' => $phoneNumberId
+            ]);
+            return;
+        }
+        
+        // NOW we do detailed logging - only for valid tenants with subdomain
+        $payloadForLog = $this->sanitizePayloadForLogging($payload);
+        Log::info('=== WEBHOOK PAYLOAD RECEIVED (VALID TENANT) === ' . json_encode($payloadForLog, JSON_PRETTY_PRINT));
+        
+        // Check if this is a template webhook
+        $this->isTemplateWebhook($payload);
+        
+        // Set pusher settings for valid tenant
+        $this->pusher_settings = tenant_settings_by_group('pusher', $this->tenant_id);
+        
+        // Set the tenant ID in the trait for all subsequent API calls
+        $this->setWaTenantId($this->tenant_id);
+        
+        // Log webhook received for valid tenant
+        whatsapp_log(
+            'Webhook Payload Received',
+            'info',
+            [
+                'payload' => $feedData,
+                'tenant_id' => $this->tenant_id,
+                'tenant_subdomain' => $this->tenant_subdomain,
+            ],
+            null,
+            $this->tenant_id
+        );
+
+        // ✅ CEK MESSAGE ID DENGAN VALIDASI
+        $message_id = '';
+        if (isset($firstChange['value']['messages'][0]['id'])) {
+            $message_id = $firstChange['value']['messages'][0]['id'];
+        }
+        
+        if (! empty($message_id)) {
+            // Check if message already processed
+            $found = $this->checkMessageProcessed($message_id);
+            if ($found) {
+                whatsapp_log(
+                    'Duplicate Message Detected',
+                    'warning',
+                    ['message_id' => $message_id]
+                );
+                return;
+            }
+        }
+
+        // Process the payload
+        $this->processPayloadData($payload);
+
+        // Forward webhook data if enabled
+        $this->forwardWebhookData($feedData, $payload);
+    }
+}
+    
+     /**
+     * Sanitize payload for logging (remove sensitive data)
+     */
+    private function sanitizePayloadForLogging(array $payload): array
+    {
+        // Create deep copy
+        $sanitized = json_decode(json_encode($payload), true);
+        
+        // Remove or mask sensitive fields
+        array_walk_recursive($sanitized, function (&$value, $key) {
+            $sensitiveFields = ['token', 'password', 'secret', 'key'];
+            
+            if (in_array(strtolower($key), $sensitiveFields)) {
+                $value = '***REDACTED***';
+            }
+            
+            // Truncate very long text content for logs
+            if ($key === 'body' && is_string($value) && strlen($value) > 500) {
+                $value = substr($value, 0, 500) . '... [TRUNCATED]';
+            }
+        });
+        
+        return $sanitized;
     }
 
     /**
@@ -160,7 +236,7 @@ class WhatsAppWebhookController extends Controller
     protected function checkMessageProcessed(string $messageId): bool
     {
         // Implement logic to check if message is already in database
-        return \DB::table($this->tenant_subdoamin.'_chat_messages')
+        return \DB::table($this->tenant_subdomain.'_chat_messages')
             ->where('message_id', $messageId)
             ->exists();
     }
@@ -214,7 +290,7 @@ class WhatsAppWebhookController extends Controller
 
                 do_action('before_process_bot_sending', [
                     'tenant_id' => $this->tenant_id,
-                    'tenant_subdomain' => $this->tenant_subdoamin,
+                    'tenant_subdomain' => $this->tenant_subdomain,
                     'contact' => $contact,
                     'message' => $message,
                     'trigger_msg' => $trigger_msg,
@@ -235,7 +311,7 @@ class WhatsAppWebhookController extends Controller
                         $reply_type = 3;
                     }
 
-                    $current_interaction = Chat::fromTenant($this->tenant_subdoamin)->where([
+                    $current_interaction = Chat::fromTenant($this->tenant_subdomain)->where([
                         'type' => $contact_data->type,
                         'type_id' => $contact_data->id,
                         'wa_no' => $message_data['metadata']['display_phone_number'],
@@ -243,14 +319,14 @@ class WhatsAppWebhookController extends Controller
                     ])->first();
 
                     if ($current_interaction->is_bots_stoped == 1 && (time() > strtotime($current_interaction->bot_stoped_time) + ((int) get_tenant_setting_by_tenant_id('whats-mark', 'restart_bots_after', null, $this->tenant_id) * 3600))) {
-                        Chat::fromTenant($this->tenant_subdoamin)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => null, 'is_bots_stoped' => '0']);
+                        Chat::fromTenant($this->tenant_subdomain)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => null, 'is_bots_stoped' => '0']);
                         $this->is_bot_stop = false;
                     } elseif ($current_interaction->is_bots_stoped == 1) {
                         $this->is_bot_stop = true;
                     }
 
                     if (collect(get_tenant_setting_by_tenant_id('whats-mark', 'stop_bots_keyword', null, $this->tenant_id))->first(fn ($keyword) => str_contains($trigger_msg, $keyword))) {
-                        Chat::fromTenant($this->tenant_subdoamin)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => date('Y-m-d H:i:s'), 'is_bots_stoped' => '1']);
+                        Chat::fromTenant($this->tenant_subdomain)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => date('Y-m-d H:i:s'), 'is_bots_stoped' => '1']);
                         $this->is_bot_stop = true;
                     }
 
@@ -299,7 +375,7 @@ class WhatsAppWebhookController extends Controller
                             }
                             if (($message['reply_type'] == 1 && in_array(strtolower($trigger_msg), array_map('trim', array_map('strtolower', explode(',', $message['trigger']))))) || ($message['reply_type'] == 2 && ! empty(array_filter(explode(',', $message['trigger']), fn ($word) => mb_stripos($trigger_msg, trim($word)) !== false))) || ($message['reply_type'] == 3 && $this->is_first_time) || $message['reply_type'] == 4) {
 
-                                do_action('before_process_messagebot_sending_message', ['message' => $message, 'trigger_msg' => $trigger_msg, 'contact_number' => $contact_number, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdoamin]);
+                                do_action('before_process_messagebot_sending_message', ['message' => $message, 'trigger_msg' => $trigger_msg, 'contact_number' => $contact_number, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdomain]);
 
                                 // Use the tenant ID when sending the message
                                 $response = $this->setWaTenantId($this->tenant_id)->sendMessage($contact_number, $message, $metadata['phone_number_id']);
@@ -341,13 +417,21 @@ class WhatsAppWebhookController extends Controller
         $wa_no_id = $metadata['phone_number_id'];
         $messageType = $messageEntry['type'];
         $message_id = $messageEntry['id'];
-        $ref_message_id = isset($messageEntry['context']) ? $messageEntry['context']['id'] ?? '' : '';
+        
+         // Penanganan reference message ID dengan cara lebih eksplisit
+        $ref_message_id = '';
+        if (isset($messageEntry['context']) && isset($messageEntry['context']['id'])) {
+            $ref_message_id = $messageEntry['context']['id'];
+        }
 
         // Determine if this is a first-time interaction
         $this->is_first_time = $this->isFirstTimeInteraction($from);
 
         // Extract message content based on type
         $message = $this->extractMessageContent($messageEntry, $messageType);
+        
+        // Deteksi forwarded message (fitur baru)
+        $isForwarded = isset($messageEntry['context']['forwarded']) && $messageEntry['context']['forwarded'] === true;
 
         // if user send message for opt out
         $settings = tenant_settings_by_group('whats-mark', $this->tenant_id);
@@ -371,7 +455,7 @@ class WhatsAppWebhookController extends Controller
             // OPT OUT
             if (in_array($msg, $optOutKeywords, true) && ! $contact_data->is_opted_out) {
 
-                Contact::fromTenant($this->tenant_subdoamin)
+                Contact::fromTenant($this->tenant_subdomain)
                     ->where('phone', $contact_data->phone)
                     ->update([
                         'is_opted_out' => 1,
@@ -399,7 +483,7 @@ class WhatsAppWebhookController extends Controller
             // OPT IN
             if (in_array($msg, $optInKeywords, true) && $contact_data->is_opted_out) {
 
-                Contact::fromTenant($this->tenant_subdoamin)
+                Contact::fromTenant($this->tenant_subdomain)
                     ->where('phone', $contact_data->phone)
                     ->update(['is_opted_out' => 0]);
 
@@ -421,7 +505,9 @@ class WhatsAppWebhookController extends Controller
             }
         }
 
-        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video') {
+        // Retrieve media URL for specific media types
+        $attachment = '';
+        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video' || $messageType == 'sticker') {
             $media_id = $messageEntry[$messageType]['id'];
             // Make sure to use setWaTenantId when retrieving URL
             $attachment = $this->setWaTenantId($this->tenant_id)->retrieveUrl($media_id);
@@ -463,7 +549,7 @@ class WhatsAppWebhookController extends Controller
             $attachment ?? ''
         );
 
-        Chat::fromTenant($this->tenant_subdoamin)->where('id', $interaction_id)->update([
+        Chat::fromTenant($this->tenant_subdomain)->where('id', $interaction_id)->update([
             'last_message' => $message,
             'last_msg_time' => now(),
             'updated_at' => now(),
@@ -478,7 +564,7 @@ class WhatsAppWebhookController extends Controller
 
         if (!empty($replyText)) {
               // store message
-                $chatMessage = ChatMessage::fromTenant($this->tenant_subdoamin)->create([
+                $chatMessage = ChatMessage::fromTenant($this->tenant_subdomain)->create([
                     'tenant_id' => $this->tenant_id,
                     'interaction_id' => $interaction_id,
                     'sender_id' => $wa_no, // outgoing
@@ -492,7 +578,7 @@ class WhatsAppWebhookController extends Controller
                 ]);
             
                 // update chat last message
-                Chat::fromTenant($this->tenant_subdoamin)->where('id', $interaction_id)->update([
+                Chat::fromTenant($this->tenant_subdomain)->where('id', $interaction_id)->update([
                     'last_message' => $replyText,
                     'updated_at' => now()
                 ]);
@@ -520,20 +606,22 @@ class WhatsAppWebhookController extends Controller
         $wa_no_id = $metadata['phone_number_id'];
         $messageType = $messageEntry['type'];
         $message_id = $messageEntry['id'];
-        $ref_message_id = isset($messageEntry['context']) ? $messageEntry['context']['id'] ?? '' : '';
+        $ref_message_id = isset($messageEntry['context']) ? $messageEntry['context']['id'] : '';
 
         // Extract message content based on type
         $message = $this->extractMessageContent($messageEntry, $messageType);
-        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video') {
+        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video' || $messageType == 'sticker') {
             $media_id = $messageEntry[$messageType]['id'];
             // Make sure to use setWaTenantId when retrieving URL
             $attachment = $this->setWaTenantId($this->tenant_id)->retrieveUrl($media_id);
         }
 
-        $chat = Chat::fromTenant($this->tenant_subdoamin)->where('receiver_id', $to)->where('wa_no', $wa_no)->where('wa_no_id', $wa_no_id)->where('tenant_id', $this->tenant_id)->first();
+        $chat = Chat::fromTenant($this->tenant_subdomain)->where('receiver_id', $to)->where('wa_no', $wa_no)->where('wa_no_id', $wa_no_id)->where('tenant_id', $this->tenant_id)->first();
 
         if (! $chat) {
-            $chat = Chat::fromTenant($this->tenant_subdoamin)->createOrUpdate([
+            //$chat = Chat::fromTenant($this->tenant_subdomain)->createOrUpdate
+            $chat = Chat::fromTenant($this->tenant_subdomain)->firstOrCreate
+            ([
                 'receiver_id' => $to,
                 'wa_no' => $wa_no,
                 'wa_no_id' => $wa_no_id,
@@ -553,10 +641,10 @@ class WhatsAppWebhookController extends Controller
             $chat->id,
             $message,
             $this->tenant_id,
-            $this->tenant_subdoamin
+            $this->tenant_subdomain
         );
 
-        $query = Chat::fromTenant($this->tenant_subdoamin);
+        $query = Chat::fromTenant($this->tenant_subdomain);
         if (! empty($type_id)) {
             $query->where('type', $chat->type)
                 ->where('type_id', $type_id);
@@ -567,7 +655,7 @@ class WhatsAppWebhookController extends Controller
         $interaction_id = $this->createOrUpdateInteraction($to, $existing_interaction->wa_no, $existing_interaction->wa_no_id, $existing_interaction->name, $message ?? 'Media message', '', false);
 
         // Save messages to database
-        $message_id = ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId([
+        $message_id = ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId([
             'interaction_id' => $interaction_id,
             'sender_id' => $existing_interaction->wa_no,
             'message' => $message,
@@ -596,36 +684,175 @@ class WhatsAppWebhookController extends Controller
      */
     protected function isFirstTimeInteraction(string $from): bool
     {
-        return ! (bool) Chat::fromTenant($this->tenant_subdoamin)->where('receiver_id', $from)->count();
+        return ! (bool) Chat::fromTenant($this->tenant_subdomain)->where('receiver_id', $from)->count();
     }
 
-    /**
-     * Extract message content based on type
-     */
-    protected function extractMessageContent(array $messageEntry, string $messageType): string
-    {
-        switch ($messageType) {
-            case 'text':
-                return $messageEntry['text']['body'] ?? '';
-            case 'interactive':
-                return $messageEntry['interactive']['button_reply']['title'] ?? $messageEntry['interactive']['list_reply']['title'] ?? '';
-            case 'button':
-                return $messageEntry['button']['text'] ?? '';
-            case 'reaction':
-                return json_decode('"'.($messageEntry['reaction']['emoji'] ?? '').'"', false, 512, JSON_UNESCAPED_UNICODE);
-            case 'image':
-            case 'audio':
-            case 'document':
-            case 'video':
-                return $messageEntry[$messageType]['caption'] ?? $messageType;
-            case 'contacts':
-                return json_encode($messageEntry['contacts']);
-            case 'location':
-                return json_encode($messageEntry['location']);
-            default:
-                return 'Unknown message type';
+     /**
+ * Extract message content based on type
+ */
+protected function extractMessageContent(array $messageEntry, string $messageType): string
+{
+    // Cek forwarded message di semua tipe
+    $isForwarded = isset($messageEntry['context']['forwarded']) && $messageEntry['context']['forwarded'] === true;
+    $isFrequentlyForwarded = isset($messageEntry['context']['frequently_forwarded']) && $messageEntry['context']['frequently_forwarded'] === true;
+
+    $content = '';
+
+    switch ($messageType) {
+        case 'text':
+            $content = $messageEntry['text']['body'] ?? '';
+            break;
+
+        case 'interactive':
+            $content = $messageEntry['interactive']['button_reply']['title'] ?? '';
+            break;
+
+        case 'button':
+            $content = $messageEntry['button']['text'] ?? '';
+            break;
+
+        case 'reaction':
+            $content = json_decode('"'.($messageEntry['reaction']['emoji'] ?? '').'"', false, 512, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'image':
+            $content = $messageEntry['image']['caption'] ?? 'image';
+            break;
+
+        case 'audio':
+            $content = 'audio';
+            break;
+
+        case 'document':
+            $caption = $messageEntry['document']['caption'] ?? '';
+            $filename = $messageEntry['document']['filename'] ?? '';
+            if ($caption) {
+                $content = $caption;
+            } elseif ($filename) {
+                $content = $filename;
+            } else {
+                $content = 'document';
+            }
+            break;
+
+        case 'video':
+            $content = $messageEntry['video']['caption'] ?? 'video';
+            break;
+
+        case 'location':
+            $latitude = $messageEntry['location']['latitude'] ?? '';
+            $longitude = $messageEntry['location']['longitude'] ?? '';
+            $name = $messageEntry['location']['name'] ?? '';
+            $address = $messageEntry['location']['address'] ?? '';
+
+            $locationParts = [];
+            if ($name) $locationParts[] = $name;
+            if ($address) $locationParts[] = $address;
+            $locationParts[] = "$latitude,$longitude";
+
+            $content = implode(' - ', $locationParts);
+            break;
+
+        case 'contacts':
+            $contact = $messageEntry['contacts'][0] ?? [];
+            $name = $contact['name']['formatted_name'] ?? '';
+            $phone = $contact['phones'][0]['phone'] ?? '';
+            if ($name && $phone) {
+                $content = "$name - $phone";
+            } elseif ($name) {
+                $content = $name;
+            } elseif ($phone) {
+                $content = $phone;
+            } else {
+                $content = 'contact';
+            }
+            break;
+
+        case 'sticker':
+            $animated = $messageEntry['sticker']['animated'] ?? false;
+            $stickerId = $messageEntry['sticker']['id'] ?? '';
+            
+            if ($animated) {
+                $content = '🎬 Animated Sticker';
+            } else {
+                $content = '📎 Sticker';
+            }
+            
+            break;
+
+        // ✅ Tambahan baru: dukungan pesan ORDER via katalog + trigger "ORDER:"
+        case 'order':
+            try {
+                $order = $messageEntry['order'] ?? [];
+                $items = [];
+                $grandTotal = 0;
+                $catalogId = $order['catalog_id'] ?? null;
+        
+                if (!empty($order['product_items'])) {
+                    foreach ($order['product_items'] as $i => $item) {
+                        $retailerId = $item['product_retailer_id'] ?? null;
+        
+                        // 🔹 Ambil nama produk dari Meta Catalog API jika bisa
+                        $productName = $this->getCatalogProductName($catalogId, $retailerId)
+                            ?? ($item['product_name']
+                                ?? ($retailerId ? 'Produk ' . $retailerId : '-'));
+        
+                        $qty = $item['quantity'] ?? 1;
+                        $price = $item['item_price'] ?? 0;
+                        $currency = $item['currency'] ?? 'IDR';
+                        $subtotal = $price * $qty;
+                        $grandTotal += $subtotal;
+        
+                        $items[] = sprintf("%d. %s x%d = Rp%s",
+                            $i + 1,
+                            $productName,
+                            $qty,
+                            number_format($subtotal, 0, ',', '.')
+                        );
+                    }
+                }
+        
+                // 🔹 Tentukan mata uang & buat kode unik order
+                $currency = $order['product_items'][0]['currency'] ?? 'IDR';
+                $orderCode = 'ORD-' . date('ymd') . '-' . strtoupper(Str::random(4));
+        
+                // 🔹 Susun pesan final dengan format nota mini
+                $contentBody =
+                    "🛍️ Pesanan dari katalog\n\n" .
+                    implode("\n", $items) .
+                    "\n-------------------------\n" .
+                    "Total: Rp" . number_format($grandTotal, 0, ',', '.') . " {$currency}" .
+                    "\nOrder ID: {$orderCode}";
+        
+                // 🔹 Tambahkan kata pemicu agar bisa dipakai di On Exact Match
+                // Pemicu: "ORDER"
+                // 🔹 Tambahkan kata pemicu agar bisa dipakai di On Exact Match
+        $content = "ORDER\n" . $contentBody;
+        
+        // 🔹 Paksa tipe pesan jadi text supaya bisa diproses bot
+        $messageType = 'text';
+    
+        } catch (\Throwable $e) {
+            Log::error('Gagal memproses pesan order: ' . $e->getMessage());
+            $content = 'Pesanan dari katalog (tidak dapat diproses sepenuhnya).';
         }
+        break;
+
+        default:
+            $content = 'Unknown message type';
+            break;
     }
+
+    // Tambah prefix forwarded jika perlu
+    if ($isFrequentlyForwarded) {
+        return "[VIRAL] " . $content;
+    } elseif ($isForwarded) {
+        return "[FORWARDED] " . $content;
+    }
+
+    return $content;
+}
+
 
     /**
      * Create or update interaction
@@ -643,11 +870,11 @@ class WhatsAppWebhookController extends Controller
         $contact_data = $this->getContactData($from, $name);
 
         // Check if a record with the same receiver_id exists
-        $existingChat = Chat::fromTenant($this->tenant_subdoamin)->where('tenant_id', $this->tenant_id)->where('receiver_id', $from)->first();
+        $existingChat = Chat::fromTenant($this->tenant_subdomain)->where('tenant_id', $this->tenant_id)->where('receiver_id', $from)->first();
 
         if ($existingChat) {
 
-            Chat::fromTenant($this->tenant_subdoamin)->where('id', $existingChat->id)->update([
+            Chat::fromTenant($this->tenant_subdomain)->where('id', $existingChat->id)->update([
                 'wa_no' => $wa_no,
                 'wa_no_id' => $wa_no_id,
                 'name' => $name,
@@ -667,7 +894,7 @@ class WhatsAppWebhookController extends Controller
             $featureService = app(\App\Services\FeatureService::class);
 
             // Create new chat first to get the chat ID for guest type
-            $newChatId = Chat::fromTenant($this->tenant_subdoamin)->insertGetId([
+            $newChatId = Chat::fromTenant($this->tenant_subdomain)->insertGetId([
                 'receiver_id' => $from,
                 'wa_no' => $wa_no,
                 'wa_no_id' => $wa_no_id,
@@ -689,7 +916,7 @@ class WhatsAppWebhookController extends Controller
                 $identifierForCheck = ($conversationType === 'guest') ? $newChatId : ($contact_data->id ?? '');
 
                 if (! empty($identifierForCheck)) {
-                    if ($featureService->checkConversationLimit($identifierForCheck, $this->tenant_id, $this->tenant_subdoamin, $conversationType)) {
+                    if ($featureService->checkConversationLimit($identifierForCheck, $this->tenant_id, $this->tenant_subdomain, $conversationType)) {
                         // Log the limit but don't block incoming messages (customer service)
                         whatsapp_log('Conversation limit reached for new interaction', 'warning', [
                             'tenant_id' => $this->tenant_id,
@@ -699,7 +926,7 @@ class WhatsAppWebhookController extends Controller
                         ], null, $this->tenant_id);
                     } else {
                         // Track new conversation usage
-                        $featureService->trackNewConversation($identifierForCheck, $this->tenant_id, $this->tenant_subdoamin, $conversationType);
+                        $featureService->trackNewConversation($identifierForCheck, $this->tenant_id, $this->tenant_subdomain, $conversationType);
                     }
                 }
             }
@@ -721,7 +948,7 @@ class WhatsAppWebhookController extends Controller
         array $metadata,
         string $url = ''
     ) {
-        return ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId([
+        return ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId([
             'interaction_id' => $interaction_id,
             'sender_id' => $from,
             'message_id' => $message_id,
@@ -768,7 +995,7 @@ class WhatsAppWebhookController extends Controller
                         ]);
 
                     // Find chat message with tenant filtering for accuracy
-                    $message = ChatMessage::fromTenant($this->tenant_subdoamin)
+                    $message = ChatMessage::fromTenant($this->tenant_subdomain)
                         ->where('message_id', $id)
                         ->where('tenant_id', $this->tenant_id)
                         ->first();
@@ -787,7 +1014,7 @@ class WhatsAppWebhookController extends Controller
                     }
                 });
 
-                do_action('whatsapp_webhook_status_updated', ['status' => $status, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdoamin]);
+                do_action('whatsapp_webhook_status_updated', ['status' => $status, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdomain]);
             } catch (\Exception $e) {
                 // Log any transaction failures that might cause count discrepancies
                 whatsapp_log(
@@ -863,7 +1090,7 @@ class WhatsAppWebhookController extends Controller
      */
     protected function getContactData(string $from, string $name): object
     {
-        $contact = Contact::fromTenant($this->tenant_subdoamin)->where('tenant_id', $this->tenant_id)
+        $contact = Contact::fromTenant($this->tenant_subdomain)->where('tenant_id', $this->tenant_id)
             ->where(function ($query) use ($from) {
                 $query->where('phone', $from)
                     ->orWhere('phone', '+'.$from);
@@ -874,7 +1101,7 @@ class WhatsAppWebhookController extends Controller
         }
         if (get_tenant_setting_by_tenant_id('whats-mark', 'auto_lead_enabled', null, $this->tenant_id) && ! $this->featureLimitChecker->hasReachedLimit('contacts', Contact::class, [], true, $this->tenant_id)) {
             $name = explode(' ', $name);
-            $contact = Contact::fromTenant($this->tenant_subdoamin)->create([
+            $contact = Contact::fromTenant($this->tenant_subdomain)->create([
                 'firstname' => $name[0],
                 'lastname' => count($name) > 1 ? implode(' ', array_slice($name, 1)) : '',
                 'type' => 'lead',
@@ -950,7 +1177,7 @@ class WhatsAppWebhookController extends Controller
                 'is_read' => '1',
             ];
 
-            $message_id = ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId($chat_message);
+            $message_id = ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId($chat_message);
 
             if ($this->isPusherConfigured()) {
                 // Use centralized notification method with enhanced metadata
@@ -1035,7 +1262,7 @@ class WhatsAppWebhookController extends Controller
             'is_read' => '1',
         ];
 
-        $message_id = ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId($chat_message);
+        $message_id = ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId($chat_message);
 
         if ($this->isPusherConfigured()) {
             // Use centralized notification method with enhanced metadata
@@ -1052,7 +1279,7 @@ class WhatsAppWebhookController extends Controller
      */
     public function send_message(Request $request, $subdomain)
     {
-        $this->tenant_subdoamin = $subdomain;
+        $this->tenant_subdomain = $subdomain;
 
         try {
             // Get request data
@@ -1061,7 +1288,7 @@ class WhatsAppWebhookController extends Controller
             $type_id = $request->input('type_id');
 
             // Find existing chat/interaction
-            $query = Chat::fromTenant($this->tenant_subdoamin);
+            $query = Chat::fromTenant($this->tenant_subdomain);
             if (! empty($type_id)) {
                 $query->where('type', $type)
                     ->where('type_id', $type_id);
@@ -1093,14 +1320,14 @@ class WhatsAppWebhookController extends Controller
                     $identifierForCheck,
                     $type,
                     $this->tenant_id,
-                    $this->tenant_subdoamin
+                    $this->tenant_subdomain
                 );
 
                 if ($conversationTrackingNeeded) {
                     $identifierForTracking = $identifierForCheck;
 
                     // Check conversation limit before sending
-                    if ($featureService->checkConversationLimit($identifierForCheck, $this->tenant_id, $this->tenant_subdoamin, $type)) {
+                    if ($featureService->checkConversationLimit($identifierForCheck, $this->tenant_id, $this->tenant_subdomain, $type)) {
                         whatsapp_log('DEBUG: Conversation limit reached - BLOCKING MESSAGE', 'warning', [
                             'identifier' => $identifierForCheck,
                             'type' => $type,
@@ -1119,11 +1346,22 @@ class WhatsAppWebhookController extends Controller
 
             $to = $existing_interaction->receiver_id;
             $message = strip_tags($request->input('message', ''));
+            
+            // --- CUSTOM @AkunChat MODUL SIGNMODULES --- //
+            $filter_data = [
+                'message' => $message,
+                'user_id' => auth()->id(),
+                'tenant_id' => $this->tenant_id
+            ];
+            $filtered_data = apply_filters('whatsapp.message.before_send', $filter_data);
+            $message = $filtered_data['message']; // Ambil kembali pesan yang sudah dimodifikasi
+            
+            // --- END CUSTOM MODUL SIGNMODULES --- //
 
             // Parse message text for contacts or leads
             $user_id = null;
             if ($type == 'customer' || $type == 'lead') {
-                $contact = Contact::fromTenant($this->tenant_subdoamin)->find($type_id);
+                $contact = Contact::fromTenant($this->tenant_subdomain)->find($type_id);
                 $user_id = $contact->user_id ?? null;
             }
 
@@ -1188,31 +1426,90 @@ class WhatsAppWebhookController extends Controller
             try {
                 foreach ($message_data as $data) {
                     $response = null;
-
-                    switch ($data['type']) {
-                        case 'text':
-                            $response = $whatsapp_cloud_api->sendTextMessage($to, $data['text']['body']);
-                            break;
-                        case 'audio':
-                            $response = $whatsapp_cloud_api->sendAudio($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['audio']['url']));
-                            break;
-                        case 'image':
-                            $response = $whatsapp_cloud_api->sendImage($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['image']['url']));
-                            break;
-                        case 'video':
-                            $response = $whatsapp_cloud_api->sendVideo($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['video']['url']));
-                            break;
-                        case 'document':
-                            $fileName = basename($data['document']['url']);
-                            $response = $whatsapp_cloud_api->sendDocument($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['document']['url']), $fileName, '');
-                            break;
-                        default:
-                            continue 2;
+                
+                    // kalau ada ref_message_id → bypass ke payload manual
+                    if (!empty($ref_message_id)) {
+                        $payload = [
+                            'messaging_product' => 'whatsapp',
+                            'to' => $to,
+                            'type' => $data['type'],
+                        ];
+                
+                        switch ($data['type']) {
+                            case 'text':
+                                $payload['text'] = [
+                                    'body' => $data['text']['body'],
+                                    'preview_url' => true,
+                                ];
+                                break;
+                
+                            case 'audio':
+                                $payload['audio'] = [
+                                    'link' => $data['audio']['url'],
+                                ];
+                                break;
+                
+                            case 'image':
+                                $payload['image'] = [
+                                    'link' => $data['image']['url'],
+                                ];
+                                break;
+                
+                            case 'video':
+                                $payload['video'] = [
+                                    'link' => $data['video']['url'],
+                                ];
+                                break;
+                
+                            case 'document':
+                                $payload['document'] = [
+                                    'link' => $data['document']['url'],
+                                    'filename' => basename($data['document']['url']),
+                                ];
+                                break;
+                
+                            default:
+                                continue 2;
+                        }
+                
+                        // inject context untuk reply
+                        $payload['context'] = ['message_id' => $ref_message_id];
+                
+                        $url = self::getBaseUrl() . $this->getPhoneID() . '/messages';
+                        $response = Http::withToken($this->getToken())->post($url, $payload);
+                        $response_data = $response->json();
+                
+                    } else {
+                        // === MODE NORMAL, tanpa reply === //
+                        switch ($data['type']) {
+                            case 'text':
+                                $response = $whatsapp_cloud_api->sendTextMessage($to, $data['text']['body']);
+                                break;
+                            case 'audio':
+                                $response = $whatsapp_cloud_api->sendAudio($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['audio']['url']));
+                                break;
+                            case 'image':
+                                $response = $whatsapp_cloud_api->sendImage($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['image']['url']));
+                                break;
+                            case 'video':
+                                $response = $whatsapp_cloud_api->sendVideo($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['video']['url']));
+                                break;
+                            case 'document':
+                                $fileName = basename($data['document']['url']);
+                                $response = $whatsapp_cloud_api->sendDocument(
+                                    $to,
+                                    new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['document']['url']),
+                                    $fileName,
+                                    ''
+                                );
+                                break;
+                            default:
+                                continue 2;
+                        }
+                
+                        $response_data = $response->decodedBody();
                     }
-
-                    // Decode the response JSON
-                    $response_data = $response->decodedBody();
-
+                
                     // Store the message ID if available
                     if (isset($response_data['messages'][0]['id'])) {
                         $messageIds[] = $response_data['messages'][0]['id'];
@@ -1234,7 +1531,7 @@ class WhatsAppWebhookController extends Controller
                     $id,
                     $message,
                     $this->tenant_id,
-                    $this->tenant_subdoamin
+                    $this->tenant_subdomain
                 );
 
                 // 2. Track conversation if needed (NEW CONVERSATION)
@@ -1243,7 +1540,7 @@ class WhatsAppWebhookController extends Controller
                         $identifierForTracking,
                         $type,
                         $this->tenant_id,
-                        $this->tenant_subdoamin
+                        $this->tenant_subdomain
                     );
                 }
 
@@ -1252,7 +1549,7 @@ class WhatsAppWebhookController extends Controller
 
                 // Save messages to database
                 foreach ($message_data as $index => $data) {
-                    $message_id = ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId([
+                    $message_id = ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId([
                         'interaction_id' => $interaction_id,
                         'sender_id' => $existing_interaction->wa_no,
                         'message' => $message,
@@ -1453,7 +1750,7 @@ class WhatsAppWebhookController extends Controller
             $contact_data = $this->getContactData($contact_number, $contact['profile']['name'] ?? '');
 
             // Get current interaction/chat
-            $current_interaction = Chat::fromTenant($this->tenant_subdoamin)->where([
+            $current_interaction = Chat::fromTenant($this->tenant_subdomain)->where([
                 'receiver_id' => $contact_number,
                 'wa_no' => $metadata['display_phone_number'],
             ])->first();
@@ -1467,7 +1764,7 @@ class WhatsAppWebhookController extends Controller
                     $trigger_msg,
                     ''
                 );
-                $current_interaction = Chat::fromTenant($this->tenant_subdoamin)->find($interaction_id);
+                $current_interaction = Chat::fromTenant($this->tenant_subdomain)->find($interaction_id);
             }
 
             // Check if bot is stopped
@@ -1571,7 +1868,7 @@ class WhatsAppWebhookController extends Controller
             $restart_after = (int) get_setting('whats-mark.restart_bots_after');
             if ($restart_after > 0 && time() > strtotime($interaction->bot_stoped_time) + ($restart_after * 3600)) {
                 // Restart the bot
-                Chat::fromTenant($this->tenant_subdoamin)->where('id', $interaction->id)->update([
+                Chat::fromTenant($this->tenant_subdomain)->where('id', $interaction->id)->update([
                     'bot_stoped_time' => null,
                     'is_bots_stoped' => '0',
                 ]);
@@ -1585,7 +1882,7 @@ class WhatsAppWebhookController extends Controller
         // Check if this message should stop the bot
         $stopKeywords = collect(get_setting('whats-mark.stop_bots_keyword'));
         if ($stopKeywords->first(fn ($keyword) => str_contains(strtolower($trigger_msg), strtolower($keyword)))) {
-            Chat::fromTenant($this->tenant_subdoamin)->where('id', $interaction->id)->update([
+            Chat::fromTenant($this->tenant_subdomain)->where('id', $interaction->id)->update([
                 'bot_stoped_time' => date('Y-m-d H:i:s'),
                 'is_bots_stoped' => '1',
             ]);
@@ -2441,7 +2738,7 @@ class WhatsAppWebhookController extends Controller
         ]);
 
         try {
-            do_action('before_send_flow_message', ['contact_number' => $contactNumber, 'node_data' => $nodeData, 'node_type' => $nodeType, 'phone_number_id' => $phoneNumberId, 'contact_data' => $contactData, 'context' => $context, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdoamin]);
+            do_action('before_send_flow_message', ['contact_number' => $contactNumber, 'node_data' => $nodeData, 'node_type' => $nodeType, 'phone_number_id' => $phoneNumberId, 'contact_data' => $contactData, 'context' => $context, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdomain]);
             // Use the WhatsApp trait methods directly
             $result = $this->sendFlowMessage(
                 $contactNumber,
@@ -2568,7 +2865,7 @@ class WhatsAppWebhookController extends Controller
                 'tenant_id' => $this->tenant_id,
             ];
 
-            $message_db_id = ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId($chat_message);
+            $message_db_id = ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId($chat_message);
 
             // Trigger Pusher notification (same as existing pattern)
             // Flow messages are outgoing system messages, so should not trigger desktop notifications
@@ -2900,7 +3197,7 @@ class WhatsAppWebhookController extends Controller
     private function updateChatLastMessage($chatId, $plainTextMessage)
     {
         try {
-            Chat::fromTenant($this->tenant_subdoamin)->where('id', $chatId)->update([
+            Chat::fromTenant($this->tenant_subdomain)->where('id', $chatId)->update([
                 'last_message' => $plainTextMessage,
                 'last_msg_time' => now(),
                 'updated_at' => now(),
