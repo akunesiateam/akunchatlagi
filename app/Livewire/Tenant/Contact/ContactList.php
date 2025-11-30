@@ -14,6 +14,8 @@ use App\Traits\WithTenantContext;
 use Corbital\LaravelEmails\Services\MergeFieldsService;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
+use Illuminate\Support\Facades\Log;  // ← TAMBAHKAN INI
+use Illuminate\Support\Facades\Http; // ← TAMBAHKAN INI
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\WithFileUploads;
 
