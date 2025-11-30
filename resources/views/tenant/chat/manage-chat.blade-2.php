@@ -873,87 +873,40 @@
                                                             </div>
                                                         </div>
 
-                                                    <!-- Options Menu -->
-                                            <div x-show="activeMessageId === message.id" x-transition
-                                                x-on:click.away="activeMessageId = null"
-                                                class="absolute top-[-4.5rem] z-10 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-lg py-2"
-                                                :class="message.sender_id === selectedUser.wa_no ? 'right-0' : 'left-0'">
-                                                <ul class="text-sm">
-                                                    <!-- Reply -->
-                                                    <div class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
-                                                        x-on:click="replyToMessage(message)">
-                                                        <x-heroicon-c-arrow-path-rounded-square class="w-5 h-5 dark:text-gray-300 text-primary-500" />
-                                                        <li class="dark:text-gray-300 text-primary-500">
-                                                            {{ t('reply') }}
-                                                        </li>
-                                                    </div>
-                                                    <!-- Copy -->
-                                                    <div class="relative flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
-                                                        x-on:click="(() => {
-                                                            navigator.clipboard.writeText(message.message);
-                                                            activeMessageId = null;
-                                                            showCopyTooltip = message.id; // Set ke ID message
-                                                            setTimeout(() => showCopyTooltip = null, 1500);
-                                                        })()">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 dark:text-gray-300 text-primary-500">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-                                                        </svg>
-                                                        <li class="dark:text-gray-300 text-primary-500">
-                                                            {{ t('copy') }}
-                                                        </li>
-                                                    </div>
-                                                    <!-- Delete -->
-                                                    <div x-on:click.stop="deleteMessage(message.id)"
-                                                        class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer">
-                                                        <x-heroicon-o-trash class="w-5 h-5 dark:text-gray-300 text-danger-500" />
-                                                        <li class="dark:text-gray-300 text-primary-500">
-                                                            {{ t('delete') }}
-                                                        </li>
-                                                    </div>
-
-                                                    <!-- Resend hanya muncul jika pesan memiliki status failed -->
-                                                    <div x-show="message.status === 'failed'" 
-                                                         class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-danger-500 dark:hover:bg-gray-700 cursor-pointer"
-                                                         x-on:click="(() => {
-                                                            resendMessage(message);  // Ganti navigator menjadi resendMessage
-                                                            activeMessageId = null;
-                                                            showResendTooltip = message.id; 
-                                                            setTimeout(() => showResendTooltip = null, 1500);
-                                                         })()">
-                                                        <x-heroicon-o-arrow-path class="w-5 h-5 dark:text-gray-300 text-danger-500" />
-                                                        <li class="dark:text-gray-300 text-danger-500">
-                                                            {{ t('resend') }}
-                                                        </li>
-                                                    </div>
-
-                                                    <!-- Tambahkan di area yang sesuai, misalnya di atas atau di bawah daftar pesan 
-                                                    <button 
-                                                        @click="message.status = 'failed'"
-                                                        class="bg-red-500 text-white p-2 rounded"
-                                                    >
-                                                        Simulate Failed Message
-                                                    </button>-->
-                                                </ul>
+                                                        <!-- Options Menu -->
+                                                        <div x-show="activeMessageId === message.id" x-transition
+                                                            x-on:click.away="activeMessageId = null"
+                                                            class="absolute top-[-4.5rem] z-10 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-lg py-2"
+                                                            :class="message.sender_id === selectedUser.wa_no ? 'right-0' :
+                                                                'left-0'">
+                                                            <ul class="text-sm">
+                                                                <div class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
+                                                                    x-on:click="replyToMessage(message)">
+                                                                    <x-heroicon-c-arrow-path-rounded-square
+                                                                        class="w-5 h-5 dark:text-gray-300 text-primary-500" />
+                                                                    <li class="dark:text-gray-300 text-primary-500">
+                                                                        {{ t('reply') }}
+                                                                    </li>
+                                                                </div>
+                                                                <div x-on:click.stop="deleteMessage(message.id)"
+                                                                    class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer">
+                                                                    <x-heroicon-o-trash
+                                                                        class="w-5 h-5 dark:text-gray-300 text-danger-500" />
+                                                                    <li class="dark:text-gray-300 text-primary-500">
+                                                                        {{ t('delete') }}
+                                                                    </li>
+                                                                </div>
+                                                            </ul>
+                                                        </div>
+                                                    </div> <!-- End Message Content -->
+                                                </div> <!-- End Message Wrapper -->
                                             </div>
-                                            <!-- Tooltip dengan kondisi ID -->
-                                                <div x-show="showCopyTooltip === message.id" x-transition.opacity
-                                                    class="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
-                                                    ✓ Copied!
-                                                </div>
-                                                <div x-show="showResendTooltip === message.id" x-transition.opacity
-                                                    class="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
-                                                    ✓ Resend!
-                                                </div>
-
-                                                </div> <!-- End Message Content -->
-                                            </div> <!-- End Message Wrapper -->
+                                            <span x-show="message.status_message && message.status_message.length > 0"
+                                                class="text-danger-500 text-xs truncate text-right block text-wrap"
+                                                x-text="message.status_message">
+                                            </span>
                                         </div>
-                                        <span x-show="message.status_message && message.status_message.length > 0"
-                                            class="text-danger-500 text-xs truncate text-right block text-wrap"
-                                            x-text="message.status_message">
-                                        </span>
-                                    </div>
-                                </template>
+                                    </template>
                                 </div>
                             </div>
                         </div>
