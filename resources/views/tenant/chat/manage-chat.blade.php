@@ -367,13 +367,28 @@
                                             x-text="selectedUser?.type">
                                         </span>
                                     </div>
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400"
-                                        x-text="selectedUser?.receiver_id ?? ''"></p>
+                                   <p class="text-xs font-medium text-gray-500 dark:text-gray-400"
+                                    x-text="maskPhoneNumberJS(selectedUser?.receiver_id ?? '')"></p>
                                 </div>
                             </div>
 
                             <!-- Action Buttons -->
                             <div class="flex sm:gap-3 gap-1 relative">
+                                
+                                <!-- Bot Countdown Timer - Improved UI -->
+                        <div x-show="botCountdownData.is_bot_stopped && botCountdownData.seconds_remaining > 0" 
+                            x-transition
+                            class="flex items-center mr-3 hidden sm:flex">
+                            <button x-on:click="restartBotManually(selectedUser.id)"
+                                    class="flex items-center bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/40 border border-orange-200 dark:border-orange-700 px-3 py-1.5 rounded-lg transition-colors duration-200"
+                                    data-tippy-content="Click to restart bot manually">
+                                <x-heroicon-o-clock class="w-4 h-4 text-orange-600 dark:text-orange-400 mr-2" />
+                                <span class="text-orange-700 dark:text-orange-300 text-sm font-medium"
+                                    x-text="formatCountdownTime(botCountdownData.seconds_remaining)">
+                                </span>
+                            </button>
+                        </div>
+                        <!-- End Bot Countdown Timer -->
                                 <button x-on:click="messagesSearch = !messagesSearch"
                                     class=" text-primary-500 dark:text-gray-200 mr-3 hidden sm:block">
                                     <x-heroicon-m-magnifying-glass class="w-5 h-5" />
@@ -423,7 +438,7 @@
                                         </template>
                                     </div>
                                 </div>
-                                <div x-show="isAdmin == 1" x-html="asignAgentView">
+                                <div x-show="canAssign == 1" x-html="asignAgentView">
                                 </div>
                                 <button type="button"
                                     class="hover:text-primary-500 text-gray-500 dark:text-slate-400 mt-1 hidden sm:block"
@@ -459,6 +474,20 @@
                                                     <span>{{ t('user_information') }}</span>
                                                 </button>
                                             </li>
+                                            
+                                            <!-- Bot Countdown for Mobile -->
+                                        <li x-show="botCountdownData.is_bot_stopped && botCountdownData.seconds_remaining > 0" 
+                                            class="sm:hidden block">
+                                            <button x-on:click="restartBotManually(selectedUser.id); openDropdown = false" class="flex items-center w-full gap-3 px-4 py-2 text-sm text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20" style="background: antiquewhite;">
+                                                <x-heroicon-o-clock class="w-5 h-5" />
+                                                <div class="flex flex-col items-start">
+                                                    <span class="font-medium">Bot Paused</span>
+                                                    <span class="text-xs"
+                                                        x-text="formatCountdownTime(botCountdownData.seconds_remaining)">
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        </li>
                                             <li class="sm:hidden block">
                                                 <button x-on:click="messagesSearch = true; openDropdown = false"
                                                     class="flex items-center w-full gap-2 px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
@@ -480,7 +509,7 @@
                                                 </button>
                                             </li>
                                             @if (get_tenant_setting_from_db('whats-mark', 'only_agents_can_chat'))
-                                                <li x-show="isAdmin == 1">
+                                             <li x-show="canAssign == 1">
                                                     <button x-on:click='openSupportAgentModal()'
                                                         class="flex items-center w-full gap-2 px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
                                                         <x-heroicon-o-user-plus class="w-6 h-6" />
@@ -662,39 +691,138 @@
                                                                 x-html="highlightSearch(message.message)"></p>
                                                         </template>
 
-                                                        <!-- Image -->
-                                                        <template x-if="message.type === 'image'"
-                                                            x-init="$nextTick(() => { window.initGLightbox() })">
-                                                            <a :href="message.url" target="_blank"
-                                                                class="glightbox">
-                                                                <img :src="message.url" alt="Image"
-                                                                    class="rounded-lg max-w-xs max-h-28">
-                                                                <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
-                                                                    x-show="message.message" x-text="message.message">
-                                                                </p>
+                                                       <!-- Image -->
+                                                    <template x-if="message.type === 'image'"
+                                                        x-init="$nextTick(() => { window.initGLightbox() })">
+                                                        <div>
+                                                        <a :href="message.url" target="_blank" class="glightbox">
+                                                            <img :src="message.url" alt="Image"
+                                                                class="rounded-lg max-w-xs max-h-28">
+                                                        </a>
+                                                        <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                            x-show="message.message && message.message !== 'image'" x-text="message.message"></p>
+                                                            </div>
+                                                    </template>
+                                                    
+                                                    <!-- Sticker -->
+                                                    <template x-if="message.type === 'sticker'"
+                                                        x-init="$nextTick(() => { window.initGLightbox() })">
+                                                        <div>
+                                                            <a :href="message.url" target="_blank" class="glightbox">
+                                                                <img :src="message.url" alt="Sticker"
+                                                                    class="rounded-lg max-w-xs max-h-32 hover:opacity-80 transition-opacity">
                                                             </a>
-                                                        </template>
-
-                                                        <!-- Video -->
-                                                        <template x-if="message.type === 'video'"
-                                                            x-init="$nextTick(() => { window.initGLightbox() })">
+                                                            <p class="text-gray-500 text-xs mt-1 dark:text-gray-400"
+                                                                x-show="message.message && message.message !== 'sticker'" x-text="message.message"></p>
+                                                        </div>
+                                                    </template>
+                                                    
+                                                    <!-- ORDER KATALOG -->
+                                                    <template x-if="message.type === 'order'">
+                                                      <div
+                                                        style="background:#ffffff;border-radius:8px;padding:10px 14px;
+                                                               font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,
+                                                               'Liberation Mono','Courier New',monospace;color:#111827;
+                                                               box-shadow:0 1px 2px rgba(0,0,0,.05);"
+                                                        x-html="message.message.replace(/^ORDER:\s*/,'').replace(/\n/g,'<br>')"
+                                                      ></div>
+                                                    </template>
+                                                    
+                                                    <!-- Video -->
+                                                    <template x-if="message.type === 'video'" x-init="$nextTick(() => { window.initGLightbox() })">
+                                                        <div>
                                                             <a :href="message.url" class="glightbox">
-                                                                <video :src="message.url" controls
-                                                                    class="rounded-lg max-w-xs max-h-28"></video>
-                                                                <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
-                                                                    x-show="message.message" x-text="message.message">
-                                                                </p>
+                                                                <video :src="message.url" controls class="rounded-lg max-w-xs max-h-28"></video>
                                                             </a>
-                                                        </template>
+                                                            <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                               x-show="message.message && message.message !== 'video'" 
+                                                               x-text="message.message"></p>
+                                                        </div>
+                                                    </template>
 
-                                                        <!-- Document -->
-                                                        <template x-if="message.type === 'document'">
-                                                            <a :href="message.url" target="_blank"
-                                                                class="bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400">
-                                                                {{ t('download_document') }}
-                                                            </a>
-                                                        </template>
-
+                                                    <!-- Document -->
+                                        <template x-if="message.type === 'document'">
+                                            <div>
+                                                <a :href="message.url" target="_blank"
+                                                    class="bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400">
+                                                    {{ t('download_document') }}
+                                                </a>
+                                                <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                   x-show="message.message && message.message !== 'document'" 
+                                                   x-text="message.message"></p>
+                                            </div>
+                                        </template>
+                                        
+                                        <!-- Location -->
+                                            <template x-if="message.type === 'location'">
+                                                <div class="max-w-sm">
+                                                    <div class="bg-green-100 border border-green-200 rounded-lg p-3 dark:bg-green-900 dark:border-green-700">
+                                                        <div class="flex items-start space-x-2">
+                                                            <svg class="w-5 h-5 text-green-600 mt-0.5 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                                                            </svg>
+                                                            <div class="flex-1">
+                                                                <p class="text-sm font-medium text-green-800 dark:text-green-200" 
+                                                                   x-text="message.message.replace(/ - [-\d.]+,[-\d.]+$/, '')"></p>
+                                                                <button @click="(() => {
+                                                                    const parts = message.message.split(' - ');
+                                                                    const coordPart = parts[parts.length - 1];
+                                                                    const [lat, lng] = coordPart.split(',');
+                                                                    if (lat && lng) {
+                                                                        window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+                                                                    }
+                                                                })()" 
+                                                                        class="text-green-600 hover:text-green-700 text-xs mt-1 dark:text-green-400">
+                                                                    📍 View Location
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Contact -->
+                                    <template x-if="message.type === 'contacts'">
+                                        <div class="max-w-sm">
+                                            <div class="bg-blue-100 border border-blue-200 rounded-lg p-3 dark:bg-blue-900 dark:border-blue-700">
+                                                <div class="flex items-center space-x-3">
+                                                    <div class="w-8 h-8 bg-blue-200 rounded-full flex items-center justify-center dark:bg-blue-800">
+                                                        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                                                        </svg>
+                                                    </div>
+                                                    <div class="flex-1">
+                                                        <p class="text-sm font-medium text-blue-800 dark:text-blue-200" x-text="message.message"></p>
+                                                        <div class="flex items-center justify-between mt-1">
+                                                            <p class="text-xs text-blue-600 dark:text-blue-400">Contact</p>
+                                                            <button @click="(() => {
+                                                                const parts = message.message.split(' - ');
+                                                                const phone = parts[parts.length - 1];
+                                                                if (phone) {
+                                                                    navigator.clipboard.writeText(phone);
+                                                                    alert('Phone number copied!');
+                                                                }
+                                                            })()" 
+                                                                    class="flex items-center space-x-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16">
+                                                                    <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/>
+                                                                </svg>
+                                                                <span>Copy</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                                    <!-- Audio -->
+                                                    <template x-if="message.type === 'audio'">
+                                                        <audio id="audioPlayer" controls class="w-[300px]">
+                                                            <source :src="message.url" type="audio/mpeg">
+                                                        </audio>
+                                                        <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                            x-show="message.message" x-text="message.message"></p>
+                                                    </template>
                                                         <!-- Audio -->
                                                         <template x-if="message.type === 'audio'">
                                                             <audio id="audioPlayer" controls class="w-[300px]">
@@ -745,40 +873,87 @@
                                                             </div>
                                                         </div>
 
-                                                        <!-- Options Menu -->
-                                                        <div x-show="activeMessageId === message.id" x-transition
-                                                            x-on:click.away="activeMessageId = null"
-                                                            class="absolute top-[-4.5rem] z-10 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-lg py-2"
-                                                            :class="message.sender_id === selectedUser.wa_no ? 'right-0' :
-                                                                'left-0'">
-                                                            <ul class="text-sm">
-                                                                <div class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
-                                                                    x-on:click="replyToMessage(message)">
-                                                                    <x-heroicon-c-arrow-path-rounded-square
-                                                                        class="w-5 h-5 dark:text-gray-300 text-primary-500" />
-                                                                    <li class="dark:text-gray-300 text-primary-500">
-                                                                        {{ t('reply') }}
-                                                                    </li>
-                                                                </div>
-                                                                <div x-on:click.stop="deleteMessage(message.id)"
-                                                                    class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer">
-                                                                    <x-heroicon-o-trash
-                                                                        class="w-5 h-5 dark:text-gray-300 text-danger-500" />
-                                                                    <li class="dark:text-gray-300 text-primary-500">
-                                                                        {{ t('delete') }}
-                                                                    </li>
-                                                                </div>
-                                                            </ul>
-                                                        </div>
-                                                    </div> <!-- End Message Content -->
-                                                </div> <!-- End Message Wrapper -->
+                                                    <!-- Options Menu -->
+                                            <div x-show="activeMessageId === message.id" x-transition
+                                                x-on:click.away="activeMessageId = null"
+                                                class="absolute top-[-4.5rem] z-10 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-lg py-2"
+                                                :class="message.sender_id === selectedUser.wa_no ? 'right-0' : 'left-0'">
+                                                <ul class="text-sm">
+                                                    <!-- Reply -->
+                                                    <div class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
+                                                        x-on:click="replyToMessage(message)">
+                                                        <x-heroicon-c-arrow-path-rounded-square class="w-5 h-5 dark:text-gray-300 text-primary-500" />
+                                                        <li class="dark:text-gray-300 text-primary-500">
+                                                            {{ t('reply') }}
+                                                        </li>
+                                                    </div>
+                                                    <!-- Copy -->
+                                                    <div class="relative flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
+                                                        x-on:click="(() => {
+                                                            navigator.clipboard.writeText(message.message);
+                                                            activeMessageId = null;
+                                                            showCopyTooltip = message.id; // Set ke ID message
+                                                            setTimeout(() => showCopyTooltip = null, 1500);
+                                                        })()">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 dark:text-gray-300 text-primary-500">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                                                        </svg>
+                                                        <li class="dark:text-gray-300 text-primary-500">
+                                                            {{ t('copy') }}
+                                                        </li>
+                                                    </div>
+                                                    <!-- Delete -->
+                                                    <div x-on:click.stop="deleteMessage(message.id)"
+                                                        class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer">
+                                                        <x-heroicon-o-trash class="w-5 h-5 dark:text-gray-300 text-danger-500" />
+                                                        <li class="dark:text-gray-300 text-primary-500">
+                                                            {{ t('delete') }}
+                                                        </li>
+                                                    </div>
+
+                                                    <!-- Resend hanya muncul jika pesan memiliki status failed -->
+                                                    <div x-show="message.status === 'failed'" 
+                                                         class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-danger-500 dark:hover:bg-gray-700 cursor-pointer"
+                                                         x-on:click="(() => {
+                                                            resendMessage(message);  // Ganti navigator menjadi resendMessage
+                                                            activeMessageId = null;
+                                                            showResendTooltip = message.id; 
+                                                            setTimeout(() => showResendTooltip = null, 1500);
+                                                         })()">
+                                                        <x-heroicon-o-arrow-path class="w-5 h-5 dark:text-gray-300 text-danger-500" />
+                                                        <li class="dark:text-gray-300 text-danger-500">
+                                                            {{ t('resend') }}
+                                                        </li>
+                                                    </div>
+
+                                                    <!-- Tambahkan di area yang sesuai, misalnya di atas atau di bawah daftar pesan 
+                                                    <button 
+                                                        @click="message.status = 'failed'"
+                                                        class="bg-red-500 text-white p-2 rounded"
+                                                    >
+                                                        Simulate Failed Message
+                                                    </button>-->
+                                                </ul>
                                             </div>
-                                            <span x-show="message.status_message && message.status_message.length > 0"
-                                                class="text-danger-500 text-xs truncate text-right block text-wrap"
-                                                x-text="message.status_message">
-                                            </span>
+                                            <!-- Tooltip dengan kondisi ID -->
+                                                <div x-show="showCopyTooltip === message.id" x-transition.opacity
+                                                    class="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
+                                                    ✓ Copied!
+                                                </div>
+                                                <div x-show="showResendTooltip === message.id" x-transition.opacity
+                                                    class="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
+                                                    ✓ Resend!
+                                                </div>
+
+                                                </div> <!-- End Message Content -->
+                                            </div> <!-- End Message Wrapper -->
                                         </div>
-                                    </template>
+                                        <span x-show="message.status_message && message.status_message.length > 0"
+                                            class="text-danger-500 text-xs truncate text-right block text-wrap"
+                                            x-text="message.status_message">
+                                        </span>
+                                    </div>
+                                </template>
                                 </div>
                             </div>
                         </div>
@@ -2605,6 +2780,17 @@
             searchError: '',
             sendingErrorMessage: '',
             messagesSearch: false,
+            showCopyTooltip: null, //NEW AKUNESIA
+            showResendTooltip: null,
+            // TAMBAHKAN 2 BARIS INI:
+            botCountdownData: {
+                is_bot_stopped: false,
+                seconds_remaining: 0,
+                restart_hours: 6
+            },
+            countdownInterval: null,
+            countdownRequest: null, // TAMBAHKAN BARIS INI
+            canAssign: {{ $user_can_assign ? 1 : 0 }},
             showReactionList: false,
             activeMessageId: null,
             showEmojiPicker: false,
@@ -2738,11 +2924,18 @@
 
             },
             formatMessage(text) {
-
-                text = this.highlightSearch(text);
-
-                // Then replace newlines with <br> for display formatting
-                return text.replace(/\n/g, '<br>');
+            text = this.highlightSearch(text);
+            
+            // Jangan replace emoji, biarkan apa adanya
+            text = text.replace(/\*([^*]+)\*/g, '<strong class="font-semibold">$1</strong>');
+            
+            // Format prices saja
+            text = text.replace(/(Rp\s*[\d.,]+)/g, '<span class="font-semibold text-green-600 dark:text-green-400">$1</span>');
+            
+            // Line breaks
+            text = text.replace(/\n/g, '<br>');
+            
+            return text;
             },
             heighlightMessage(text) {
                 // First, highlight the search term if any
@@ -3027,6 +3220,94 @@
                     });
 
             },
+            
+            // CUSTOM AKUNESIA
+            
+            // TAMBAHKAN 3 METHOD INI DI SINI:
+            getBotCountdown(chatId) {
+                if (!chatId) return;
+                
+                fetch(`/${this.subdomain}/bot-countdown/${chatId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    this.botCountdownData = data;
+                    if (data.is_bot_stopped && data.seconds_remaining > 0) {
+                        this.startCountdown();
+                    } else {
+                        this.stopCountdown();
+                    }
+                })
+                .catch(error => console.error('Error getting bot countdown:', error));
+            },
+            
+            startCountdown() {
+                this.stopCountdown();
+                
+                this.countdownInterval = setInterval(() => {
+                    if (this.botCountdownData.seconds_remaining > 0) {
+                        this.botCountdownData.seconds_remaining--;
+                    } else {
+                        this.stopCountdown();
+                        this.botCountdownData.is_bot_stopped = false;
+                    }
+                }, 1000);
+            },
+            
+            stopCountdown() {
+                if (this.countdownInterval) {
+                    clearInterval(this.countdownInterval);
+                    this.countdownInterval = null;
+                }
+            },
+            
+            // TAMBAHKAN METHOD INI:
+            restartBotManually(chatId) {
+                if (!chatId) return;
+                
+                fetch(`/${this.subdomain}/bot-restart/${chatId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.botCountdownData.is_bot_stopped = false;
+                        this.botCountdownData.seconds_remaining = 0;
+                        this.stopCountdown();
+                        showNotification('Bot restarted successfully!', 'success');
+                    } else {
+                        showNotification(data.message || 'Failed to restart bot', 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error restarting bot:', error);
+                    showNotification('Failed to restart bot', 'danger');
+                });
+            },
+            
+            formatCountdownTime(seconds) {
+                if (!seconds || seconds <= 0) return '00:00:00';
+                
+                // Convert to integer first
+                const totalSeconds = parseInt(seconds, 10);
+                
+                const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+                const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+                const secs = String(totalSeconds % 60).padStart(2, '0');
+                
+                return `${hours}:${minutes}:${secs}`;
+            },
+            
+            // END CUSTOM AKUNESIA
             deleteChat(chatId) {
                 if (!this.selectedUser) return;
                 // Send a request to delete the message from the backend
@@ -3470,6 +3751,32 @@
                         this.sending = false; // Re-enable button
                     });
             },
+            
+            resendMessage(message) {
+    // Temukan index pesan yang gagal di array messages
+    const messageIndex = this.selectedUser.messages.findIndex(msg => msg.id === message.id);
+    
+    if (messageIndex !== -1) {
+        // Simpan data pesan asli
+        const originalMessage = this.selectedUser.messages[messageIndex];
+        
+        // Siapkan data untuk dikirim
+        this.textMessage = originalMessage.message;
+        
+        if (originalMessage.attachment) {
+            this.attachment = originalMessage.attachment;
+            this.attachmentType = originalMessage.attachment_type;
+            this.fileName = originalMessage.file_name;
+        }
+        
+        this.$nextTick(() => {
+            this.sendMessage();
+            
+            // Hapus pesan lama yang gagal
+            this.selectedUser.messages.splice(messageIndex, 1);
+        });
+    }
+},
 
             sanitizeLastMessage(content) {
                 return sanitizeMessage(content).replace(/<\/?[^>]+(>|$)/g, ""); // Sanitize & strip HTML
@@ -3867,6 +4174,7 @@
                 this.isShowUserChat = true;
                 this.isShowChatMenu = false;
                 this.overdueAlert = false;
+                this.getBotCountdown(chat.id); // Pastikan ini ada
                 this.loading = true; // Start loading indicator
                 this.getAgentView(chat.id);
                 this.chatId = this.selectedUser.id;
@@ -4572,4 +4880,53 @@
             },
         }
     }
+</script>
+<script>
+// JavaScript helper untuk masking di frontend
+function maskPhoneNumberJS(phoneNumber) {
+    // Check if masking is enabled for current user
+    const maskingEnabled = {{ get_tenant_setting_from_db('masking_number', 'enabled') ? 'true' : 'false' }};
+    const isAdmin = {{ auth()->user()->is_admin == 1 ? 'true' : 'false' }};
+    
+    // If disabled or user is admin, return original
+    if (!maskingEnabled || isAdmin) {
+        return phoneNumber || '';
+    }
+    
+    // If empty or too short, return as is
+    if (!phoneNumber || phoneNumber.length < 8) {
+        return phoneNumber || '';
+    }
+    
+    // Apply masking
+    phoneNumber = phoneNumber.toString().trim();
+    
+    // Handle phone with country code (+)
+    if (phoneNumber.startsWith('+')) {
+        const matches = phoneNumber.match(/^(\+\d{1,3})(\d+)$/);
+        
+        if (matches && matches.length === 3) {
+            const countryCode = matches[1]; // e.g., +62
+            const restNumber = matches[2];  // e.g., 81234567890
+            
+            if (restNumber.length <= 6) {
+                return phoneNumber; // Too short to mask
+            }
+            
+            const firstPart = restNumber.substring(0, 3); // First 3 digits
+            const lastPart = restNumber.slice(-2);        // Last 2 digits
+            
+            return countryCode + firstPart + '******' + lastPart;
+        }
+    }
+    
+    // Fallback: mask without country code detection
+    if (phoneNumber.length > 6) {
+        const firstPart = phoneNumber.substring(0, 4);
+        const lastPart = phoneNumber.slice(-2);
+        return firstPart + '******' + lastPart;
+    }
+    
+    return phoneNumber;
+}
 </script>
