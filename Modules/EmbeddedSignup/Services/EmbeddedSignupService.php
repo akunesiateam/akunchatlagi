@@ -410,6 +410,19 @@ class EmbeddedSignupService
 
         return false;
     }
+    
+    private function normalizePhone($number)
+    {
+        // ambil angka doang
+        $number = preg_replace('/\D+/', '', $number);
+    
+        // kalau masih pakai awalan 0, ubah ke 62
+        if (str_starts_with($number, '0')) {
+            $number = '62' . substr($number, 1);
+        }
+    
+        return $number;
+    }
 
     /**
      * Save settings to tenant
@@ -419,7 +432,7 @@ class EmbeddedSignupService
         save_tenant_setting('whatsapp', 'wm_access_token', $accessToken);
         save_tenant_setting('whatsapp', 'wm_business_account_id', $wabaData['waba_id']);
         save_tenant_setting('whatsapp', 'wm_default_phone_number_id', $wabaData['phone_number_id']);
-        save_tenant_setting('whatsapp', 'wm_default_phone_number', $wabaData['display_phone_number']);
+        save_tenant_setting('whatsapp','wm_default_phone_number',$wabaData['display_phone_number']);
         save_tenant_setting('whatsapp', 'wm_phone_number_verified_name', $wabaData['verified_name']);
 
         save_tenant_setting('whatsapp', 'embedded_signup_data', json_encode([

@@ -1141,6 +1141,20 @@ class CoexistenceService
             return null;
         }
     }
+    
+    private function normalizePhone($number)
+    {
+        // ambil angka doang
+        $number = preg_replace('/\D+/', '', $number);
+    
+        // kalau masih pakai awalan 0, ubah ke 62
+        if (str_starts_with($number, '0')) {
+            $number = '62' . substr($number, 1);
+        }
+    
+        return $number;
+    }
+
 
     /**
      * Update tenant settings with WhatsApp configuration
@@ -1151,6 +1165,7 @@ class CoexistenceService
         save_tenant_setting('whatsapp', 'wm_access_token', $accessToken);
         save_tenant_setting('whatsapp', 'wm_business_account_id', $syncStatus->waba_id);
         save_tenant_setting('whatsapp', 'wm_default_phone_number_id', $syncStatus->phone_number_id);
+        //save_tenant_setting('whatsapp','wm_default_phone_number',$this->normalizePhone($syncStatus->display_phone_number));
         save_tenant_setting('whatsapp', 'is_whatsmark_connected', 1);
         save_tenant_setting('whatsapp', 'coexistence_completed_at', now()->toISOString());
 

@@ -721,6 +721,8 @@ class ManageChat extends Controller
                 'contact.status_id as contact_status_id',
                 'contact.group_id as contact_groups',
                 'contact.assigned_id as contact_assigned_id',
+                'contact.firstname as contact_first_name', //AKUNCHAT
+                'contact.lastname as contact_last_name', //AKUNCHAT
             ]);
 
         // Order by the latest message time from either the messages table or the chat's time_sent

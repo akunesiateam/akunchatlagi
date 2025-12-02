@@ -1026,6 +1026,70 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                             'status_message' => $status_message,
                             'updated_at' => now(),
                         ]);
+                        
+                        //AKUNCHAT
+                        
+                        // === BROADCAST REALTIME READ RECEIPT ===
+                        if ($status_value === 'read') {
+                            try {
+                                $payload = [
+                                    'chat_id'     => $message->interaction_id,
+                                    'message_id'  => $message->message_id,
+                                    'status'      => 'read',
+                                ];
+                        
+                                // Pusher manual trigger
+                                $pusher = new \Pusher\Pusher(
+                                    $this->pusher_settings['app_key'],
+                                    $this->pusher_settings['app_secret'],
+                                    $this->pusher_settings['app_id'],
+                                    [
+                                        'cluster' => $this->pusher_settings['cluster'],
+                                        'useTLS'  => true
+                                    ]
+                                );
+                        
+                                // EVENT NAME: "message-read"
+                                $pusher->trigger('whatsmark-saas-chat-channel', 'message-read', $payload);
+                        
+                            } catch (\Exception $e) {
+                                whatsapp_log('Failed broadcasting message-read event', 'error', [
+                                    'message_id' => $message->message_id,
+                                    'exception'  => $e->getMessage()
+                                ], $e);
+                            }
+                        }
+                        
+                        // === BROADCAST REALTIME DELIVERED (✔✔ hitam) ===
+                        if ($status_value === 'delivered') {
+                            try {
+                                $payload = [
+                                    'chat_id'     => $message->interaction_id,
+                                    'message_id'  => $message->message_id,
+                                    'status'      => 'delivered',
+                                ];
+                        
+                                $pusher = new \Pusher\Pusher(
+                                    $this->pusher_settings['app_key'],
+                                    $this->pusher_settings['app_secret'],
+                                    $this->pusher_settings['app_id'],
+                                    [
+                                        'cluster' => $this->pusher_settings['cluster'],
+                                        'useTLS'  => true
+                                    ]
+                                );
+                        
+                                $pusher->trigger('whatsmark-saas-chat-channel', 'message-delivered', $payload);
+                        
+                            } catch (\Exception $e) {
+                                whatsapp_log('Failed broadcasting message-delivered event', 'error', [
+                                    'message_id' => $message->message_id,
+                                    'exception'  => $e->getMessage()
+                                ], $e);
+                            }
+                        }
+                        //END AKUNCHAT
+
 
                         if (
                             ! empty($this->pusher_settings['app_key']) &&

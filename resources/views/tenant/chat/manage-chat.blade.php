@@ -97,11 +97,13 @@
                                         class="rounded-full h-12 w-12 object-cover" />
                                 </div>
                                 <div class="mx-3">
+                                    <!-- AKUNCHAT -->
                                     <p x-show="selectedUser"
                                         class="font-normal text-sm text-gray-800 dark:text-gray-200">
                                         <span>{{ t('from') }}</span>
                                         <span x-text="maskPhoneNumberJS(selectedUser?.wa_no)"></span>
                                     </p>
+                                    <!-- END AKUNCHAT -->
                                 </div>
                             </div>
                         </div>
@@ -284,21 +286,45 @@
                                     }" x-on:click="selectChat(chat)">
                                 <div class="flex-1">
                                     <div class="flex items-center ">
+                                        
+                                        <!-- AKUNCHAT -->
                                         <div class="flex-shrink-0 relative">
-                                            <div
-                                                class="rounded-full h-10 w-10 flex items-center justify-center bg-primary-100 text-primary-700 text-sm font-medium">
-                                                <span
-                                                    x-text="chat.name.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase()"></span>
-                                            </div>
+                                        <!-- Avatar -->
+                                        <div
+                                            class="rounded-full h-10 w-10 flex items-center justify-center bg-primary-100 text-primary-700 text-sm font-medium">
+                                            <span
+                                                x-text="chat.name.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase()">
+                                            </span>
                                         </div>
+                                    
+                                        <!-- ICON TIPPY — CONDITIONAL -->
+                                        <x-heroicon-o-information-circle 
+                                            class="absolute -right-1 w-4 h-4 text-gray-700 dark:text-gray-300 cursor-pointer"
+                                            style="margin-top: -18px;"
+                                            x-show="
+                                                (
+                                                    ((chat.contact_first_name ?? '') + ' ' + (chat.contact_last_name ?? '')).trim()
+                                                    !== (chat.name ?? '').trim()
+                                                )
+                                            "
+                                            x-bind:data-tippy-content="
+                                                'Edit : ' +
+                                                ((chat.contact_first_name ?? '') +
+                                                (chat.contact_last_name ? ' ' + chat.contact_last_name : ''))
+                                            "
+                                        />
+                                    </div>
+                                    <!-- END AKUNCHAT -->
 
                                         <div class="mx-3 flex flex-col gap-1 justify-start items-start w-full relative">
                                             <!-- Name and Type in One Line -->
                                             <div class="flex items-center justify-between w-full">
                                                 <div class="flex items-center justify-start">
+                                                    <!-- AKUNCHAT -->
                                                     <p class="font-normal text-xs truncate max-w-[100px]"
                                                         x-text="chat.name" x-bind:data-tippy-content="maskPhoneNumberJS(chat.receiver_id)">
                                                     </p>
+                                                    <!-- END AKUNCHAT -->
                                                     <span :class="{
                                                                 'bg-violet-100 text-purple-800': chat
                                                                     .type === 'lead',
@@ -388,16 +414,43 @@
                                 <!-- Menu Icon -->
                                 <x-heroicon-s-bars-3 class="w-6 h-6" />
                             </button>
+                            
+                            <!-- AKUNCHAT -->
 
                             <!-- User Avatar and Active Indicator -->
                             <div class="relative flex-none">
+                                <!-- Avatar -->
                                 <div
                                     class="rounded-full h-11 w-11 flex items-center justify-center bg-primary-100 text-primary-700 text-sm font-medium">
                                     <span
-                                        x-text="(selectedUser?.name ?? 'User').split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase()"></span>
+                                        x-text="(selectedUser?.name ?? 'User')
+                                            .split(' ')
+                                            .map(word => word[0])
+                                            .join('')
+                                            .substring(0, 2)
+                                            .toUpperCase()">
+                                    </span>
                                 </div>
+                            
+                                <!-- ICON TIPPY — FIX TANPA ERROR -->
+                                <x-heroicon-o-information-circle 
+                                    class="absolute -right-1 w-4 h-4 text-gray-700 dark:text-gray-300 cursor-pointer"
+                                    style="margin-top: -20px;"
+                                    x-show="
+                                        (
+                                            ((selectedUser.contact_first_name ?? '') + ' ' + (selectedUser.contact_last_name ?? '')).trim()
+                                            !== ((selectedUser.wa_name ?? selectedUser.name ?? '').trim())
+                                        )
+                                    "
+                                    x-bind:data-tippy-content="
+                                        'Edit : ' +
+                                        ((selectedUser.contact_first_name ?? '') +
+                                        (selectedUser.contact_last_name ? ' ' + selectedUser.contact_last_name : ''))
+                                    "
+                                />
                             </div>
-
+                            
+                            <!-- END AKUNCHAT -->
 
                             <!-- User Name and Status -->
                             <div class="mx-3">
@@ -426,8 +479,10 @@
                                         x-text="selectedUser?.type">
                                     </span>
                                 </div>
+                                <!-- AKUNCHAT -->
                                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400"
                                     x-text="maskPhoneNumberJS(selectedUser?.receiver_id ?? '')"></p>
+                                    <!-- END AKUNCHAT -->
                             </div>
                         </div>
 
@@ -1831,14 +1886,29 @@
                                         })"></span>
                                 </p>
                             </div>
-
+                            
+                            <!-- AKUNCHAT -->
                             <div class="flex items-center gap-3">
-                                <x-heroicon-o-phone class="w-5 h-5 text-success-500 dark:text-gray-400" />
+                                <x-heroicon-o-user class="w-5 h-5 text-primary-500 dark:text-gray-400" />
                                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                                    {{ t('phone') }} <span class="text-primary-500 text-sm font-medium"
-                                        x-text="maskPhoneNumberJS(selectedUser?.receiver_id ?? '')"></span>
+                                    Edit :
+                                    <span class="text-primary-500 text-sm font-medium"
+                                        x-text="
+                                            (selectedUser.contact_first_name ?? '') +
+                                            (selectedUser.contact_last_name ? ' ' + selectedUser.contact_last_name : '')
+                                        ">
+                                    </span>
                                 </p>
                             </div>
+                            <!-- END AKUNCHAT -->
+                            
+                            <div class="flex items-center gap-3">
+                                    <x-heroicon-o-phone class="w-5 h-5 text-success-500 dark:text-gray-400" />
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                                        {{ t('phone') }} <span class="text-primary-500 text-sm font-medium"
+                                            x-text="selectedUser?.receiver_id ? '+' + selectedUser.receiver_id : ''"></span>
+                                    </p>
+                                </div>
                         </div>
 
                         <!-- Notes Section -->
@@ -4095,6 +4165,10 @@
             },
             selectChat(chat) {
                 this.selectedUser = chat;
+                // === FIX UNREAD: tandai chat ini sebagai sudah dibaca ===
+chat.unreadmessagecount = 0;
+chat.hideUnreadCount = true;
+
                 this.isShowUserChat = true;
                 this.isShowChatMenu = false;
                 this.overdueAlert = false;
@@ -4445,101 +4519,168 @@
                 audio.play().catch(error => console.error("Audio play failed:", error));
             },
 
+            //AKUNCHAT
             initializePusher() {
-                // Initialize Pusher with your app key and cluster
-                const pusher = new Pusher(window.pusherConfig.key, {
-                    cluster: window.pusherConfig.cluster,
-                    encrypted: true,
-                });
-                // Subscribe to the 'interactions-channel'
-                const channel = pusher.subscribe('whatsmark-saas-chat-channel');
+    // Initialize Pusher
+    const pusher = new Pusher(window.pusherConfig.key, {
+        cluster: window.pusherConfig.cluster,
+        encrypted: true,
+    });
 
-                // Listen for the 'interaction-update' event
-                channel.bind('whatsmark-saas-chat-event', (data) => {
-                    // Update interactions based on real-time data from Pusher
-                    this.appendNewChats(data.chat);
+    // Subscribe to channel
+    const channel = pusher.subscribe('whatsmark-saas-chat-channel');
 
-                    // Trigger desktop notification for new chat messages
-                    this.triggerChatDesktopNotification(data.chat);
-                    
-                    // NEW: Send to Service Worker for background notifications
-                  //  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                    //    navigator.serviceWorker.controller.postMessage({
-                      //      type: 'NEW_CHAT_MESSAGE',
-                        //    data: {
-                          //      chatId: data.chat.id,
-                            //    message: data.chat.messages[0]?.message || 'New message',
-                              //  senderName: data.chat.name || 'WhatsApp Contact'
-                        //    }
-                    //    });
-                //    }
+
+    // === NEW MESSAGE / INTERACTION UPDATE ===
+    channel.bind('whatsmark-saas-chat-event', (data) => {
+        this.appendNewChats(data.chat);
+        this.triggerChatDesktopNotification(data.chat);
+    });
     
-                });
-            },
+    // === REALTIME DELIVERED (✔✔ hitam) ===
+channel.bind('message-delivered', (data) => {
+    let chat = this.sortedChats.find(c => c.id === data.chat_id);
+    if (!chat) return;
+
+    let msg = chat.messages.find(m => m.message_id === data.message_id);
+    if (msg) {
+        msg.status = 'delivered'; // update to double check (black)
+    }
+
+    if (this.selectedUser && this.selectedUser.id === data.chat_id) {
+        this.messages = [...chat.messages];
+        this.selectedUser.messages = [...chat.messages];
+    }
+});
+
+    // === REALTIME READ RECEIPT (✔✔ biru) ===
+    channel.bind('message-read', (data) => {
+        let chat = this.sortedChats.find(c => c.id === data.chat_id);
+        if (!chat) return;
+
+        let msg = chat.messages.find(m => m.message_id === data.message_id);
+        if (msg) {
+            msg.status = 'read';
+        }
+
+        if (this.selectedUser && this.selectedUser.id === data.chat_id) {
+            this.messages = [...chat.messages];
+            this.selectedUser.messages = [...chat.messages];
+        }
+    });
+},
+
+//END AKUNCHAT
+            
+            //AKUNCHAT
             appendNewChats(newChats) {
-                const existingInteractions = [...this.sortedChats]; // Existing interactions array
+    const existingInteractions = [...this.sortedChats];
+    const index = existingInteractions.findIndex(chat => chat.id === newChats.id);
 
-                const index = existingInteractions.findIndex(chat => chat.id === newChats
-                    .id); //matching interaction id to newChats id
-                let isNewMessage = false;
-                if (index !== -1) { //interaction IDs match, replace the whole existing message with the new message
-                    const existingInteraction = existingInteractions[index];
+    let isNewMessage = false;
 
-                    // Create a new object that contains all properties from newChats except messages
-                    const updatedInteraction = {
-                        ...existingInteraction, // Existing properties
-                        ...newChats, // Spread newChats properties
-                        messages: existingInteraction.messages // Keep the original messages for now
-                    };
-                    // Find index of matching message_id
-                    const find_msg_index = Array.isArray(existingInteraction.messages) ?
-                        existingInteraction.messages.findIndex(interaction =>
-                            Array.isArray(newChats.messages) &&
-                            newChats.messages.some(newMsg => interaction.message_id === newMsg.message_id)
-                        ) : -1;
-                    //matching interaction messages id to newChats messages id
-                    if (find_msg_index !== -1) {
-                        // If IDs match, replace the whole existing message with the new message
-                        existingInteraction.messages[find_msg_index] = {
-                            ...newChats.messages[0]
-                        };
-                    } else if (this.selectedUser.id == existingInteraction.id) {
-                        existingInteraction.messages.push(...newChats.messages);
-                    }
-                    isNewMessage = true;
-                    existingInteractions[index] = updatedInteraction;
-                    this.countUnreadMessages(existingInteractions[index].id);
-                    this.initializeUserInteractionTracking();
-                } else {
-                    // Ensure newChats.messages is an array or initialize it as an empty array
-                    if (!Array.isArray(newChats.messages)) {
-                        newChats.messages = [newChats.messages];
-                    }
-                    // If the interaction id does not exist, push newChats directly
-                    existingInteractions.push({
-                        ...newChats,
-                        messages: [...newChats.messages] // Ensure messages is properly handled
-                    });
-                    isNewMessage = true;
-                    if (existingInteractions[index]) {
-                        this.countUnreadMessages(existingInteractions[index].id);
-                    }
+    if (index !== -1) {
+        const existingInteraction = existingInteractions[index];
 
-                    this.initializeUserInteractionTracking();
-                }
+        // Ambil hanya pesan terbaru (bukan seluruh array)
+        const newMsg = Array.isArray(newChats.messages)
+            ? newChats.messages[newChats.messages.length - 1]
+            : newChats.messages;
 
-                if (isNewMessage && this.isNotificationSoundEnable) {
-                    this.playNotificationSound();
-                }
+        // Clone interaction lama
+        const updatedInteraction = {
+            ...existingInteraction,
+            ...newChats,
+            messages: [...existingInteraction.messages] // clone array lama
+        };
 
-                // Now sort the `existingInteractions` array by `time_sent`
-                existingInteractions.sort((a, b) => {
-                    // Find the latest message by comparing all time_sent values
-                    let latestTimeA = new Date(a.time_sent || 0);
-                    let latestTimeB = new Date(b.time_sent || 0);
-                    return latestTimeB - latestTimeA; // Sorting in descending order
-                });
-                this.sortedChats = existingInteractions;
+        // Cek apakah pesan ini sudah ada
+        const msgExists = updatedInteraction.messages.some(
+            msg => msg.message_id === newMsg.message_id
+        );
+
+        // Jika belum ada → push pesan baru
+        if (!msgExists) {
+            updatedInteraction.messages.push(newMsg);
+            isNewMessage = true;
+        }
+
+        // Apakah chat ini sedang dibuka?
+        const chatOpened = this.selectedUser && this.selectedUser.id === newChats.id;
+
+        // UNREAD LOGIC
+        if (chatOpened) {
+            updatedInteraction.unreadmessagecount = 0;
+            updatedInteraction.hideUnreadCount = true;
+        } else {
+            updatedInteraction.unreadmessagecount =
+                Number(newChats.unreadmessagecount) || 0;
+
+            updatedInteraction.hideUnreadCount =
+                updatedInteraction.unreadmessagecount === 0 ? true : false;
+        }
+
+        // Masukkan update ke array utama
+        existingInteractions[index] = updatedInteraction;
+
+        // === UPDATE BUBBLE UI jika chat sedang dibuka ===
+        if (chatOpened) {
+            this.messages = updatedInteraction.messages;
+            this.selectedUser.messages = updatedInteraction.messages;
+        }
+
+        this.countUnreadMessages(updatedInteraction.id);
+        this.initializeUserInteractionTracking();
+
+    } else {
+        // INTERAKSI BARU
+        const newMsg = Array.isArray(newChats.messages)
+            ? newChats.messages[newChats.messages.length - 1]
+            : newChats.messages;
+
+        existingInteractions.push({
+            ...newChats,
+            messages: [newMsg],
+            unreadmessagecount: 1,
+            hideUnreadCount: false
+        });
+
+        isNewMessage = true;
+        this.initializeUserInteractionTracking();
+    }
+    
+    // === SOUND NOTIFICATION ===
+
+// Cek apakah pesan ini cuma update status (read/delivered)
+const newMsg = Array.isArray(newChats.messages)
+    ? newChats.messages[newChats.messages.length - 1]
+    : newChats.messages;
+
+const isStatusUpdate =
+    newMsg?.status === 'read' ||
+    newMsg?.status === 'delivered';
+
+// Bunyi hanya jika:
+// - pesan benar-benar baru (bukan update status)
+// - notif diaktifkan
+// - chat lain (bukan chat yang sedang dibuka)
+const shouldPlaySound =
+    isNewMessage &&
+    !isStatusUpdate &&
+    this.isNotificationSoundEnable &&
+    (!this.selectedUser || this.selectedUser.id !== newChats.id);
+
+if (shouldPlaySound) {
+    this.playNotificationSound();
+}
+
+    // Sort by time
+    existingInteractions.sort((a, b) => {
+        return new Date(b.time_sent || 0) - new Date(a.time_sent || 0);
+    });
+
+    this.sortedChats = existingInteractions;
+    //END AKUNCHAT
 
                 if (!this.isAdmin && this.enableSupportAgent == 1) {
                     const staff_id = @json($login_user);
