@@ -1389,7 +1389,10 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             $existing_interaction = $query->where('id', $id)->first();
 
             if (! $existing_interaction) {
-                return response()->json(['error' => 'Interaction not found'], 404);
+                return response()->json([
+                    'error' => 'Interaction not found',
+                    'temp_id' => $request->input('temp_id'),  // ← TAMBAHKAN INI
+                ], 404);
             }
 
             $this->tenant_id = $existing_interaction->tenant_id;
@@ -1432,6 +1435,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                             'success' => false,
                             'error' => 'Conversation limit reached. Please upgrade your plan to continue messaging.',
                             'limit_reached' => true,
+                            'temp_id' => $request->input('temp_id'),  // ← TAMBAHKAN INI
                         ], 429);
                     }
                 }
@@ -1503,8 +1507,11 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             }
 
             if (empty($message_data)) {
-                return response()->json(['error' => 'No message content provided'], 400);
-            }
+    return response()->json([
+        'error' => 'No message content provided',
+        'temp_id' => $request->input('temp_id'),  // ← TAMBAHKAN INI
+    ], 400);
+}
 
             // Send WhatsApp messages (using existing WhatsAppCloudApi)
             $whatsapp_success = false;
@@ -1674,13 +1681,23 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 return response()->json([
                     'success' => true,
                     'message' => 'Message sent successfully',
+                    'message_id' => $message_id ?? null,  // ← Real message ID from database
+                    'temp_id' => $request->input('temp_id'),  // ← Temp ID from frontend
                     'conversation_tracked' => $conversationTrackingNeeded ? ($conversationTracked ?? false) : false,
                     'chat_updated' => $chatUpdated ?? false,
+                    'data' => [
+                        'id' => $message_id ?? null,
+                        'message' => $message ?? '',
+                        'type' => $data['type'] ?? 'text',
+                        'status' => 'sent',
+                        'time_sent' => now()->toIso8601String(),
+                    ]
                 ]);
             } else {
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to send WhatsApp message',
+                    'temp_id' => $request->input('temp_id'),  // ← TAMBAHKAN INI
                 ], 500);
             }
         } catch (\Exception $e) {
@@ -1693,6 +1710,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             return response()->json([
                 'success' => false,
                 'message' => 'Internal server error: '.$e->getMessage(),
+                'temp_id' => $request->input('temp_id'),  // ← TAMBAHKAN INI
             ], 500);
         }
     }
