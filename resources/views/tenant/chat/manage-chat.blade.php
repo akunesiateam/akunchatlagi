@@ -549,7 +549,7 @@
                                     </template>
                                 </div>
                             </div>
-                            <div x-show="isAdmin == 1" x-html="asignAgentView">
+                            <div x-show="canAssign == 1" x-html="asignAgentView">
                             </div>
                             <button type="button"
                                 class="hover:text-primary-500 text-gray-500 dark:text-slate-400 mt-1 hidden sm:block"
@@ -619,7 +619,7 @@
                                             </button>
                                         </li>
                                         @if (get_tenant_setting_from_db('whats-mark', 'only_agents_can_chat'))
-                                        <li x-show="isAdmin == 1">
+                                        <li x-show="canAssign == 1">
                                             <button x-on:click='openSupportAgentModal()'
                                                 class="flex items-center w-full gap-2 px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
                                                 <x-heroicon-o-user-plus class="w-6 h-6" />
@@ -693,7 +693,7 @@
                                                 
                                                 
                                                 <!-- Message Content -->
-                                                <div class="p-2 rounded-lg w-fit max-w-[250px] break-words my-2 message-item"
+                                                <div class="p-2 rounded-lg w-fit max-w-[200px] break-words my-2 message-item"
                                                     :data-message-id='message.message_id' :class="{
                                                             'bg-[#c7c8ff] dark:bg-[#2d2454]': message.sender_id ===
                                                                 selectedUser.wa_no,
@@ -966,53 +966,76 @@
                                                     </div>
 
                                                     <!-- Options Menu -->
-<div x-show="activeMessageId === message.id" x-transition
-    x-on:click.away="activeMessageId = null"
-    class="absolute top-[-4.5rem] z-10 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-lg py-2"
-    :class="message.sender_id === selectedUser.wa_no ? 'right-0' : 'left-0'">
-    <ul class="text-sm">
-        <!-- Reply -->
-        <div class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
-            x-on:click="replyToMessage(message)">
-            <x-heroicon-c-arrow-path-rounded-square class="w-5 h-5 dark:text-gray-300 text-primary-500" />
-            <li class="dark:text-gray-300 text-primary-500">
-                {{ t('reply') }}
-            </li>
-        </div>
-        <!-- Copy -->
-<div class="relative flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
-    x-on:click="(() => {
-        navigator.clipboard.writeText(message.message);
-        activeMessageId = null;
-        showCopyTooltip = message.id; // Set ke ID message
-        setTimeout(() => showCopyTooltip = null, 1500);
-    })()">
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 dark:text-gray-300 text-primary-500">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-    </svg>
-    <li class="dark:text-gray-300 text-primary-500">
-        {{ t('copy') }}
-    </li>
-    
-    
-</div>
-
-        
-        <!-- Delete -->
-        <div x-on:click.stop="deleteMessage(message.id)"
-            class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer">
-            <x-heroicon-o-trash class="w-5 h-5 dark:text-gray-300 text-danger-500" />
-            <li class="dark:text-gray-300 text-primary-500">
-                {{ t('delete') }}
-            </li>
-        </div>
-    </ul>
-</div>
-<!-- Tooltip dengan kondisi ID -->
-    <div x-show="showCopyTooltip === message.id" x-transition.opacity
-        class="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
-        ✓ Copied!
-    </div>
+                                            <div x-show="activeMessageId === message.id" x-transition
+                                                x-on:click.away="activeMessageId = null"
+                                                class="absolute top-[-4.5rem] z-10 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-lg py-2"
+                                                :class="message.sender_id === selectedUser.wa_no ? 'right-0' : 'left-0'">
+                                                <ul class="text-sm">
+                                                    <!-- Reply -->
+                                                    <div class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
+                                                        x-on:click="replyToMessage(message)">
+                                                        <x-heroicon-c-arrow-path-rounded-square class="w-5 h-5 dark:text-gray-300 text-primary-500" />
+                                                        <li class="dark:text-gray-300 text-primary-500">
+                                                            {{ t('reply') }}
+                                                        </li>
+                                                    </div>
+                                                    <!-- Copy -->
+                                                    <div class="relative flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
+                                                        x-on:click="(() => {
+                                                            navigator.clipboard.writeText(message.message);
+                                                            activeMessageId = null;
+                                                            showCopyTooltip = message.id; // Set ke ID message
+                                                            setTimeout(() => showCopyTooltip = null, 1500);
+                                                        })()">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 dark:text-gray-300 text-primary-500">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                                                        </svg>
+                                                        <li class="dark:text-gray-300 text-primary-500">
+                                                            {{ t('copy') }}
+                                                        </li>
+                                                    </div>
+                                                    <!-- Delete -->
+                                                    <div x-on:click.stop="deleteMessage(message.id)"
+                                                        class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer">
+                                                        <x-heroicon-o-trash class="w-5 h-5 dark:text-gray-300 text-danger-500" />
+                                                        <li class="dark:text-gray-300 text-primary-500">
+                                                            {{ t('delete') }}
+                                                        </li>
+                                                    </div>
+                                                    
+                                                    <!-- Resend hanya muncul jika pesan memiliki status failed -->
+                                                    <div x-show="message.status === 'failed'" 
+                                                         class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-danger-500 dark:hover:bg-gray-700 cursor-pointer"
+                                                         x-on:click="(() => {
+                                                            resendMessage(message);  // Ganti navigator menjadi resendMessage
+                                                            activeMessageId = null;
+                                                            showResendTooltip = message.id; 
+                                                            setTimeout(() => showResendTooltip = null, 1500);
+                                                         })()">
+                                                        <x-heroicon-o-arrow-path class="w-5 h-5 dark:text-gray-300 text-danger-500" />
+                                                        <li class="dark:text-gray-300 text-danger-500">
+                                                            {{ t('resend') }}
+                                                        </li>
+                                                    </div>
+                                                    
+                                                    <!-- Tambahkan di area yang sesuai, misalnya di atas atau di bawah daftar pesan 
+                                                    <button 
+                                                        @click="message.status = 'failed'"
+                                                        class="bg-red-500 text-white p-2 rounded"
+                                                    >
+                                                        Simulate Failed Message
+                                                    </button>-->
+                                                </ul>
+                                            </div>
+                                            <!-- Tooltip dengan kondisi ID -->
+                                                <div x-show="showCopyTooltip === message.id" x-transition.opacity
+                                                    class="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
+                                                    ✓ Copied!
+                                                </div>
+                                                <div x-show="showResendTooltip === message.id" x-transition.opacity
+                                                    class="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
+                                                    ✓ Resend!
+                                                </div>
 
                                                 </div> <!-- End Message Content -->
                                             </div> <!-- End Message Wrapper -->
@@ -1882,7 +1905,8 @@
                             <div class="flex items-center gap-3">
                                     <x-heroicon-o-phone class="w-5 h-5 text-success-500 dark:text-gray-400" />
                                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                                        {{ t('phone') }} <span class="text-primary-500 text-sm font-medium" x-text="maskPhoneNumberJS(selectedUser?.receiver_id ? '+' + selectedUser.receiver_id : '')"></span>
+                                        {{ t('phone') }} <span class="text-primary-500 text-sm font-medium"
+                                            x-text="selectedUser?.receiver_id ? '+' + selectedUser.receiver_id : ''"></span>
                                     </p>
                                 </div>
                         </div>
@@ -3624,216 +3648,127 @@
             },
 
             sendMessage() {
-    if (this.sending) return;
-    if (!this.textMessage.trim() && !this.attachment && !this.audioBlob) return;
-    
-    this.sending = true;
-    
-    // ═══════════════════════════════════════════════════════
-    // 🚀 OPTIMISTIC UI - TAMPILKAN BUBBLE LANGSUNG
-    // ═══════════════════════════════════════════════════════
-    const tempId = 'temp_' + Date.now();
-    const tempMessage = {
-        id: tempId,
-        message_id: tempId,
-        message: this.textMessage.trim() || '',
-        type: this.attachment ? this.attachmentType.toLowerCase() : 'text',
-        url: this.previewUrl || '',
-        sender_id: this.selectedUser.wa_no,
-        receiver_id: this.selectedUser.receiver_id,
-        time_sent: new Date().toISOString(),
-        status: 'sending', // ⏳ Status sementara
-        staff_id: 1,
-        ref_message_id: this.replyTo ? this.replyTo.messasgeID : null
-    };
-    
-    // 🔍 DEBUG LOG 1
-    //console.log('🚀 Creating temp message:', {
-      //  tempId: tempId,
-        //message: tempMessage.message,
-        //selectedUserId: this.selectedUser.id
-    //});
-    
-    // Tampilkan bubble chat LANGSUNG
-    if (this.selectedUser && Array.isArray(this.selectedUser.messages)) {
-        this.selectedUser.messages.push(tempMessage);
-        
-        // 🔍 DEBUG LOG 2
-      //  console.log('📝 Current messages after push:', {
-        //    count: this.selectedUser.messages.length,
-          //  lastMessage: this.selectedUser.messages[this.selectedUser.messages.length - 1]
-        //});
-    
-    }
-    
-    // ═══════════════════════════════════════════════════════
-    // 📤 PREPARE DATA
-    // ═══════════════════════════════════════════════════════
-    let formData = new FormData();
-    formData.append('id', this.selectedUser.id);
-    formData.append('type', this.selectedUser.type);
-    formData.append('type_id', this.selectedUser.type_id);
-    formData.append('message', this.textMessage.trim() || '');
-    formData.append('ref_message_id', this.replyTo ? this.replyTo.messasgeID : '');
-    formData.append('temp_id', tempId);
-    
-    if (this.attachment) {
-        const keyName = this.attachmentType.toLowerCase();
-        formData.append(keyName, this.attachment, this.fileName);
-    }
-    if (this.audioBlob) {
-        formData.append('audio', this.audioBlob, 'audio.mp3');
-    }
-    
-    // ═══════════════════════════════════════════════════════
-    // 🧹 CLEAR INPUT LANGSUNG (INI YANG ANDA TANYAKAN!)
-    // ═══════════════════════════════════════════════════════
-    this.textMessage = '';
-    this.attachment = null;
-    this.audioBlob = null;
-    this.removePreview();
-    this.cancelReply();
-    
-    // Scroll ke bawah langsung
-    this.$nextTick(() => {
-        this.scrollToBottom();
-    });
-    
-    // ═══════════════════════════════════════════════════════
-    // 📡 KIRIM KE BACKEND (BACKGROUND)
-    // ═══════════════════════════════════════════════════════
-    this.sendFormData(formData, tempId);
-},
+                if (this.sending) return;
+                if (!this.textMessage.trim() && !this.attachment && !this.audioBlob) return;
+                this.sending = true; // Disable button
+                let formData = new FormData();
+                formData.append('id', this.selectedUser.id);
+                formData.append('type', this.selectedUser.type);
+                formData.append('type_id', this.selectedUser.type_id);
+                formData.append('message', this.textMessage.trim() || '');
+                formData.append('ref_message_id', this.replyTo ? this.replyTo.messasgeID : '');
 
-sendFormData(formData, tempId) {
-    this.sendingErrorMessage = '';
-    this.limitErrorMessage = '';
-    this.conversationLimitReached = false;
-    
-    fetch(`/${this.subdomain}/send-message`, {
-        method: 'POST',
-        headers: {
-            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
-        },
-        body: formData
-    })
-    .then(response => {
-        if (response.status === 429) {
-            return response.json().then(data => {
-                throw new Error(JSON.stringify({
-                    isLimitError: true,
-                    message: data.error || 'Conversation limit reached'
-                }));
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success === false) {
-            // ❌ GAGAL - Update status bubble jadi failed
-            const messageIndex = this.selectedUser.messages.findIndex(msg => msg.id === tempId);
-            if (messageIndex !== -1) {
-                this.selectedUser.messages[messageIndex].status = 'failed';
-                this.selectedUser.messages[messageIndex].status_message = data.message || 'Failed to send';
-            }
+                if (this.attachment) {
+                    const keyName = this.attachmentType.toLowerCase(); // image, video, document
+                    formData.append(keyName, this.attachment, this.fileName);
+                }
+                if (this.audioBlob) {
+                    formData.append('audio', this.audioBlob, 'audio.mp3');
+                }
+                this.sendFormData(formData);
+            },
+
+            sendFormData(formData) {
+                this.sendingErrorMessage = '';
+                this.limitErrorMessage = '';
+                this.conversationLimitReached = false;
+
+                fetch(`/${this.subdomain}/send-message`, {
+                        method: 'POST',
+                        headers: {
+                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+                        },
+                        body: formData
+                    })
+                    .then(response => {
+                        // Check if it's a conversation limit error (429 status)
+                        if (response.status === 429) {
+                            return response.json().then(data => {
+                                throw new Error(JSON.stringify({
+                                    isLimitError: true,
+                                    message: data.error ||
+                                        '{{ t('conversation_limit_upgrade_message') }}'
+                                }));
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success === false) {
+                            if (data.limit_reached || data.error.includes('limit')) {
+                                this.conversationLimitReached = true;
+                                this.limitErrorMessage = data.error ||
+                                    'Conversation limit reached. Please upgrade your plan to continue messaging.';
+                                showNotification(this.limitErrorMessage, 'warning', 7000);
+                            } else {
+                                this.sendingErrorMessage = data.message || 'Failed to send message';
+                                setTimeout(() => {
+                                    this.sendingErrorMessage = '';
+                                }, 5000);
+                            }
+                            return;
+                        }
+                        this.textMessage = '';
+                        this.sendingErrorMessage = '';
+                        this.limitErrorMessage = '';
+                        this.conversationLimitReached = false;
+                        this.attachment = null;
+                        this.audioBlob = null;
+                        this.removePreview();
+                        this.cancelReply();
+                        this.scrollToBottom();
+                    })
+                    .catch(error => {
+                        console.error('Error sending message:', error);
+
+                        try {
+                            const errorData = JSON.parse(error.message);
+                            if (errorData.isLimitError) {
+                                this.conversationLimitReached = true;
+                                this.limitErrorMessage = errorData.message;
+                                showNotification(this.limitErrorMessage, 'warning', 7000);
+                                return;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing JSON:', e);
+                        }
+
+                        this.sendingErrorMessage = 'Error sending message:',JSON.parse(error.message);
+                        showNotification('Network error. Please try again.', 'danger');
+                        setTimeout(() => {
+                            this.sendingErrorMessage = '';
+                        }, 5000);
+                    })
+                    .finally(() => {
+                        this.sending = false; // Re-enable button
+                    });
+            },
             
-            if (data.limit_reached || data.error?.includes('limit')) {
-                this.conversationLimitReached = true;
-                this.limitErrorMessage = data.error;
-                showNotification(this.limitErrorMessage, 'warning', 7000);
-            } else {
-                this.sendingErrorMessage = data.message || 'Failed to send message';
-                setTimeout(() => {
-                    this.sendingErrorMessage = '';
-                }, 5000);
-            }
-            return;
-        }
-        
-        // 🔍 DEBUG LOG 3
-    console.log('✅ Received response from backend:', {
-        success: data.success,
-        message_id: data.message_id,
-        temp_id: data.temp_id
-    });
-        
-        // ✅ SUKSES - Update temp message dengan real message ID
-        const messageIndex = this.selectedUser.messages.findIndex(msg => msg.id === tempId);
-        
-        // 🔍 DEBUG LOG 4
-    console.log('🔍 Looking for temp message:', {
-        tempId: tempId,
-        foundIndex: messageIndex,
-        totalMessages: this.selectedUser.messages.length
-    });
+            resendMessage(message) {
+    // Temukan index pesan yang gagal di array messages
+    const messageIndex = this.selectedUser.messages.findIndex(msg => msg.id === message.id);
     
-        if (messageIndex !== -1) {
-            this.selectedUser.messages[messageIndex] = {
-                ...this.selectedUser.messages[messageIndex],
-                id: data.message_id || tempId,
-                message_id: data.message_id || tempId,
-                status: 'sent'
-            };
+    if (messageIndex !== -1) {
+        // Simpan data pesan asli
+        const originalMessage = this.selectedUser.messages[messageIndex];
+        
+        // Siapkan data untuk dikirim
+        this.textMessage = originalMessage.message;
+        
+        if (originalMessage.attachment) {
+            this.attachment = originalMessage.attachment;
+            this.attachmentType = originalMessage.attachment_type;
+            this.fileName = originalMessage.file_name;
         }
         
-        // ✅ CLEAR ERROR MESSAGES (INI YANG TADINYA DI SINI)
-        this.sendingErrorMessage = '';
-        this.limitErrorMessage = '';
-        this.conversationLimitReached = false;
-        
-        // ⚠️ TIDAK PERLU CLEAR INPUT LAGI KARENA SUDAH DI-CLEAR DI ATAS!
-        // this.textMessage = '';  ← TIDAK PERLU
-        // this.attachment = null; ← TIDAK PERLU
-        // this.removePreview();   ← TIDAK PERLU
-        // this.scrollToBottom();  ← SUDAH ADA DI ATAS
-    })
-    .catch(error => {
-        console.error('Error sending message:', error);
-        
-        // ❌ ERROR - Update bubble status jadi failed
-        const messageIndex = this.selectedUser.messages.findIndex(msg => msg.id === tempId);
-        if (messageIndex !== -1) {
-        this.selectedUser.messages[messageIndex] = {
-            ...this.selectedUser.messages[messageIndex],
-            id: data.message_id || tempId,
-            message_id: data.message_id || tempId,
-            status: 'sent',
-            _updatedFromResponse: true
-        };
-        
-        // 🔍 DEBUG LOG 5
-        console.log('✅ Updated temp to real:', {
-            oldId: tempId,
-            newId: data.message_id,
-            updatedMessage: this.selectedUser.messages[messageIndex]
-        });
-    } else {
-        // 🔍 DEBUG LOG 6
-        console.warn('⚠️ Temp message NOT FOUND!', {
-            looking_for: tempId,
-            available_ids: this.selectedUser.messages.map(m => m.id)
+        this.$nextTick(() => {
+            this.sendMessage();
+            
+            // Hapus pesan lama yang gagal
+            this.selectedUser.messages.splice(messageIndex, 1);
         });
     }
-        
-        try {
-            const errorData = JSON.parse(error.message);
-            if (errorData.isLimitError) {
-                this.conversationLimitReached = true;
-                this.limitErrorMessage = errorData.message;
-                showNotification(this.limitErrorMessage, 'warning', 7000);
-                return;
-            }
-        } catch (e) {
-            // Ignore JSON parse error
-        }
-        
-        showNotification('Network error. Please try again.', 'danger');
-    })
-    .finally(() => {
-        this.sending = false; // Re-enable button
-    });
 },
-
             
             sanitizeLastMessage(content) {
                 return sanitizeMessage(content).replace(/<\/?[^>]+(>|$)/g, ""); // Sanitize & strip HTML
@@ -4654,111 +4589,21 @@ channel.bind('message-delivered', (data) => {
 
         // Clone interaction lama
         const updatedInteraction = {
-    ...existingInteraction,                     // keep original interaction
-    messages: [...existingInteraction.messages] // keep messages list
-};
+            ...existingInteraction,
+            ...newChats,
+            messages: [...existingInteraction.messages] // clone array lama
+        };
 
-// overwrite only what is safe
-if (newChats.unreadmessagecount !== undefined) {
-    updatedInteraction.unreadmessagecount = newChats.unreadmessagecount;
-}
+        // Cek apakah pesan ini sudah ada
+        const msgExists = updatedInteraction.messages.some(
+            msg => msg.message_id === newMsg.message_id
+        );
 
-
-         // ═══════════════════════════════════════════════════════
-        // 🔥 FIX DUPLIKASI - CEK MESSAGE_ID & FLAG
-        // ═══════════════════════════════════════════════════════
-        
-        // Cari apakah pesan sudah ada
-        const existingMsgIndex = updatedInteraction.messages.findIndex(msg => {
-            // 1. Match by exact message_id
-            if (msg.message_id && newMsg.message_id && 
-                msg.message_id === newMsg.message_id) {
-                return true;
-            }
-            
-            // 2. Match by ID (setelah di-update dari response)
-            if (msg.id && newMsg.id && msg.id === newMsg.id) {
-                return true;
-            }
-            
-            // 3. Match by ID dan message_id (case sensitive)
-            if (msg.id && newMsg.message_id && 
-                msg.id.toString() === newMsg.message_id.toString()) {
-                return true;
-            }
-            
-            return false;
-        });
-        
-        if (existingMsgIndex !== -1) {
-            // ✅ Pesan sudah ada
-            
-            // Cek apakah sudah di-update dari response
-            const alreadyUpdated = updatedInteraction.messages[existingMsgIndex]._updatedFromResponse;
-            
-            if (alreadyUpdated) {
-
-    // 🔥 FIX STATUS UPDATE (delivered/read)
-    const oldStatus = updatedInteraction.messages[existingMsgIndex].status;
-    const newStatus = newMsg.status;
-
-    // Jika status berubah → update UI
-    if (newStatus && newStatus !== oldStatus) {
-        updatedInteraction.messages[existingMsgIndex].status = newStatus;
-        console.log('🔄 STATUS UPDATED from Pusher:', newStatus);
-    } else {
-        console.log('⏭️ Skipping — no status change');
-    }
-} else {
-                // Update dari Pusher (untuk message dari customer)
-                updatedInteraction.messages[existingMsgIndex] = {
-                    ...updatedInteraction.messages[existingMsgIndex],
-                    ...newMsg,
-                    id: newMsg.id || updatedInteraction.messages[existingMsgIndex].id,
-                    message_id: newMsg.message_id || updatedInteraction.messages[existingMsgIndex].message_id,
-                    status: newMsg.status || 'sent'
-                };
-                
-                console.log('✅ Updated message from Pusher:', {
-                    id: newMsg.id,
-                    message_id: newMsg.message_id
-                });
-            }
-            
-        } else {
-
-    // ============================================================
-    // 🚫 FIX UTAMA OUTGOING:
-    // Jangan ADD bubble baru untuk pesan outgoing,
-    // tapi IZINKAN status delivered/read tetap update
-    // ============================================================
-    if (newMsg.staff_id) {
-        console.log('⏭️ Outgoing detected — skip ADD bubble only');
-        // ❗ JANGAN return — biarkan lanjut ke bawah untuk status update
-    } else {
-        // ============================================================
-        // ✔ Pesan dari CUSTOMER → tambahkan ke daftar pesan
-        // ============================================================
-        updatedInteraction.messages.push(newMsg);
-        isNewMessage = true;
-
-        console.log('➕ Added NEW customer message:', {
-            id: newMsg.id,
-            message_id: newMsg.message_id
-        });
-    }
-    
+        // Jika belum ada → push pesan baru
+        if (!msgExists) {
+            updatedInteraction.messages.push(newMsg);
+            isNewMessage = true;
         }
-        
-        // ===========================================================
-// 🟣 UPDATE PREVIEW SIDEBAR (last message + time)
-// ===========================================================
-updatedInteraction.lastmessage = this.getMessagePreview(newMsg);
-updatedInteraction.last_message = updatedInteraction.lastmessage;
-
-updatedInteraction.time_sent = newMsg.time_sent || updatedInteraction.time_sent;
-
-
 
         // Apakah chat ini sedang dibuka?
         const chatOpened = this.selectedUser && this.selectedUser.id === newChats.id;
