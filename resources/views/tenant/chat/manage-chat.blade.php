@@ -693,7 +693,7 @@
                                                 
                                                 
                                                 <!-- Message Content -->
-                                                <div class="p-2 rounded-lg w-fit max-w-[200px] break-words my-2 message-item"
+                                                <div class="p-2 rounded-lg w-fit max-w-[250px] break-words my-2 message-item"
                                                     :data-message-id='message.message_id' :class="{
                                                             'bg-[#c7c8ff] dark:bg-[#2d2454]': message.sender_id ===
                                                                 selectedUser.wa_no,
@@ -799,7 +799,7 @@
                                                         <div>
                                                         <a :href="message.url" target="_blank" class="glightbox">
                                                             <img :src="message.url" alt="Image"
-                                                                class="rounded-lg max-w-xs max-h-28">
+                                                                class="rounded-lg max-w-xs max-h-auto">
                                                         </a>
                                                         <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
                                                             x-show="message.message && message.message !== 'image'" x-text="message.message"></p>
