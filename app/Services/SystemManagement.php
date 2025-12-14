@@ -247,7 +247,7 @@ class SystemManagement
         $extensions = [
             'bcmath', 'ctype', 'fileinfo', 'json', 'mbstring',
             'openssl', 'pdo', 'tokenizer', 'xml', 'curl', 'zip',
-            'gd', 'imagick', 'intl', 'redis', 'memcached', 'swoole',
+            'gd', 'imagick', 'intl', 'redis',
         ];
 
         $info['extensions'] = [];
@@ -256,20 +256,6 @@ class SystemManagement
                 'installed' => extension_loaded($ext),
                 'version' => phpversion($ext),
             ];
-        }
-
-        if (extension_loaded('redis')) {
-            try {
-                $redis = Cache::store('redis')->connection();
-                $info['redis'] = [
-                    'connected' => $redis->ping(),
-                    'version' => $redis->info()['redis_version'] ?? 'N/A',
-                    'memory' => $redis->info()['used_memory_human'] ?? 'N/A',
-                ];
-            } catch (\Exception $e) {
-                $info['redis'] = t('redis_connection_failed').' '.$e->getMessage();
-                app_log(t('redis_connection_failed').' '.$e->getMessage(), 'error');
-            }
         }
 
         return $info;

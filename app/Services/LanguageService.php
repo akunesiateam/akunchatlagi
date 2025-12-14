@@ -175,7 +175,7 @@ class LanguageService
                 $originalTargetData = json_decode($targetContent, true);
 
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    Log::warning("Invalid JSON in target file {$targetFilePath}, will be replaced with public file");
+
                     $originalTargetData = [];
                 }
             }
@@ -265,7 +265,7 @@ class LanguageService
                 $targetTranslations = json_decode($targetContent, true);
 
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    Log::warning("Invalid JSON in target file {$targetFilePath}, will be recreated");
+
                     $targetTranslations = [];
                 }
             }
@@ -293,8 +293,6 @@ class LanguageService
             File::put($targetFilePath, $jsonContent);
 
             $logContext = $tenantId ? "{$type}:{$languageCode}:tenant_{$tenantId}" : "{$type}:{$languageCode}";
-            Log::info("Language reset completed for {$logContext}", $results);
-
         } catch (\Exception $e) {
             $results['error'] = $e->getMessage();
             $logContext = $tenantId ? "{$type}:{$languageCode}:tenant_{$tenantId}" : "{$type}:{$languageCode}";
@@ -380,7 +378,7 @@ class LanguageService
                 $masterTranslations = json_decode($masterContent, true);
 
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    Log::warning("Invalid JSON in master file {$masterFile}, will be recreated");
+
                     $masterTranslations = [];
                 }
             }
@@ -412,7 +410,6 @@ class LanguageService
                 $jsonContent = json_encode($masterTranslations, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
                 File::put($masterFile, $jsonContent);
 
-                Log::info("Master file sync completed for {$type}", $results);
             }
 
         } catch (\Exception $e) {
@@ -446,7 +443,6 @@ class LanguageService
         $moduleTranslations = json_decode($moduleContent, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            Log::warning("Invalid JSON in module file {$moduleFile}, skipping");
 
             return $results;
         }

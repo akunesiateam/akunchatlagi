@@ -126,12 +126,11 @@ class AuthenticatedSessionController extends Controller
             } elseif ($user->user_type === 'tenant') {
                 $tenant = Tenant::findOrFail($user->tenant_id);
 
-                Tenant::forgetCurrent();
+                // Set tenant as current context
                 $tenant->makeCurrent();
-                session([
-                    'current_tenant_id' => $tenant->id,
-                    'current_user' => $user,
-                ]);
+
+                // Regenerate session for security (prevents session fixation)
+                $request->session()->regenerate();
 
                 // Clear intended URL if it belongs to current host
                 if ($request->session()->has('url.intended')) {
@@ -345,15 +344,16 @@ class AuthenticatedSessionController extends Controller
         // Store admin ID in session for back_to_admin functionality
         session(['admin_id' => $admin_id]);
 
-        // Find the tenant user
-        $tenantUser = \App\Models\User::findOrFail($id);
+        // Find the tenant user with eager loading
+        $tenantUser = \App\Models\User::with('tenant')->findOrFail($id);
+        $tenant = $tenantUser->tenant;
 
-        // Get the tenant
-        $tenant = Tenant::findOrFail($tenantUser->tenant_id);
+        if (! $tenant) {
+            return redirect()->route('admin.tenants.list')
+                ->with('error', 'Tenant not found for this user');
+        }
 
-        // Preserve admin_id before invalidating session
-        $admin_id = session('admin_id');
-
+        // Logout admin and clear session
         Auth::guard('web')->logout();
         session()->invalidate();
         session()->regenerateToken();
@@ -361,31 +361,22 @@ class AuthenticatedSessionController extends Controller
         // Restore admin_id after session regeneration
         session(['admin_id' => $admin_id]);
 
-        // Make the tenant current
-        Tenant::forgetCurrent();
+        // Set tenant as current context
         $tenant->makeCurrent();
 
-        // Store tenant ID in session
-        session([
-            'current_tenant_id' => $tenant->id,
-            'current_user' => $tenantUser,
-        ]);
         // Login as the tenant user
-        Auth::loginUsingId($id, $remember = true);
+        Auth::loginUsingId($tenantUser->id, true);
 
-        $locale = ! empty($tenantUser->default_language) ? $tenantUser->default_language : get_tenant_setting_from_db('system', 'active_language');
-        Session::put('locale', $locale);
-        App::setLocale($locale);
+        // Setup tenant language using helper method
+        $this->handleLanguageSetup($tenant, Session::get('locale', config('app.locale')), $tenantUser->default_language);
 
         session()->flash('notification', [
             'type' => 'success',
             'message' => t('login_as_tenant_successfully'),
         ]);
 
-        // Now that tenant context is set up, we can use tenant_route with the proper subdomain
-        return redirect()->to(tenant_route('tenant.dashboard', [
-            'subdomain' => $tenant->subdomain,
-        ]));
+        // Tenant context is set, use tenant_route (subdomain auto-detected)
+        return redirect()->to(tenant_route('tenant.dashboard'));
     }
 
     /**
@@ -410,61 +401,49 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('login')->with('error', 'Admin session expired');
         }
 
-        // Get current tenant before logout for cleanup
+        // Get current tenant before logout
         $tenant = Tenant::current();
 
-        // Log out current user
+        // Log out current tenant user
         Auth::guard('web')->logout();
 
-        // Clear all tenant-related session data
+        // Clear tenant context and cache (TenantObserver handles detailed cache clearing)
         if ($tenant) {
-            // Clear tenant context from database and cache
             Tenant::forgetCurrent();
-            Cache::forget("tenant:{$tenant->subdomain}");
+
+            // Clear standardized cache keys (matching PathTenantFinder format)
+            Cache::forget("tenant:subdomain:{$tenant->subdomain}");
+            Cache::forget("tenant:{$tenant->id}");
 
             // Clear tenant-specific session data
-            session()->forget([
-                'current_tenant_id',
-                'tenant_settings',
-            ]);
-
-            // Clear any cached tenant data
-            Cache::forget("tenant_{$tenant->id}");
-            Cache::forget("tenant_subdomain_{$tenant->subdomain}");
+            session()->forget(['current_tenant_id', 'tenant_settings']);
         }
 
-        // Store admin ID temporarily
-        $temp_admin_id = $admin_id;
-
-        // Complete session invalidation
+        // Invalidate session and regenerate token for security
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        // Restore only the admin ID
-        session(['admin_id' => $temp_admin_id]);
-
-        // Log back in as admin
+        // Restore admin ID and log back in
+        session(['admin_id' => $admin_id]);
         Auth::loginUsingId($admin_id, true);
 
-        // Ensure admin user was found and logged in
+        // Validate admin login
         if (! Auth::check() || Auth::user()->user_type !== 'admin') {
             return redirect()->route('login')->with('error', 'Could not restore admin session');
         }
 
-        // Set the language based on admin user's preference or system default
+        // Setup admin language
         $adminUser = Auth::user();
         $settings = get_batch_settings(['system.active_language']);
         $locale = ! empty($adminUser->default_language) ? $adminUser->default_language : $settings['system.active_language'];
         Session::put('locale', $locale);
         App::setLocale($locale);
 
-        // Set success message
         session()->flash('notification', [
             'type' => 'success',
             'message' => t('successfully_returned_to_admin_panel'),
         ]);
 
-        // Redirect to admin dashboard
         return redirect()->route('admin.tenants.list');
     }
 

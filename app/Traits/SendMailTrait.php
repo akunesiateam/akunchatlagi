@@ -15,13 +15,6 @@ trait SendMailTrait
             if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $errorMessage = t('invalid_email_address').' : '.$email;
 
-                app_log($errorMessage, 'error', null, [
-                    'recipients' => $recipients,
-                    'mailable' => get_class($mailable),
-                    'file' => __FILE__,
-                    'line' => __LINE__,
-                ]);
-
                 return [
                     'status' => false,
                     'message' => $errorMessage,

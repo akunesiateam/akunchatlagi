@@ -986,8 +986,6 @@ if (! function_exists('clear_tenant_cache')) {
             }
 
             SubscriptionCache::clearCache($tenant_id);
-
-            app_log('Tenant-specific cache cleared', 'info', null, [], $tenant_id);
         } catch (\Exception $e) {
             app_log('Failed to clear tenant cache', 'error', $e, [], $tenant_id);
         }

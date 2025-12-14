@@ -17,11 +17,6 @@ class TenantDeletionService
             $tenant->deleted_date = now();
             $result = $tenant->save();
 
-            app_log('Tenant marked for deletion', 'info', null, [
-                'tenant_id' => $tenant->id,
-                'subdomain' => $tenant->subdomain,
-            ]);
-
             return $result;
         } catch (\Exception $e) {
             app_log('Failed to mark tenant for deletion', 'error', $e, [
@@ -38,10 +33,6 @@ class TenantDeletionService
      */
     public function deleteAllTenantData(Tenant $tenant): void
     {
-        app_log('Starting complete tenant data deletion', 'info', null, [
-            'tenant_id' => $tenant->id,
-            'subdomain' => $tenant->subdomain,
-        ]);
 
         // Get all tables in the database
         $tables = DB::select('SHOW TABLES');
@@ -88,11 +79,6 @@ class TenantDeletionService
         // Finally delete the tenant record
         $tenant->delete();
 
-        app_log('Tenant deleted completely', 'info', null, [
-            'tenant_id' => $tenant->id,
-            'subdomain' => $tenant->subdomain,
-            'message' => 'All tenant data including invoices, subscriptions, transactions, users, settings, bots, campaigns and tenant tables have been permanently deleted',
-        ]);
     }
 
     /**
@@ -103,11 +89,6 @@ class TenantDeletionService
         try {
             $tenant->deleted_date = null;
             $result = $tenant->save();
-
-            app_log('Tenant restored from deletion', 'info', null, [
-                'tenant_id' => $tenant->id,
-                'subdomain' => $tenant->subdomain,
-            ]);
 
             return $result;
         } catch (\Exception $e) {

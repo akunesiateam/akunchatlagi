@@ -11,7 +11,16 @@
         <x-settings-heading>
             {{ t('manage_theme') }}
         </x-settings-heading>
-       
+        <div>
+            {{-- Reset: full label on desktop, icon-only on mobile --}}
+            <x-button.secondary wire:click="resetTheme" class="hidden sm:inline-flex">
+                <x-heroicon-o-arrow-path class="w-5 h-5 mr-2" />
+                {{ t('reset_theme') }}
+            </x-button.secondary>
+            <x-button.secondary wire:click="resetTheme" class="sm:hidden">
+                <x-heroicon-o-arrow-path class="w-5 h-5" />
+            </x-button.secondary>
+        </div>
     </div>
     <!-- No Themes Message -->
     @if (empty($themes) || count($themes) === 0)
@@ -72,9 +81,9 @@
                     <div class="flex-shrink-0">
                         {{-- @if(!($theme->name === 'thecore' && $theme->active == 1))
                         <button wire:click="confirmDelete({{ $theme->id }})"
-                            class="flex items-center justify-center px-4 py-2 text-sm font-medium text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-gray-700 transition-colors rounded">
-                            <x-heroicon-o-trash class="w-4 h-4 mr-1" />
-                            {{ t('delete') }}
+                        class="flex items-center justify-center px-4 py-2 text-sm font-medium text-danger-600 hover:bg-danger-50 dark:text-danger-400 dark:hover:bg-gray-700 transition-colors rounded">
+                        <x-heroicon-o-trash class="w-4 h-4 mr-1" />
+                        {{ t('delete') }}
                         </button>
                         @endif --}}
                     </div>

@@ -241,7 +241,7 @@
                             </div>
                         </div>
 
-                        @if (checkPermission(['admin.user.edit', 'admin.user.create']))
+                        @if (checkPermission(['admin.users.edit', 'admin.users.create']))
                         @php
                             $authUser = auth()->user();
                             $isAdmin = $authUser->is_admin == 1;

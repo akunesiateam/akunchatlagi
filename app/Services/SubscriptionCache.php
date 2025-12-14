@@ -136,7 +136,7 @@ class SubscriptionCache
                 $result = [
                     'all' => $subscriptions,
                     'by_status' => $subscriptions->groupBy('status'),
-                    'active' => $subscriptions->firstWhere('status', 'active') ?? $subscriptions->firstWhere('status', 'trial') ?? $subscriptions->firstWhere('status', 'paused'),
+                    'active' => $subscriptions->firstWhere('status', 'active') ?? $subscriptions->firstWhere('status', 'trial') ?? $subscriptions->firstWhere('status', 'paused') ?? $subscriptions->firstWhere('status', 'cancelled'),
                     'pending' => $subscriptions->firstWhere('status', 'pending'),
                     'latest' => $subscriptions->sortByDesc('created_at')->first(),
                 ];

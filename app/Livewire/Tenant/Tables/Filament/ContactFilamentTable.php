@@ -115,8 +115,7 @@ class ContactFilamentTable extends BaseFilamentTable
                 ->label(t('phone'))
                 ->toggleable()
                 ->searchable()
-                ->sortable()
-                ->formatStateUsing(fn ($state) => mask_phone_number($state)),
+                ->sortable(),
 
             TextColumn::make('assigned_id')
                 ->label(t('assigned'))
@@ -235,6 +234,29 @@ class ContactFilamentTable extends BaseFilamentTable
                 })
                 ->wrap()
                 ->html(),
+
+            ToggleColumn::make('is_opted_out')
+                ->label(t('opted_out_status'))
+                ->toggleable()
+                ->inline(false)
+                ->extraAttributes(fn () => [
+                    'style' => 'transform: scale(0.7); transform-origin: center;',
+                ])
+                ->afterStateUpdated(function ($record, $state) {
+                    if (! checkPermission('tenant.contact.edit')) {
+                        return;
+                    }
+
+                    $record->is_opted_out = $state ? 1 : 0;
+                    $record->save();
+
+                    $this->notify([
+                        'message' => $state
+                            ? t('contact_added_to_opted_out')
+                            : t('contact_removed_from_opted_out'),
+                        'type' => 'success',
+                    ]);
+                }),
 
             ToggleColumn::make('is_enabled')
                 ->label(t('active'))
@@ -610,8 +632,7 @@ class ContactFilamentTable extends BaseFilamentTable
             $contact->id,
             $contact->firstname.' '.$contact->lastname,
             t($contact->type),
-            //$contact->phone,
-            mask_phone_number($contact->phone), // ✅ MASKING DI SINI
+            $contact->phone,
             $contact->user ? ($contact->user->firstname.' '.$contact->user->lastname) : t('not_assigned'),
             $contact->status->name ?? t('no_status'),
             $contact->source->name ?? t('no_source'),

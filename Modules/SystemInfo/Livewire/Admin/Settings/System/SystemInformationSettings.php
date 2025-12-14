@@ -54,7 +54,7 @@ class SystemInformationSettings extends Component
         $extensions = [
             'bcmath', 'ctype', 'fileinfo', 'json', 'mbstring',
             'openssl', 'pdo', 'tokenizer', 'xml', 'curl', 'zip',
-            'gd', 'imagick', 'intl', 'redis', 'memcached', 'swoole',
+            'gd', 'imagick', 'intl', 'redis',
         ];
 
         $info['extensions'] = [];
@@ -103,9 +103,6 @@ class SystemInformationSettings extends Component
                 'queue_driver' => config('queue.default'),
                 'session_driver' => config('session.driver'),
                 'storage_path' => storage_path(),
-            ],
-            'server' => [
-                'ssl' => request()->isSecure(),
             ],
             'extensions' => $info['extensions'],
             'database' => $dbInfo,

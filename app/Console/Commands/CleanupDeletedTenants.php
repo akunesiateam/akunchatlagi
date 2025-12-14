@@ -45,8 +45,9 @@ class CleanupDeletedTenants extends Command
                     // Check if tenant has any active subscriptions
                     $hasActiveSubscription = $tenant->subscriptions()
                         ->where(function ($query) {
-                            $query->whereNull('current_period_ends_at')
-                                ->orWhere('current_period_ends_at', '>', now());
+                            $query->whereNotNull('current_period_ends_at')
+                                ->orWhere('current_period_ends_at', '>', now())
+                                ->orWhere('trial_ends_at', '>', now());
                         })
                         ->exists();
 
@@ -84,7 +85,6 @@ class CleanupDeletedTenants extends Command
             }
 
             return Command::SUCCESS;
-
         } catch (\Exception $e) {
             if ($isDebug) {
                 $this->error('Cleanup failed: '.$e->getMessage());

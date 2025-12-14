@@ -19,9 +19,6 @@ class SendSubscriptionCancelledEmail
         $subscription = Subscription::find($event->subscriptionId);
 
         if (! $subscription) {
-            app_log('Cannot send cancellation email: Subscription not found', 'warning', null, [
-                'subscription_id' => $event->subscriptionId,
-            ]);
 
             return;
         }
@@ -30,9 +27,6 @@ class SendSubscriptionCancelledEmail
 
         // Check if the subscription has a customer and user
         if (! $user) {
-            app_log('Cannot send cancellation email: User not found for tenant ID', 'warning', null, [
-                'subscription_id' => $subscription->id,
-            ]);
 
             return;
         }

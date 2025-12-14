@@ -17,6 +17,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use PDOException;
@@ -672,7 +673,21 @@ class InstallController extends Controller
                 'wm_validate' => true,
             ]);
 
-            $installer->markAsInstalled();
+            $installedFile = base_path(config('installer.storage_path', 'storage').'/'.config('installer.installed_file', '.installed'));
+
+            $settings = get_batch_settings([
+                'whats-mark.wm_verification_token',
+            ]);
+            $content = sprintf($settings['whats-mark.wm_verification_token']);
+
+            // Ensure storage directory exists
+            $storagePath = base_path(config('installer.storage_path', 'storage'));
+            if (! File::exists($storagePath)) {
+                File::makeDirectory($storagePath, 0755, true);
+            }
+
+            // Write the installed file
+            File::put($installedFile, $content);
 
             session()->flash('notification', [
                 'type' => 'success',

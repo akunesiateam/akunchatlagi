@@ -222,6 +222,8 @@ class TenantCacheManager
                 $table->text('ai_message_json')->nullable();
                 $table->boolean('is_bots_stoped')->nullable();
                 $table->dateTime('bot_stoped_time')->nullable();
+                $table->tinyInteger('session_reset_sent')->default(0)->nullable();
+                $table->timestamp('session_reset_sent_at')->nullable();
                 $table->timestamps();
                 $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
                 $table->index('tenant_id');
@@ -279,6 +281,8 @@ class TenantCacheManager
                 $table->index('status_id');
                 $table->index('source_id');
                 $table->json('group_id')->nullable();
+                $table->tinyInteger('is_opted_out')->nullable();
+                $table->dateTime('opted_out_date')->nullable();
                 $table->index('assigned_id');
                 $table->index('type');
                 $table->index('phone');

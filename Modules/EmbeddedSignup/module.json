@@ -5,7 +5,7 @@
     "provider": "Modules\\EmbeddedSignup\\Providers\\EmbeddedSignupServiceProvider",
     "author": "Corbital Technologies",
     "url": "https://codecanyon.net/user/corbitaltech",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "The EmbeddedSignup Module",
     "keywords": [],
     "order": 0,

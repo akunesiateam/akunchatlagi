@@ -68,7 +68,7 @@ return [
             'connection' => env('REDIS_QUEUE_CONNECTION', 'queue'),
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
-            'block_for' => (int) env('REDIS_QUEUE_BLOCK_FOR', 5), // How long to block waiting for jobs (must be < read_timeout)
+            'block_for' => null, // Null improves polling performance with Redis
             'after_commit' => true,
         ],
 

@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Tenant;
 use App\Multitenancy\PathTenantFinder;
+use App\Observers\TenantObserver;
 use Illuminate\Support\ServiceProvider;
 
 class MultitenancyServiceProvider extends ServiceProvider
@@ -22,6 +24,7 @@ class MultitenancyServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Register TenantObserver for cache invalidation
+        Tenant::observe(TenantObserver::class);
     }
 }

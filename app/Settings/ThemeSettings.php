@@ -46,6 +46,14 @@ class ThemeSettings extends Settings
 
     public ?string $partner_logos;
 
+    public ?bool $partners_logos_enabled;
+
+    public ?string $partners_logo_header;
+
+    public ?string $partners_logo_description;
+
+    public ?string $partners_logo_footer;
+
     // Uni Feature
     public ?string $uni_feature_title;
 

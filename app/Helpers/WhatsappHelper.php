@@ -80,22 +80,27 @@ if (! function_exists('get_meta_allowed_extension')) {
         return [
             'image' => [
                 'extension' => '.jpeg, .png, .jpg',
+                'mime' => 'image/jpeg, image/png',
                 'size' => 5,
             ],
             'video' => [
                 'extension' => '.mp4, .3gp',
+                'mime' => 'video/mp4, video/3gpp',
                 'size' => 16,
             ],
             'audio' => [
                 'extension' => '.aac, .amr, .mp3, .m4a, .ogg',
+                'mime' => 'audio/aac, audio/amr, audio/mpeg, audio/mp4, audio/ogg',
                 'size' => 16,
             ],
             'document' => [
                 'extension' => '.pdf, .doc, .docx, .txt, .xls, .xlsx, .ppt, .pptx',
+                'mime' => 'text/plain, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/vnd.ms-powerpoint, application/vnd.openxmlformats-officedocument.presentationml.presentation, application/pdf',
                 'size' => 100,
             ],
             'sticker' => [
                 'extension' => '.webp',
+                'mime' => 'image/webp',
                 'size' => 0.1,
             ],
         ];

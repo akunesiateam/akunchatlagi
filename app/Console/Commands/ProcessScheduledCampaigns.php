@@ -8,6 +8,7 @@ use App\Models\Tenant\Campaign;
 use App\Models\Tenant\CampaignDetail;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Spatie\Multitenancy\Commands\Concerns\TenantAware;
 
 class ProcessScheduledCampaigns extends Command
@@ -59,43 +60,53 @@ class ProcessScheduledCampaigns extends Command
             $this->info("Processing campaign: {$campaign->name}");
 
             try {
-                // Get all details for this campaign that haven't been sent
-                $details = CampaignDetail::where('campaign_id', $campaign->id)
+                // Count messages to queue (lightweight check)
+                $messageCount = CampaignDetail::where('campaign_id', $campaign->id)
                     ->where('status', 1)
-                    ->get();
+                    ->count();
 
-                if ($details->isEmpty()) {
+                if ($messageCount === 0) {
                     $this->warn("No messages to send for campaign: {$campaign->name}");
 
                     continue;
                 }
 
-                $this->info("Found {$details->count()} messages to queue");
+                $this->info("Found {$messageCount} messages to queue");
 
-                collect($details)->chunk(500)->each(function ($chunk) use ($campaign, $now) {
-                    foreach ($chunk as $detail) {
-                        $delay = (! $campaign->send_now && $now->lessThan($campaign->scheduled_send_time))
-                            ? $now->diffInSeconds($campaign->scheduled_send_time)
-                            : 0;
+                // Process campaign details in chunks directly from database
+                // This avoids loading all records into memory at once
+                CampaignDetail::where('campaign_id', $campaign->id)
+                    ->where('status', 1)
+                    ->chunk(500, function ($chunk) use ($campaign, $now, &$totalProcessed) {
+                        foreach ($chunk as $detail) {
+                            // Calculate delay for scheduled campaigns
+                            $delay = (! $campaign->send_now && $now->lessThan($campaign->scheduled_send_time))
+                                ? $now->diffInSeconds($campaign->scheduled_send_time)
+                                : 0;
 
-                        $job = new SendCampaignMessageJob(
-                            $detail->id,
-                            $campaign->id,
-                            Tenant::current()->id
-                        );
+                            // Create and dispatch job
+                            $job = new SendCampaignMessageJob(
+                                $detail->id,
+                                $campaign->id,
+                                Tenant::current()->id
+                            );
 
-                        if ($delay > 0) {
-                            $job->delay($delay);
+                            if ($delay > 0) {
+                                $job->delay($delay);
+                            }
+
+                            dispatch($job);
+
+                            $totalProcessed++;
                         }
 
-                        dispatch($job);
-                    }
-                });
+                        // Clear memory after each chunk
+                        DB::connection()->disableQueryLog();
+                        gc_collect_cycles();
+                    });
 
                 // Mark campaign as sent
                 $campaign->update(['is_sent' => true]);
-
-                $totalProcessed += $details->count();
 
                 $this->info("Successfully queued campaign: {$campaign->name}");
             } catch (\Throwable $e) {

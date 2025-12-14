@@ -20,9 +20,6 @@ class SendSubscriptionActivatedEmail
             $user = getUserByTenantId($tenantId);
 
             if (! $user) {
-                app_log('User not found for tenant ID', 'error', null, [
-                    'tenant_id' => $tenantId,
-                ]);
 
                 return;
             }

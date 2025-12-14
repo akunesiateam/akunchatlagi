@@ -463,9 +463,12 @@ trait WhatsApp
         $phoneNumberId = $this->getPhoneID();
         $tenantId = $this->getWaTenantId();
 
-        $url = self::$facebookAPI.self::getApiVersion()."/{$phoneNumberId}?fields=messaging_limit_tier";
+        $startTime = strtotime(date('Y-m-d 00:00:00'));
+        $endTime = strtotime(date('Y-m-d 23:59:59'));
 
         try {
+            // ---- Request 1: get messaging_limit_tier ----
+            $url = rtrim(self::$facebookAPI, '/').'/'.ltrim(self::getApiVersion(), '/')."/{$phoneNumberId}?fields=messaging_limit_tier";
             $response = Http::withToken($accessToken)->get($url);
 
             $data = $response->json();
@@ -486,19 +489,64 @@ trait WhatsApp
                 'TIER_UNLIMITED' => -1,
             ];
 
-            $tier = $data['messaging_limit_tier'];
-            $data['limit_value'] = $limits[$tier] ?? 0;
+            $tier = $data['messaging_limit_tier'] ?? null;
+            $data['limit_value'] = $tier !== null && isset($limits[$tier]) ? $limits[$tier] : 0;
+
+            // ---- Request 2: get analytics ----
+            $response2 = Http::get(self::getBaseUrl().$this->getAccountID(), [
+                'fields' => "id,name,analytics.start({$startTime}).end({$endTime}).granularity(DAY)",
+                'access_token' => $accessToken,
+            ]);
+
+            if ($response2->failed()) {
+                // If analytics fails, still return tier info but include analytics error info
+                $errMsg = $response2->json('error.message') ?? $response2->body();
+                // log it and return combined response with analytics error
+                whatsapp_log(
+                    'Analytics request failed: '.$errMsg,
+                    'warning',
+                    [
+                        'analytics_url' => self::getBaseUrl().$this->getAccountID(),
+                        'phone_number_id' => $phoneNumberId,
+                        'tenant_id' => $tenantId,
+                    ],
+                    null,
+                    $tenantId
+                );
+
+                // return tier data but include analytics error so caller knows
+                $data['analytics'] = [
+                    'status' => false,
+                    'message' => 'Analytics fetch failed: '.$errMsg,
+                ];
+
+                return [
+                    'status' => true,
+                    'data' => $data,
+                ];
+            }
+
+            $analytics = $response2->json();
+
+            // attach analytics under the same data array
+            // Graph typically returns analytics => ['data' => [...]]
+            $data['analytics'] = $analytics['analytics'] ?? $analytics;
 
             return [
                 'status' => true,
                 'data' => $data,
             ];
         } catch (\Throwable $th) {
-            whatsapp_log('Failed to get phone number limit: '.$th->getMessage(), 'error', [
-                'url' => $url,
-                'phone_number_id' => $phoneNumberId,
-                'tenant_id' => $tenantId,
-            ], $th, $tenantId);
+            whatsapp_log(
+                'Failed to get phone number limit & analytics: '.$th->getMessage(),
+                'error',
+                [
+                    'phone_number_id' => $phoneNumberId,
+                    'tenant_id' => $tenantId,
+                ],
+                $th,
+                $tenantId
+            );
 
             return [
                 'status' => false,
@@ -1045,80 +1093,80 @@ trait WhatsApp
         $message_data = parseMessageText($message_data);
         $whatsapp_cloud_api = $this->loadConfig($fromNumber);
 
-        // try {
-        $rows = [];
-        if (! empty($message_data['button1_id'])) {
-            $rows[] = new Button($message_data['button1_id'], $message_data['button1']);
-        }
-        if (! empty($message_data['button2_id'])) {
-            $rows[] = new Button($message_data['button2_id'], $message_data['button2']);
-        }
-        if (! empty($message_data['button3_id'])) {
-            $rows[] = new Button($message_data['button3_id'], $message_data['button3']);
-        }
-        if (! empty($rows)) {
-            $action = new ButtonAction($rows);
-            $result = $whatsapp_cloud_api->sendButton(
-                $to,
-                $message_data['reply_text'],
-                $action,
-                $message_data['bot_header'],
-                $message_data['bot_footer']
-            );
-        } elseif (! empty($message_data['button_name']) && ! empty($message_data['button_url']) && filter_var($message_data['button_url'], \FILTER_VALIDATE_URL)) {
-            $header = null;
-            if (! empty($message_data['bot_header'])) {
-                $header = new TitleHeader($message_data['bot_header']);
+        try {
+            $rows = [];
+            if (! empty($message_data['button1_id'])) {
+                $rows[] = new Button($message_data['button1_id'], $message_data['button1']);
             }
-
-            $result = $whatsapp_cloud_api->sendCtaUrl(
-                $to,
-                $message_data['button_name'],
-                $message_data['button_url'],
-                $header,
-                $message_data['reply_text'],
-                $message_data['bot_footer'],
-            );
-        } else {
-            $message = $message_data['bot_header']."\n".$message_data['reply_text']."\n".$message_data['bot_footer'];
-            if (! empty($message_data['filename'])) {
-                $url = asset('storage/'.$message_data['filename']);
-                $link_id = new LinkID($url);
-                $fileExtensions = get_meta_allowed_extension();
-                $extension = strtolower(pathinfo($message_data['filename'], PATHINFO_EXTENSION));
-                $fileType = array_key_first(array_filter($fileExtensions, fn ($data) => in_array('.'.$extension, explode(', ', $data['extension']))));
-                if ($fileType == 'image') {
-                    $result = $whatsapp_cloud_api->sendImage($to, $link_id, $message);
-                } elseif ($fileType == 'video') {
-                    $result = $whatsapp_cloud_api->sendVideo($to, $link_id, $message);
-                } elseif ($fileType == 'document') {
-                    $result = $whatsapp_cloud_api->sendDocument($to, $link_id, $message_data['filename'], $message);
+            if (! empty($message_data['button2_id'])) {
+                $rows[] = new Button($message_data['button2_id'], $message_data['button2']);
+            }
+            if (! empty($message_data['button3_id'])) {
+                $rows[] = new Button($message_data['button3_id'], $message_data['button3']);
+            }
+            if (! empty($rows)) {
+                $action = new ButtonAction($rows);
+                $result = $whatsapp_cloud_api->sendButton(
+                    $to,
+                    $message_data['reply_text'],
+                    $action,
+                    $message_data['bot_header'],
+                    $message_data['bot_footer']
+                );
+            } elseif (! empty($message_data['button_name']) && ! empty($message_data['button_url']) && filter_var($message_data['button_url'], \FILTER_VALIDATE_URL)) {
+                $header = null;
+                if (! empty($message_data['bot_header'])) {
+                    $header = new TitleHeader($message_data['bot_header']);
                 }
+
+                $result = $whatsapp_cloud_api->sendCtaUrl(
+                    $to,
+                    $message_data['button_name'],
+                    $message_data['button_url'],
+                    $header,
+                    $message_data['reply_text'],
+                    $message_data['bot_footer'],
+                );
             } else {
-                $result = $whatsapp_cloud_api->sendTextMessage($to, $message, true);
+                $message = $message_data['bot_header']."\n".$message_data['reply_text']."\n".$message_data['bot_footer'];
+                if (! empty($message_data['filename'])) {
+                    $url = asset('storage/'.$message_data['filename']);
+                    $link_id = new LinkID($url);
+                    $fileExtensions = get_meta_allowed_extension();
+                    $extension = strtolower(pathinfo($message_data['filename'], PATHINFO_EXTENSION));
+                    $fileType = array_key_first(array_filter($fileExtensions, fn ($data) => in_array('.'.$extension, explode(', ', $data['extension']))));
+                    if ($fileType == 'image') {
+                        $result = $whatsapp_cloud_api->sendImage($to, $link_id, $message);
+                    } elseif ($fileType == 'video') {
+                        $result = $whatsapp_cloud_api->sendVideo($to, $link_id, $message);
+                    } elseif ($fileType == 'document') {
+                        $result = $whatsapp_cloud_api->sendDocument($to, $link_id, 'file', $message);
+                    }
+                } else {
+                    $result = $whatsapp_cloud_api->sendTextMessage($to, $message, true);
+                }
             }
+
+            $status = true;
+            $data = json_decode($result->body());
+            $responseCode = $result->httpStatusCode();
+            $responseData = $data;
+            $rawData = json_encode($result->request()->body());
+        } catch (\Netflie\WhatsAppCloudApi\Response\ResponseException $th) {
+            $status = false;
+            $errorData = $th->responseData()['error'] ?? [];
+            $message = $errorData['error_user_msg'] ?? $errorData['message'] ?? $th->rawResponse() ?? $th->getMessage() ?? 'Failed to send message.';
+            $responseCode = $th->httpStatusCode();
+            $responseData = $message;
+            $rawData = json_encode([]);
+
+            whatsapp_log('Error sending message: '.$message, 'error', [
+                'to' => $to,
+                'message_type' => $folder,
+                'response_code' => $responseCode,
+                'tenant_id' => $tenant_id,
+            ], $th, $tenant_id);
         }
-
-        $status = true;
-        $data = json_decode($result->body());
-        $responseCode = $result->httpStatusCode();
-        $responseData = $data;
-        $rawData = json_encode($result->request()->body());
-        // } catch (\Netflie\WhatsAppCloudApi\Response\ResponseException $th) {
-        //     $status = false;
-        //     $errorData = $th->responseData()['error'] ?? [];
-        //     $message = $errorData['error_user_msg'] ?? $errorData['message'] ?? $th->rawResponse() ?? $th->getMessage() ?? 'Failed to send message.';
-        //     $responseCode = $th->httpStatusCode();
-        //     $responseData = $message;
-        //     $rawData = json_encode([]);
-
-        //     whatsapp_log('Error sending message: '.$message, 'error', [
-        //         'to' => $to,
-        //         'message_type' => $folder,
-        //         'response_code' => $responseCode,
-        //         'tenant_id' => $tenant_id,
-        //     ], $th, $tenant_id);
-        // }
 
         $log_data = [
             'response_code' => $responseCode ?? 500,
@@ -2547,7 +2595,7 @@ trait WhatsApp
 
             if ($response->failed()) {
                 $errorData = $response->json();
-                $errorMessage = $errorData['error']['message'] ?? t('failed_to_create_template');
+                $errorMessage = $errorData['error']['error_user_msg'] ?? t('failed_to_create_template');
 
                 whatsapp_log('Template creation failed', 'error', [
                     'template_name' => $templateData['template_name'],
@@ -2787,7 +2835,7 @@ trait WhatsApp
 
             if ($response->failed()) {
                 $errorData = $response->json();
-                $errorMessage = $errorData['error']['message'] ?? 'Failed to update template';
+                $errorMessage = $errorData['error']['error_user_msg'] ?? t('failed_to_create_template');
 
                 whatsapp_log('Template update failed', 'error', [
                     'template_id' => $metaTemplateId,
@@ -3045,15 +3093,6 @@ trait WhatsApp
                 }
             }
 
-            // Log the request for debugging
-            \Log::info('Flow Webhook API Request', [
-                'url' => $url,
-                'method' => $method,
-                'headers' => $requestHeaders,
-                'body' => $requestBody,
-                'tenant_id' => $this->getWaTenantId(),
-            ]);
-
             // Make HTTP request
             $httpClient = Http::withHeaders($requestHeaders)
                 ->timeout(30)
@@ -3132,20 +3171,11 @@ trait WhatsApp
                 'response_time' => null, // HTTP facade doesn't provide this
             ];
 
-            // Log the response
-            \Log::info('Flow Webhook API Response', [
-                'url' => $url,
-                'status_code' => $response->status(),
-                'success' => $response->successful(),
-                'tenant_id' => $this->getWaTenantId(),
-            ]);
-
             return [
                 'success' => true,
                 'error' => null,
                 'response' => $responseData,
             ];
-
         } catch (\Exception $e) {
             // Log the error
             \Log::error('Flow Webhook API Error', [

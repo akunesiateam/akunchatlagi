@@ -127,7 +127,7 @@ class ContactController extends Controller
     public function index(Request $request, $subdomain)
     {
         try {
-            $query = TenantContact::fromTenant($subdomain)->query();
+            $query = TenantContact::fromTenant($subdomain);
 
             // Filter by type if provided
             if ($request->has('type')) {

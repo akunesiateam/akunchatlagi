@@ -93,7 +93,6 @@ class PayPalController extends Controller
         $accessToken = $provider->getAccessToken();
 
         if (isset($accessToken['error'])) {
-            Log::error('PayPal access token error', $accessToken);
             throw new \Exception('Failed to get PayPal access token');
         }
 
@@ -488,7 +487,6 @@ class PayPalController extends Controller
             $subscription = $provider->showSubscriptionDetails($subscriptionId);
 
             if (isset($subscription['error']) || ! isset($subscription['id'])) {
-                Log::error('PayPal subscription verification failed', $subscription);
 
                 return null;
             }
@@ -522,15 +520,9 @@ class PayPalController extends Controller
             $response = $provider->cancelSubscription($subscriptionId, $reason);
 
             if (isset($response['error'])) {
-                Log::error('PayPal subscription cancellation failed', $response);
 
                 return false;
             }
-
-            Log::info('PayPal subscription cancelled', [
-                'subscription_id' => $subscriptionId,
-                'reason' => $reason,
-            ]);
 
             return true;
 
@@ -553,15 +545,8 @@ class PayPalController extends Controller
             $response = $provider->suspendSubscription($subscriptionId, $reason);
 
             if (isset($response['error'])) {
-                Log::error('PayPal subscription suspension failed', $response);
-
                 return false;
             }
-
-            Log::info('PayPal subscription suspended', [
-                'subscription_id' => $subscriptionId,
-                'reason' => $reason,
-            ]);
 
             return true;
 
@@ -584,15 +569,9 @@ class PayPalController extends Controller
             $response = $provider->activateSubscription($subscriptionId, $reason);
 
             if (isset($response['error'])) {
-                Log::error('PayPal subscription activation failed', $response);
 
                 return false;
             }
-
-            Log::info('PayPal subscription activated', [
-                'subscription_id' => $subscriptionId,
-                'reason' => $reason,
-            ]);
 
             return true;
 
@@ -634,12 +613,6 @@ class PayPalController extends Controller
                     'status' => 'active',
                     'trial_ends_at' => null,
                     'current_period_start' => Carbon::now(),
-                ]);
-
-                Log::info('PayPal subscription activated via success callback', [
-                    'subscription_id' => $subscriptionId,
-                    'tenant_id' => $tenantId,
-                    'paypal_status' => $subscriptionDetails['status'],
                 ]);
 
                 return redirect()->route('tenant.dashboard')->with('success', 'Subscription activated successfully!');
@@ -748,11 +721,6 @@ class PayPalController extends Controller
                 'status' => 'active',
                 'current_period_start' => Carbon::now(),
             ]);
-
-            Log::info('PayPal subscription activated via webhook', [
-                'subscription_id' => $subscriptionId,
-                'local_id' => $subscription->id,
-            ]);
         }
     }
 
@@ -773,10 +741,6 @@ class PayPalController extends Controller
                 'ends_at' => Carbon::now(),
             ]);
 
-            Log::info('PayPal subscription cancelled via webhook', [
-                'subscription_id' => $subscriptionId,
-                'local_id' => $subscription->id,
-            ]);
         }
     }
 
@@ -796,10 +760,6 @@ class PayPalController extends Controller
                 'status' => 'past_due',
             ]);
 
-            Log::info('PayPal subscription suspended via webhook', [
-                'subscription_id' => $subscriptionId,
-                'local_id' => $subscription->id,
-            ]);
         }
     }
 
@@ -819,10 +779,6 @@ class PayPalController extends Controller
                 'status' => 'past_due',
             ]);
 
-            Log::warning('PayPal payment failed via webhook', [
-                'subscription_id' => $subscriptionId,
-                'local_id' => $subscription->id,
-            ]);
         }
     }
 
@@ -836,7 +792,6 @@ class PayPalController extends Controller
         $subscriptionId = $resource['billing_agreement_id'] ?? $resource['subscription_id'] ?? null;
 
         if (! $subscriptionId) {
-            Log::warning('PayPal payment completed webhook missing subscription ID');
 
             return;
         }
@@ -857,11 +812,6 @@ class PayPalController extends Controller
                 'current_period_end' => $nextBillingDate,
             ]);
 
-            Log::info('PayPal payment completed via webhook', [
-                'subscription_id' => $subscriptionId,
-                'local_id' => $subscription->id,
-                'next_billing' => $nextBillingDate,
-            ]);
         }
     }
 
@@ -904,7 +854,6 @@ class PayPalController extends Controller
         $captureId = $resource['id'] ?? null;
 
         if (! $orderId && ! $captureId) {
-            Log::warning('PayPal capture completed webhook missing order/capture ID');
 
             return;
         }
@@ -953,7 +902,6 @@ class PayPalController extends Controller
         $reason = $resource['status_details']['reason'] ?? 'Unknown';
 
         if (! $orderId && ! $captureId) {
-            Log::warning('PayPal capture failed webhook missing order/capture ID');
 
             return;
         }
@@ -978,13 +926,6 @@ class PayPalController extends Controller
                 )),
             ]);
 
-            Log::warning('PayPal payment capture failed via webhook', [
-                'order_id' => $orderId,
-                'capture_id' => $captureId,
-                'reason' => $reason,
-                'transaction_id' => $transaction->id,
-                'invoice_id' => $transaction->invoice_id,
-            ]);
         }
     }
 
@@ -999,7 +940,6 @@ class PayPalController extends Controller
 
             // If no webhook ID is configured, skip verification in development
             if (empty($webhookId)) {
-                Log::warning('PayPal webhook ID not configured, skipping signature verification');
 
                 return app()->environment('local', 'development');
             }

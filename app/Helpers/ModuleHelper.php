@@ -19,7 +19,6 @@ class ModuleHelper
         if (! File::exists($tempPath)) {
             try {
                 File::makeDirectory($tempPath, 0755, true);
-                Log::info("Created module temp directory: {$tempPath}");
             } catch (\Exception $e) {
                 Log::error("Failed to create module temp directory: {$e->getMessage()}");
                 throw new \RuntimeException("Failed to create module temp directory: {$e->getMessage()}");
@@ -87,7 +86,6 @@ class ModuleHelper
         if (! file_exists(public_path('storage'))) {
             try {
                 symlink(storage_path('app/public'), public_path('storage'));
-                Log::info('Created storage symlink');
             } catch (\Exception $e) {
                 Log::error("Failed to create storage symlink: {$e->getMessage()}");
             }

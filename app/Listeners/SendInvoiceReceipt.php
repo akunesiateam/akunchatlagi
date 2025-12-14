@@ -17,10 +17,6 @@ class SendInvoiceReceipt
 
         // Check if the invoice has an email address
         if (empty($user->email)) {
-            app_log('Cannot send invoice receipt: No billing email found', 'warning', null, [
-                'invoice_id' => $invoice->id,
-                'tenant_id' => $invoice->tenant_id,
-            ]);
 
             return;
         }

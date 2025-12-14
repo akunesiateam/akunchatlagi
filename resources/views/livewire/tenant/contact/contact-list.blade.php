@@ -215,7 +215,7 @@
                 <span class=" text-sm text-slate-400 dark:text-slate-400">{{ t('phone') }}</span>
                 <p>
                   <a href='tel:{{ $contact->phone ?? ' -' }}' class="text-info-600 text-sm">
-                    {{ mask_phone_number($contact->phone) ?? '-' }}
+                    {{ $contact->phone ?? '-' }}
                   </a>
                 </p>
               </div>

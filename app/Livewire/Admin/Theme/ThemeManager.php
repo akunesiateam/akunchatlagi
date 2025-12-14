@@ -141,6 +141,24 @@ class ThemeManager extends Component
         Theme::query()->update(['active' => 0]);
     }
 
+     public function resetTheme(): void
+    {
+        // Reset by deactivating all themes and activating the default core theme.
+        \DB::transaction(function () {
+            $this->deactivateThemes();
+
+            $coreTheme = Theme::where('folder', 'thecore')->first();
+
+            if ($coreTheme) {
+                $coreTheme->active = 1;
+                $coreTheme->save();
+            }
+        });
+
+        $this->refreshThemes();
+        $this->notify(['type' => 'success', 'message' => t('theme_reset_successfully')]);
+    }
+
     public function render()
     {
         // Return the view using the component's themes property (populated in mount/refreshThemes)

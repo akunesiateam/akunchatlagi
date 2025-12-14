@@ -63,8 +63,6 @@ class ContactList extends Component
 
     public $mergeFields;
 
-    public $pusher_settings;
-
     public $whatsapp_settings;
 
     protected $listeners = [
@@ -386,7 +384,7 @@ class ContactList extends Component
 
     protected function processContactChat(Contact $contact, $filename = null)
     {
-        $this->pusher_settings = tenant_settings_by_group('pusher', $this->tenant_id);
+        $pusher_settings = get_settings_by_group('pusher');
         $this->whatsapp_settings = tenant_settings_by_group('whatsapp', $this->tenant_id);
 
         $template = WhatsappTemplate::where('template_id', $this->template_id)->firstOrFail();
@@ -508,9 +506,8 @@ class ContactList extends Component
             $chatMessageId = $chatMessage->id;
             Chat::fromTenant($this->tenant_subdomain)->where('id', $chat_id)->update([
                 'last_message' => $body ?? '',
-                'last_msg_time' => now(),
             ]);
-            if (! empty($this->pusher_settings['app_key']) && ! empty($this->pusher_settings['app_secret']) && ! empty($this->pusher_settings['app_id']) && ! empty($this->pusher_settings['cluster'])) {
+            if (! empty($pusher_settings?->app_key) && ! empty($pusher_settings?->app_secret) && ! empty($pusher_settings?->app_id) && ! empty($pusher_settings?->cluster)) {
                 // Use centralized notification method with enhanced metadata
                 \App\Http\Controllers\Whatsapp\WhatsAppWebhookController::triggerChatNotificationStatic($chat_id, $chatMessageId, $this->tenant_id, false);
             }

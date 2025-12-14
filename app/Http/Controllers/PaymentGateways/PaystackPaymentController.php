@@ -320,12 +320,6 @@ class PaystackPaymentController extends Controller
 
                     // Mark invoice as paid using the proper method
                     try {
-                        Log::info('PaystackController: About to call handleTransactionResult', [
-                            'invoice_id' => $invoice->id,
-                            'transaction_id' => $transaction->id,
-                            'transaction_status' => $transaction->status,
-                            'invoice_status_before' => $invoice->status,
-                        ]);
 
                         $invoice->handleTransactionResult($transaction, new TransactionResult(
                             TransactionResult::RESULT_DONE,
@@ -334,12 +328,6 @@ class PaystackPaymentController extends Controller
 
                         // Refresh invoice to get updated status
                         $invoice->refresh();
-
-                        Log::info('PaystackController: handleTransactionResult completed', [
-                            'invoice_id' => $invoice->id,
-                            'invoice_status_after' => $invoice->status,
-                            'invoice_paid_at' => $invoice->paid_at,
-                        ]);
 
                     } catch (Exception $e) {
                         Log::error('PaystackController: Error in handleTransactionResult', [
@@ -351,7 +339,6 @@ class PaystackPaymentController extends Controller
 
                         // Fall back to manual marking if handleTransactionResult fails
                         $invoice->markAsPaid();
-                        Log::info('PaystackController: Fallback markAsPaid called');
                     }
                 });
 

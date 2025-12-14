@@ -76,12 +76,38 @@ class MessageBotCreator extends Component
 
     protected function rules()
     {
+        $trigger_keyword_opt_out = get_tenant_setting_from_db('whats-mark', 'trigger_keyword_opt_out') ?? [];
+        $trigger_keyword_opt_in = get_tenant_setting_from_db('whats-mark', 'trigger_keyword_opt_in') ?? [];
+
+        $trigger_keyword_opt_out = is_array($trigger_keyword_opt_out) ? $trigger_keyword_opt_out : [];
+        $trigger_keyword_opt_in = is_array($trigger_keyword_opt_in) ? $trigger_keyword_opt_in : [];
+
+        $reserved = array_map('strtolower', array_merge(
+            $trigger_keyword_opt_out,
+            $trigger_keyword_opt_in
+        ));
+
         return [
             'name' => ['required', 'string', 'min:3', 'max:100', new PurifiedInput(t('sql_injection_error'))],
             'rel_type' => ['required'],
             'reply_text' => ['required', 'string', 'max:1024', new PurifiedInput(t('sql_injection_error'))],
             'reply_type' => ['required'],
-            'trigger' => ($this->reply_type == 1 || $this->reply_type == 2) ? 'required' : 'nullable',
+            'trigger' => [
+                ($this->reply_type == 1 || $this->reply_type == 2) ? 'required' : 'nullable',
+                function ($attribute, $value, $fail) use ($reserved) {
+                    if (is_array($value)) {
+                        foreach ($value as $keyword) {
+                            if (in_array(strtolower(($keyword)), $reserved)) {
+                                $fail("The keyword '{$keyword}' already exists for opt in-out.");
+                            }
+                        }
+                    } elseif (! empty($value)) {
+                        if (in_array(strtolower(($value)), $reserved)) {
+                            $fail("The keyword '{$value}' already exists for opt in-out.");
+                        }
+                    }
+                },
+            ],
             'button1' => ['nullable', 'max:20', new PurifiedInput(t('sql_injection_error'))],
             'button1_id' => ['nullable', 'max:256', new PurifiedInput(t('sql_injection_error'))],
             'button2' => ['nullable', 'max:20', new PurifiedInput(t('sql_injection_error'))],

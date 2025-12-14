@@ -71,8 +71,8 @@ class DetermineTenantFromPath
             return $next($request);
         }
 
-        // Find tenant using cache
-        $tenant = Cache::remember("tenant:{$tenantIdentifier}", now()->addMinutes(10), function () use ($tenantIdentifier) {
+        // Find tenant using standardized cache key and TTL
+        $tenant = Cache::remember("tenant:subdomain:{$tenantIdentifier}", now()->addMinutes(30), function () use ($tenantIdentifier) {
             return Tenant::where('subdomain', $tenantIdentifier)->first();
         });
 
@@ -88,15 +88,11 @@ class DetermineTenantFromPath
                 session()->forget('tenant_status_warning');
             }
 
-            // Make this tenant active regardless of status
-            // Store tenant ID in session for persistence across requests
-            session(['current_tenant_id' => $tenant->id]);
+            // Make this tenant active - Spatie handles context management
+            $tenant->makeCurrent();
 
             // Store subdomain in request attributes for easy access
             $request->attributes->set('subdomain', $tenantIdentifier);
-
-            $tenant->makeCurrent();
-            app()->instance('currentTenant', $tenant);
 
             // Rewrite the URL, preserving the base path if it exists
             $this->rewriteRequestPath($request, $tenantIdentifier, $appBasePath, $usedPrefix);

@@ -268,14 +268,14 @@ class ContactCreator extends Component
     public function validateNotesDescription()
     {
         $this->validate([
-            'notes_description' => ['nullable', 'string', new PurifiedInput(t('sql_injection_error'))],
+            'notes_description' => ['nullable', 'string'],
         ]);
     }
 
     public function addNote()
     {
         $this->validate([
-            'notes_description' => ['required', 'string', new PurifiedInput(t('sql_injection_error'))],
+            'notes_description' => ['required', 'string'],
         ]);
 
         ContactNote::fromTenant($this->tenant_subdomain)->create([

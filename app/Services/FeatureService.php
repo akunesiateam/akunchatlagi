@@ -845,9 +845,7 @@ class FeatureService
             }
 
             $actualCount = $query->count();
-            app_log($actualCount, 'info', null, [
-                'tenant_id' => $tenantId,
-            ]);
+
             // Sync with feature usage record
             $synced = $this->syncUsageCount($tenantId, $featureSlug, $subscription->id, $actualCount);
 
@@ -916,9 +914,6 @@ class FeatureService
             $subscription = $this->subscriptionRepository->getActiveSubscription($tenantId);
 
             if (! $subscription) {
-                app_log('No active subscription found for tenant', 'warning', null, [
-                    'tenant_id' => $tenantId,
-                ]);
 
                 return false;
             }
@@ -927,9 +922,6 @@ class FeatureService
             $featureModelMappings = config('features.feature_model_mappings', []);
 
             if (empty($featureModelMappings)) {
-                app_log('No feature model mappings found in config', 'warning', null, [
-                    'tenant_id' => $tenantId,
-                ]);
 
                 return false;
             }
@@ -938,10 +930,6 @@ class FeatureService
             foreach ($featureModelMappings as $featureSlug => $modelClass) {
                 // Check if the model class exists
                 if (! class_exists($modelClass)) {
-                    app_log("Model class does not exist: {$modelClass}", 'warning', null, [
-                        'tenant_id' => $tenantId,
-                        'feature_slug' => $featureSlug,
-                    ]);
 
                     continue;
                 }
@@ -977,19 +965,11 @@ class FeatureService
             $modelClass = $this->getModelClassForFeature($featureSlug);
 
             if (! $modelClass) {
-                app_log("No model class found for feature: {$featureSlug}", 'warning', null, [
-                    'tenant_id' => $tenantId,
-                    'feature_slug' => $featureSlug,
-                ]);
 
                 return false;
             }
 
             if (! class_exists($modelClass)) {
-                app_log("Model class does not exist: {$modelClass}", 'warning', null, [
-                    'tenant_id' => $tenantId,
-                    'feature_slug' => $featureSlug,
-                ]);
 
                 return false;
             }

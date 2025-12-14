@@ -551,6 +551,7 @@
                     }
 
                     $fee = $invoice->fee ?? 0;
+                    // Total without coupon discount (coupon is only applied after credit deduction)
                     $calculatedTotal = $subtotal + $calculatedTaxAmount + $fee;
                     @endphp
 
@@ -558,6 +559,8 @@
                         <th>{{ t('subtotal') }}</th>
                         <td style="font-family: 'DejaVu Sans';">{{ $invoice->formatAmount($subtotal) }}</td>
                     </tr>
+
+
 
                     @if (count($taxDetails) > 0)
 
@@ -585,34 +588,50 @@
                     </tr>
                     @endif
 
-                    @if (count($creditTransactions) > 0)
-                    <tr class="tax-row">
-                        <th>{{ t('credit_applied') }}</th>
-                        <td style="font-family: 'DejaVu Sans';">
-                            @php
-                            $credits = $creditTransactions->sum('amount');
-                            if ($credits > $calculatedTotal) {
-                            $credits = $calculatedTotal;
-                            }
-                            @endphp
-                            {{ '- ' . $invoice->formatAmount($credits) }}
-                        </td>
-                    </tr>
-                    <tr class="tax-row">
-                        <th>{{ $invoice->status == 'paid' ? t('amount_paid') : t('amount_due') }}</th>
-                        <td style="font-family: 'DejaVu Sans';">
-                            @php
-                            $finalamount = $calculatedTotal - $credits;
-                            @endphp
-                            {{ $invoice->formatAmount($finalamount) }}
-                        </td>
-                    </tr>
-                    @endif
+                    @php
+                    // Calculate payment breakdown for PDF using actually applied credit (from debit transactions)
+                    $creditTransactions = $invoice->getCreditTransactions();
+                    $creditAmount = $creditTransactions->sum('amount');
+                    $couponDiscountAfterCredit = $invoice->hasCoupon() ? $invoice->getCouponDiscountAfterCredit($creditAmount) : 0;
+                    $finalAmountPaid = $invoice->finalPayableAmount($creditAmount);
+                    $hasPaymentAdjustments = $creditAmount > 0 || $couponDiscountAfterCredit > 0;
+                    @endphp
 
+                    <!-- Total Before Discounts -->
                     <tr class="total-row">
                         <th>{{ t('total') }}</th>
                         <td style="font-family: 'DejaVu Sans';">{{ $invoice->formatAmount($calculatedTotal) }}</td>
                     </tr>
+
+                    @if ($hasPaymentAdjustments)
+                    <!-- Payment Adjustments Section -->
+
+                    @if ($creditAmount > 0)
+                    <tr class="tax-row">
+                        <th>{{ t('credit_applied') }}</th>
+                        <td style="font-family: 'DejaVu Sans';">
+                            {{ '- ' . $invoice->formatAmount($creditAmount) }}
+                        </td>
+                    </tr>
+                    @endif
+
+                    @if ($couponDiscountAfterCredit > 0)
+                    <tr class="tax-row">
+                        <th>{{ t('coupon_discount') }} ({{ $invoice->coupon_code }})</th>
+                        <td style="font-family: 'DejaVu Sans'; color: #059669;">
+                            {{ '- ' . $invoice->formatAmount($couponDiscountAfterCredit) }}
+                        </td>
+                    </tr>
+                    @endif
+
+                    <!-- Final Amount After All Deductions -->
+                    <tr class="total-row" style="border-top: 2px solid #4f46e5;">
+                        <th>{{ $invoice->status == 'paid' ? t('amount_paid') : t('amount_due') }}</th>
+                        <td style="font-family: 'DejaVu Sans'; font-weight: bold; color: #4f46e5;">
+                            {{ $invoice->formatAmount($finalAmountPaid) }}
+                        </td>
+                    </tr>
+                    @endif
 
             </table>
         </div>

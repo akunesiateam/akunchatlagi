@@ -34,12 +34,6 @@ class SendPaymentRejectedMail
                         ->send();
                 }
 
-                if (! $result) {
-                    app_log('Failed to send payment rejection email', 'error', null, [
-                        'transaction_id' => $transaction->id,
-                        'email' => $user->email,
-                    ]);
-                }
             } catch (\Exception $e) {
                 app_log('Error sending payment rejection email', 'error', $e, [
                     'transaction_id' => $transaction->id,

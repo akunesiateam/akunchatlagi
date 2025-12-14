@@ -63,11 +63,6 @@ class SendTicketReplyEmail implements ShouldQueue
             if ($tenantStaff && $tenantStaff->email) {
                 $this->sendEmailToTenantStaff($context, $tenantStaff);
                 $emailsSent[] = $tenantStaff->email;
-            } else {
-                app_log('No tenant staff found or email missing for ticket notification', 'warning', null, [
-                    'tenant_staff_id' => $this->ticket->tenant_staff_id,
-                    'ticket_id' => $this->ticket->id,
-                ]);
             }
         } else {
             // Ticket was created by tenant, send to tenant
@@ -76,11 +71,6 @@ class SendTicketReplyEmail implements ShouldQueue
             if ($tenantUser && $tenantUser->email) {
                 $this->sendEmailToTenant($context, $tenantUser);
                 $emailsSent[] = $tenantUser->email;
-            } else {
-                app_log('No tenant user found or email missing for ticket notification', 'warning', null, [
-                    'tenant_id' => $this->ticket->tenant_id,
-                    'ticket_id' => $this->ticket->id,
-                ]);
             }
         }
     }

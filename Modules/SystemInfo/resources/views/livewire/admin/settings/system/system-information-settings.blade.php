@@ -110,16 +110,17 @@
                       <p class="text-sm text-slate-600 dark:text-slate-400">SSL Status
                       </p>
                       <div class="mt-1 flex items-center gap-2">
+                        @php $ssl = request()->isSecure(); @endphp
                         <span
                           class="px-2 py-1 text-xs font-semibold rounded-full
-                            {{ $server['server']['ssl'] ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-400' : 'bg-danger-100 text-danger-800 dark:bg-danger-900/30 dark:text-danger-400' }}">
-                          {{ $server['server']['ssl'] ? 'Enabled' : 'Disabled' }}
+                            {{ $ssl ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-400' : 'bg-danger-100 text-danger-800 dark:bg-danger-900/30 dark:text-danger-400' }}">
+                          {{ $ssl ? 'Enabled' : 'Disabled' }}
                         </span>
                       </div>
                     </div>
                     <div
-                      class="p-3 {{ $server['server']['ssl'] ? 'bg-success-50 dark:bg-success-900/20' : 'bg-danger-50 dark:bg-danger-900/20' }} rounded-lg">
-                      <svg class="w-6 h-6 {{ $server['server']['ssl'] ? 'text-success-500' : 'text-danger-500' }}"
+                      class="p-3 {{ $ssl ? 'bg-success-50 dark:bg-success-900/20' : 'bg-danger-50 dark:bg-danger-900/20' }} rounded-lg">
+                      <svg class="w-6 h-6 {{ $ssl ? 'text-success-500' : 'text-danger-500' }}"
                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -133,7 +134,7 @@
                 <!-- Top Stats Row  -->
                 <div class="grid grid-cols-12 gap-5 mb-5">
                   <!-- Laravel Environment -->
-                  <div class="col-span-12 xl:col-span-4">
+                  <div class="col-span-12 xl:col-span-6">
                     <div
                       class="bg-white dark:bg-slate-800 rounded-xl border dark:border-neutral-500/30 shadow-sm h-full">
                       <div class="p-6">
@@ -169,7 +170,7 @@
                   </div>
 
                   <!-- PHP Environment -->
-                  <div class="col-span-12 xl:col-span-4">
+                  <div class="col-span-12 xl:col-span-6">
                     <div
                       class="bg-white dark:bg-slate-800 rounded-xl border dark:border-neutral-500/30 shadow-sm h-full">
                       <div class="p-6">
@@ -192,49 +193,12 @@
                             @if (in_array($key, ['display_errors', 'opcache_enabled']))
                             <span
                               class="px-2 py-1 text-xs font-semibold rounded-full
-                            {{ isset($server['php'][$key]) && $server['php'][$key] ? 'bg-warning-100 text-warning-800 dark:bg-warning-900/30 dark:text-warning-400' : 'bg-info-100 text-info-800 dark:bg-info-900/30 dark:text-info-400' }}">
+                            {{ isset($server['php'][$key]) && $server['php'][$key] ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-400' : 'bg-info-100 text-info-800 dark:bg-info-900/30 dark:text-info-400' }}">
                               {{ isset($server['php'][$key]) && $server['php'][$key] ? 'Enabled' : 'Disabled' }}
                             </span>
                             @else
                             <span class="text-sm font-medium text-slate-900 dark:text-slate-300">{{
                               isset($server['php'][$key]) ? $server['php'][$key] : 'N/A' }}</span>
-                            @endif
-                          </div>
-                          @endforeach
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Server Environment -->
-                  <div class="col-span-12 xl:col-span-4">
-                    <div
-                      class="bg-white dark:bg-slate-800 rounded-xl border dark:border-neutral-500/30 shadow-sm h-full">
-                      <div class="p-6">
-                        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-300 flex items-center gap-2">
-                          <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                          </svg>
-                          Server Environment
-                        </h2>
-                        <!-- Server Content -->
-                        <div class="mt-6 space-y-4">
-                          @foreach (['software', 'os', 'architecture', 'hostname', 'ssl', 'ip', 'port',
-                          'total_disk_space', 'free_disk_space', 'cpu_cores', 'total_ram'] as $key)
-                          <div
-                            class="flex gap-4 items-center justify-between py-2 border-b border-gray-100 dark:border-slate-700/50">
-                            <span class="text-sm text-slate-600 dark:text-slate-400">{{ t(Str::title(str_replace('_', '
-                              ', $key))) }}</span>
-                            @if ($key === 'ssl')
-                            <span
-                              class="px-2 py-1 text-xs font-semibold rounded-full
-                                                           {{ isset($server['server'][$key]) && $server['server'][$key] ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-400' : 'bg-danger-100 text-danger-800 dark:bg-danger-900/30 dark:text-danger-400' }}">
-                              {{ isset($server['server'][$key]) && $server['server'][$key] ? 'Enabled' : 'Disabled' }}
-                            </span>
-                            @else
-                            <span class="text-sm font-medium text-slate-900 dark:text-slate-300">{{
-                              isset($server['server'][$key]) ? $server['server'][$key] : 'N/A' }}</span>
                             @endif
                           </div>
                           @endforeach

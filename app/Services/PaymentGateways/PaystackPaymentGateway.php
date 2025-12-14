@@ -247,16 +247,6 @@ class PaystackPaymentGateway implements PaymentGatewayInterface
         $finalAmount = round($finalAmount, 2);
         $amount = (int) round($finalAmount * 100); // Convert to kobo/cents and ensure integer
 
-        // Debug logging for amount calculations
-        Log::info('Paystack amount calculation', [
-            'invoice_id' => $invoice->id,
-            'invoice_total' => $invoice->total(),
-            'remaining_credit' => $remainingCredit,
-            'final_amount' => $finalAmount,
-            'amount_in_kobo' => $amount,
-            'currency' => $invoice->currency->code ?? 'NGN',
-        ]);
-
         // Get billing email safely
         $billingEmail = $this->getTenantBillingEmail($invoice->tenant);
 
@@ -443,11 +433,6 @@ class PaystackPaymentGateway implements PaymentGatewayInterface
         $event = $payload['event'] ?? '';
         $data = $payload['data'] ?? [];
 
-        Log::info('Paystack webhook received', [
-            'event' => $event,
-            'reference' => $data['reference'] ?? null,
-        ]);
-
         switch ($event) {
             case 'charge.success':
                 $this->handleSuccessfulPayment($data);
@@ -458,7 +443,6 @@ class PaystackPaymentGateway implements PaymentGatewayInterface
                 break;
 
             default:
-                Log::info('Unhandled Paystack webhook event', ['event' => $event]);
                 break;
         }
     }
@@ -473,14 +457,12 @@ class PaystackPaymentGateway implements PaymentGatewayInterface
         $transactionId = $data['metadata']['transaction_id'] ?? null;
 
         if (! $invoiceId) {
-            Log::warning('Paystack webhook: No invoice ID in metadata', ['reference' => $reference]);
 
             return;
         }
 
         $invoice = Invoice::find($invoiceId);
         if (! $invoice) {
-            Log::warning('Paystack webhook: Invoice not found', ['invoice_id' => $invoiceId]);
 
             return;
         }
@@ -499,18 +481,12 @@ class PaystackPaymentGateway implements PaymentGatewayInterface
         }
 
         if (! $transaction) {
-            Log::warning('Paystack webhook: Transaction not found', [
-                'reference' => $reference,
-                'invoice_id' => $invoiceId,
-                'transaction_id' => $transactionId,
-            ]);
 
             return;
         }
 
         // Check if already processed
         if ($transaction->status === Transaction::STATUS_SUCCESS) {
-            Log::info('Paystack webhook: Transaction already processed', ['transaction_id' => $transaction->id]);
 
             return;
         }
@@ -544,14 +520,12 @@ class PaystackPaymentGateway implements PaymentGatewayInterface
         $transactionId = $data['metadata']['transaction_id'] ?? null;
 
         if (! $invoiceId) {
-            Log::warning('Paystack webhook: No invoice ID in metadata for failed payment', ['reference' => $reference]);
 
             return;
         }
 
         $invoice = Invoice::find($invoiceId);
         if (! $invoice) {
-            Log::warning('Paystack webhook: Invoice not found for failed payment', ['invoice_id' => $invoiceId]);
 
             return;
         }
@@ -570,11 +544,6 @@ class PaystackPaymentGateway implements PaymentGatewayInterface
         }
 
         if (! $transaction) {
-            Log::warning('Paystack webhook: Transaction not found for failed payment', [
-                'reference' => $reference,
-                'invoice_id' => $invoiceId,
-                'transaction_id' => $transactionId,
-            ]);
 
             return;
         }

@@ -77,7 +77,7 @@ class UserFilamentTable extends BaseFilamentTable
                     'style' => 'transform: scale(0.7); transform-origin: left center;',
                 ])
                 ->afterStateUpdated(function ($record, $state) {
-                    if (! checkPermission('admin.user.edit')) {
+                    if (! checkPermission('admin.users.edit')) {
                         return;
                     }
 
@@ -113,12 +113,12 @@ class UserFilamentTable extends BaseFilamentTable
                 Action::make('view')
                     ->label('View')
                     ->action(fn (User $record) => $this->dispatch('viewUser', userId: $record->id))
-                    ->hidden(fn () => ! checkPermission('admin.user.view')),
+                    ->hidden(fn () => ! checkPermission('admin.users.view')),
 
                 Action::make('edit')
                     ->label('Edit')
                     ->action(fn (User $record) => $this->dispatch('editUser', userId: $record->id))
-                    ->hidden(fn () => ! checkPermission('admin.user.edit')),
+                    ->hidden(fn () => ! checkPermission('admin.users.edit')),
 
                 Action::make('delete')
                     ->label('Delete')

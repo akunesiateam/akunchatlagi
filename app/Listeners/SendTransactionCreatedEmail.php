@@ -16,19 +16,11 @@ class SendTransactionCreatedEmail
     {
         $transaction = Transaction::find($event->transactionId);
         if (! $transaction) {
-            app_log('Cannot send transaction notification email: Transaction not found', 'warning', null, [
-                'transaction_id' => $event->transactionId,
-            ]);
-
             return;
         }
 
         $invoice = Invoice::find($event->invoiceId);
         if (! $invoice) {
-            app_log('Cannot send transaction notification email: Invoice not found', 'warning', null, [
-                'transaction_id' => $event->transactionId,
-                'invoice_id' => $event->invoiceId,
-            ]);
 
             return;
         }

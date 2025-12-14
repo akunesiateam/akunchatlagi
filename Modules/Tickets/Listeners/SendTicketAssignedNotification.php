@@ -19,9 +19,6 @@ class SendTicketAssignedNotification
             $assigneeIds = array_unique(array_merge(array_map('intval', $assigneeIds), json_decode($ticket->department->assignee_id, true) ?? []));
 
             if (empty($assigneeIds)) {
-                app_log('No assignees found for ticket', 'warning', null, [
-                    'ticket_id' => $ticket->id,
-                ]);
 
                 return;
             }
@@ -33,10 +30,6 @@ class SendTicketAssignedNotification
                 ->get();
 
             if ($assignedUsers->isEmpty()) {
-                app_log('No valid assigned users found for ticket', 'warning', null, [
-                    'ticket_id' => $ticket->id,
-                    'assignee_ids' => $assigneeIds,
-                ]);
 
                 return;
             }

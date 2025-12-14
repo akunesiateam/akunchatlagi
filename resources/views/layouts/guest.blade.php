@@ -3,7 +3,6 @@
     $isTenant = tenant_check();
     if ($isTenant) {
         $systemSettings = tenant_settings_by_group('system');
-        $pusherSettings = tenant_settings_by_group('pusher');
     } else {
         $themeSettings = get_batch_settings([
             'system.active_language',
@@ -12,6 +11,8 @@
             'theme.favicon',
         ]);
     }
+    // Always get global pusher settings (for both admin and tenant)
+    $pusherSettings = get_settings_by_group('pusher');
 
     $countryCode = get_setting('system.default_country_code');
     $locale = Auth::check()

@@ -31,6 +31,7 @@ Route::middleware([AdminMiddleware::class, SanitizeInputs::class])->group(functi
         'privacy-policy' => App\Livewire\Admin\Settings\System\PrivacyPolicySettings::class,
         'terms-conditions' => App\Livewire\Admin\Settings\System\TermsConditionsSettings::class,
         'miscellaneous' => App\Livewire\Admin\Settings\System\MiscellaneousSettings::class,
+        'pusher' => App\Livewire\Admin\Settings\System\PusherSettings::class,
 
     ];
 

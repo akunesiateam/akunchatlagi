@@ -448,10 +448,6 @@
                                 <p class="text-sm">
                                     <span class="font-medium">{{ t('note') }}</span>
                                     {{ t('increase_webhook_note') }}
-                                    <a href="https://docs.corbitaltech.dev/products/whatsmark-saas/" target="blank"
-                                        class="underline text-primary-600 dark:text-primary-400">
-                                        {{ t('link') }}
-                                    </a>
                                 </p>
                             </x-dynamic-alert>
                         </div>

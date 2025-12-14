@@ -161,7 +161,7 @@ class SystemManagement
         ];
 
         $optionalExtensions = [
-            'gd', 'imagick', 'intl', 'redis', 'memcached', 'swoole',
+            'gd', 'imagick', 'intl', 'redis', 'memcached',
         ];
 
         // Only check critical extensions by default to save resources
@@ -196,7 +196,7 @@ class SystemManagement
     public function getOptionalExtensionsInfo(): array
     {
         $optionalExtensions = [
-            'gd', 'imagick', 'intl', 'redis', 'memcached', 'swoole',
+            'gd', 'imagick', 'intl', 'redis',
         ];
 
         $extensionsInfo = [];

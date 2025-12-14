@@ -349,7 +349,7 @@
                     appId: '{{ $availability['app_id'] ?? '' }}',
                     cookie: true,
                     xfbml: true,
-                    version: 'v24.0'
+                    version: 'v21.0'
                 });
             };
 
@@ -367,7 +367,6 @@
                     // Prepare extras object based on coexistence setting
                     const extras = {
                         "sessionInfoVersion": data.enable_coexistence ? 3 : 2,
-                        "features":[{"name":"marketing_messages_lite"}],
                         setup: {
                             external_business_id: '{{ tenant_id() }}'
                         }

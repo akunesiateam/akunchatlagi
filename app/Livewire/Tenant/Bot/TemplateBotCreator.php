@@ -137,6 +137,17 @@ class TemplateBotCreator extends Component
      */
     protected function rules()
     {
+        $trigger_keyword_opt_out = get_tenant_setting_from_db('whats-mark', 'trigger_keyword_opt_out') ?? [];
+        $trigger_keyword_opt_in = get_tenant_setting_from_db('whats-mark', 'trigger_keyword_opt_in') ?? [];
+
+        $trigger_keyword_opt_out = is_array($trigger_keyword_opt_out) ? $trigger_keyword_opt_out : [];
+        $trigger_keyword_opt_in = is_array($trigger_keyword_opt_in) ? $trigger_keyword_opt_in : [];
+
+        $reserved = array_map('strtolower', array_merge(
+            $trigger_keyword_opt_out,
+            $trigger_keyword_opt_in
+        ));
+
         $rules = [
             'template_name' => ['required', 'string', 'min:3', 'max:100', new PurifiedInput(t('sql_injection_error'))],
             'rel_type' => 'required',
@@ -149,7 +160,25 @@ class TemplateBotCreator extends Component
 
         // If reply type requires triggers, validate them
         if (in_array($this->reply_type, [1, 2])) {
-            $rules['trigger'] = 'required|array|min:1';
+            $rules['trigger'] = [
+                'required',
+                'array',
+                'min:1',
+                function ($attribute, $value, $fail) use ($reserved) {
+                    if (is_array($value)) {
+                        foreach ($value as $keyword) {
+                            if (in_array(strtolower(($keyword)), $reserved)) {
+                                $fail("The keyword '{$keyword}' already exists for opt in-out.");
+                            }
+                        }
+                    } elseif (! empty($value)) {
+                        if (in_array(strtolower(($value)), $reserved)) {
+                            $fail("The keyword '{$value}' already exists for opt in-out.");
+                        }
+                    }
+                },
+            ];
+
             $rules['trigger.*'] = 'required|string|min:2';
         }
 

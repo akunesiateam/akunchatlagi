@@ -39,6 +39,10 @@ class CampaignDetails extends Component
 
     public $sentCount;
 
+    public $sentOnlyCount;
+
+    public $totalSentOnlyPercent;
+
     public $isInQueue;
 
     public $isRetryAble;
@@ -81,7 +85,7 @@ class CampaignDetails extends Component
             ->where('tenant_id', tenant_id())
             ->selectRaw('
                 COUNT(*) as total_count,
-                SUM(CASE WHEN message_status = "delivered" THEN 1 ELSE 0 END) as deliver_count,
+                SUM(CASE WHEN message_status = "delivered" OR message_status = "read" THEN 1 ELSE 0 END) as deliver_count,
                 SUM(CASE WHEN message_status = "sent" THEN 1 ELSE 0 END) as sent_count,
                 SUM(CASE WHEN message_status = "read" THEN 1 ELSE 0 END) as read_count,
                 SUM(CASE WHEN message_status = "failed" THEN 1 ELSE 0 END) as failed_count,
@@ -101,6 +105,7 @@ class CampaignDetails extends Component
             $this->readCount = $campaignDetails->read_count;
             $this->failedCount = $campaignDetails->failed_count;
             $this->sentCount = $campaignDetails->sent_count;
+            $this->sentOnlyCount = $this->totalCount - $this->deliverCount - $this->failedCount;
             $this->isInQueue = $campaignDetails->is_in_queue;
 
             $timezone = $this->getTimezone();
@@ -120,6 +125,7 @@ class CampaignDetails extends Component
             $this->totalFailedPercent = $this->calculatePercentage($this->failedCount, $this->totalCount);
             $this->totalReadPercent = $this->calculatePercentage($this->readCount, $this->totalCount);
             $this->totalDeliveredPercent = $this->calculatePercentage($this->deliverCount, $this->totalCount);
+            $this->totalSentOnlyPercent = $this->calculatePercentage($this->sentOnlyCount, $this->totalCount);
 
             // Determine campaign status
             $this->campaignStatus = $this->determineCampaignStatus();
@@ -151,10 +157,12 @@ class CampaignDetails extends Component
         $this->totalFailedPercent = 0;
         $this->totalReadPercent = 0;
         $this->totalDeliveredPercent = 0;
+        $this->totalSentOnlyPercent = 0;
         $this->deliverCount = 0;
         $this->readCount = 0;
         $this->failedCount = 0;
         $this->sentCount = 0;
+        $this->sentOnlyCount = 0;
         $this->campaignStatus = 'Failed';
     }
 

@@ -33,7 +33,6 @@ class PaystackController extends Controller
             $signature = $request->header('x-paystack-signature');
 
             if (! $signature) {
-                Log::warning('Paystack webhook: Missing signature');
 
                 return response()->json(['error' => 'Missing signature'], 400);
             }
@@ -42,7 +41,6 @@ class PaystackController extends Controller
             $webhookData = json_decode($payload, true);
 
             if (! $webhookData) {
-                Log::warning('Paystack webhook: Invalid JSON payload');
 
                 return response()->json(['error' => 'Invalid JSON'], 400);
             }
@@ -52,7 +50,6 @@ class PaystackController extends Controller
             $tenantId = $metadata['tenant_id'] ?? null;
 
             if (! $tenantId) {
-                Log::warning('Paystack webhook: No tenant ID in metadata');
 
                 return response()->json(['error' => 'No tenant ID found'], 400);
             }
@@ -60,14 +57,12 @@ class PaystackController extends Controller
             // Find the tenant
             $tenant = Tenant::find($tenantId);
             if (! $tenant) {
-                Log::warning('Paystack webhook: Tenant not found', ['tenant_id' => $tenantId]);
 
                 return response()->json(['error' => 'Tenant not found'], 400);
             }
 
             // Validate webhook signature using gateway method
             if (! $this->gateway->validateWebhookSignature($payload, $signature)) {
-                Log::warning('Paystack webhook: Invalid signature', ['tenant_id' => $tenantId]);
 
                 return response()->json(['error' => 'Invalid signature'], 400);
             }
@@ -124,12 +119,6 @@ class PaystackController extends Controller
                 return $this->handleInvoicePaymentFailed($data, $tenant);
 
             default:
-                Log::info('Paystack webhook: Unhandled event type', [
-                    'event' => $event,
-                    'reference' => $data['reference'] ?? 'unknown',
-                    'tenant_id' => $tenant->id,
-                ]);
-
                 return true; // Return true for unhandled events to avoid errors
         }
     }
@@ -145,9 +134,6 @@ class PaystackController extends Controller
         $transactionId = $metadata['transaction_id'] ?? null;
 
         if (! $reference || ! $invoiceId) {
-            Log::warning('Paystack webhook: Missing reference or invoice ID in charge success', [
-                'tenant_id' => $tenant->id,
-            ]);
 
             return false;
         }
@@ -168,11 +154,6 @@ class PaystackController extends Controller
             }
 
             if (! $transaction) {
-                Log::warning('Paystack webhook: Transaction not found', [
-                    'reference' => $reference,
-                    'tenant_id' => $tenant->id,
-                    'transaction_id' => $transactionId,
-                ]);
 
                 return false;
             }
@@ -194,14 +175,6 @@ class PaystackController extends Controller
 
             // Fire transaction created event
             event(new \App\Events\TransactionCreated($transaction->id, $transaction->invoice_id));
-
-            Log::info('Paystack webhook: Charge success processed', [
-                'reference' => $reference,
-                'invoice_id' => $invoiceId,
-                'transaction_id' => $transaction->id,
-                'amount' => $data['amount'] ?? 0,
-                'tenant_id' => $tenant->id,
-            ]);
 
             return true;
         } catch (Exception $e) {
@@ -226,9 +199,6 @@ class PaystackController extends Controller
         $transactionId = $metadata['transaction_id'] ?? null;
 
         if (! $reference || ! $invoiceId) {
-            Log::warning('Paystack webhook: Missing reference or invoice ID in charge failed', [
-                'tenant_id' => $tenant->id,
-            ]);
 
             return false;
         }
@@ -249,11 +219,6 @@ class PaystackController extends Controller
             }
 
             if (! $transaction) {
-                Log::warning('Paystack webhook: Transaction not found for failure', [
-                    'reference' => $reference,
-                    'tenant_id' => $tenant->id,
-                    'transaction_id' => $transactionId,
-                ]);
 
                 return false;
             }
@@ -266,14 +231,6 @@ class PaystackController extends Controller
                     'failure_reason' => $data['gateway_response'] ?? 'Payment failed',
                     'webhook_processed_at' => now()->toISOString(),
                 ]),
-            ]);
-
-            Log::info('Paystack webhook: Charge failure processed', [
-                'reference' => $reference,
-                'invoice_id' => $invoiceId,
-                'transaction_id' => $transaction->id,
-                'failure_reason' => $data['gateway_response'] ?? 'Unknown',
-                'tenant_id' => $tenant->id,
             ]);
 
             return true;
@@ -293,12 +250,6 @@ class PaystackController extends Controller
      */
     private function handleSubscriptionCreate(array $data, Tenant $tenant): bool
     {
-        Log::info('Paystack webhook: Subscription created', [
-            'subscription_code' => $data['subscription_code'] ?? 'unknown',
-            'customer' => $data['customer']['customer_code'] ?? 'unknown',
-            'tenant_id' => $tenant->id,
-        ]);
-
         return true;
     }
 
@@ -307,12 +258,6 @@ class PaystackController extends Controller
      */
     private function handleSubscriptionDisable(array $data, Tenant $tenant): bool
     {
-        Log::info('Paystack webhook: Subscription disabled', [
-            'subscription_code' => $data['subscription_code'] ?? 'unknown',
-            'customer' => $data['customer']['customer_code'] ?? 'unknown',
-            'tenant_id' => $tenant->id,
-        ]);
-
         return true;
     }
 
@@ -321,12 +266,6 @@ class PaystackController extends Controller
      */
     private function handleInvoiceCreate(array $data, Tenant $tenant): bool
     {
-        Log::info('Paystack webhook: Invoice created', [
-            'invoice_code' => $data['invoice_code'] ?? 'unknown',
-            'amount' => $data['amount'] ?? 0,
-            'tenant_id' => $tenant->id,
-        ]);
-
         return true;
     }
 
@@ -335,12 +274,6 @@ class PaystackController extends Controller
      */
     private function handleInvoicePaymentFailed(array $data, Tenant $tenant): bool
     {
-        Log::info('Paystack webhook: Invoice payment failed', [
-            'invoice_code' => $data['invoice_code'] ?? 'unknown',
-            'reason' => $data['gateway_response'] ?? 'Unknown',
-            'tenant_id' => $tenant->id,
-        ]);
-
         return true;
     }
 }

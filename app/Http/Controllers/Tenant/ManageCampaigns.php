@@ -688,7 +688,11 @@ class ManageCampaigns extends Controller
         }
 
         $query = Contact::fromTenant($this->tenant_subdomain)->where('type', $relType)
-            ->where('is_enabled', 1);
+            ->where('is_enabled', 1)
+            ->where(function ($q) {
+                $q->whereNull('is_opted_out')
+                    ->orWhere('is_opted_out', 0);
+            });
 
         // Apply permission-based filtering
         if (! Auth::user()->is_admin && checkPermission('tenant.contact.view_own')) {
@@ -746,7 +750,11 @@ class ManageCampaigns extends Controller
 
         // If select all is enabled, count all matching contacts
         $query = Contact::fromTenant($this->tenant_subdomain)->where('type', $relType)
-            ->where('is_enabled', 1);
+            ->where('is_enabled', 1)
+            ->where(function ($q) {
+                $q->whereNull('is_opted_out')
+                    ->orWhere('is_opted_out', 0);
+            });
 
         // Apply permission-based filtering
         if (! Auth::user()->is_admin && checkPermission('tenant.contact.view_own')) {
@@ -1030,7 +1038,11 @@ class ManageCampaigns extends Controller
             }
 
             $query = Contact::fromTenant($this->tenant_subdomain)->where('type', $relType)
-                ->where('is_enabled', 1);
+                ->where('is_enabled', 1)
+                ->where(function ($q) {
+                    $q->whereNull('is_opted_out')
+                        ->orWhere('is_opted_out', 0);
+                });
 
             // Apply permission-based filtering
             if (! Auth::user()->is_admin && checkPermission('tenant.contact.view_own')) {
@@ -1179,6 +1191,10 @@ class ManageCampaigns extends Controller
         return Contact::fromTenant($this->tenant_subdomain)->whereIn('id', $contactIds)
             ->where('type', $validatedData['rel_type'])
             ->where('is_enabled', 1)
+            ->where(function ($q) {
+                $q->whereNull('is_opted_out')
+                    ->orWhere('is_opted_out', 0);
+            })
             ->get();
     }
 
@@ -1193,7 +1209,11 @@ class ManageCampaigns extends Controller
         $groupId = $validatedData['group_name'] ?? null;    // Form uses group_name
 
         $query = Contact::fromTenant($this->tenant_subdomain)->where('type', $relType)
-            ->where('is_enabled', 1);
+            ->where('is_enabled', 1)
+            ->where(function ($q) {
+                $q->whereNull('is_opted_out')
+                    ->orWhere('is_opted_out', 0);
+            });
 
         // Apply permission-based filtering
         if (! Auth::user()->is_admin && checkPermission('tenant.contact.view_own')) {

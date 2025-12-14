@@ -45,10 +45,6 @@ class CampaignLimitService
         // If no available slots, skip all
         if ($availableSlots <= 0) {
             $result['skipped_contacts'] = $contactList;
-            app_log('Campaign: No available slots - all contacts skipped', 'warning', null, [
-                'tenant_id' => $tenantId,
-                'skipped_count' => count($contactList),
-            ]);
 
             return $result;
         }
@@ -97,12 +93,6 @@ class CampaignLimitService
                             'session_status' => 'new_blocked',
                         ]);
 
-                        app_log('Campaign: Contact skipped - no slots', 'warning', null, [
-                            'contact_id' => $contactId,
-                            'type' => $contactType,
-                            'slots_used' => $slotsUsed,
-                            'available_slots' => $availableSlots,
-                        ]);
                     }
                 }
             } catch (\Exception $e) {

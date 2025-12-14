@@ -38,8 +38,6 @@ class FileCleanupCommand extends Command
         if (! File::exists($jsonFilePath)) {
             $this->error("JSON file not found at: {$jsonFilePath}");
 
-            app_log("JSON file not found at: {$jsonFilePath}", 'error');
-
             return 1;
         }
 
@@ -50,7 +48,6 @@ class FileCleanupCommand extends Command
             $filesList = json_decode(File::get($jsonFilePath), true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 $this->error('Invalid JSON file: '.json_last_error_msg());
-                app_log('Invalid JSON file: '.json_last_error_msg(), 'error');
 
                 return 1;
             }

@@ -43,6 +43,8 @@
                     'tenant.settings.notification-sound',
                     'tenant.settings.ai-integration',
                     'tenant.settings.auto-clear-chat-history',
+                    'tenant.settings.opt-in-out',
+                    'tenant.settings.whatsapp-session-management',
                 ])
                     ? ' bg-primary-50  dark:border-primary-600 text-primary-700 dark:bg-slate-900 language'
                     : 'text-gray-600 hover:bg-primary-100 hover:text-primary-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white' }}">
@@ -56,6 +58,8 @@
                         'tenant.settings.notification-sound',
                         'tenant.settings.ai-integration',
                         'tenant.settings.auto-clear-chat-history',
+                        'tenant.settings.opt-in-out',
+                        'tenant.settings.whatsapp-session-management',
                     ])
                         ? 'text-primary-600 dark:text-slate-300'
                         : 'text-gray-500 group-hover:text-primary-700 dark:text-slate-400 group-hover:dark:text-slate-300' }}" aria-hidden="true" />
@@ -69,7 +73,6 @@
                 {{ in_array(request()->route()->getName(), [
                     'tenant.settings.general',
                     'tenant.settings.email',
-                    'tenant.settings.pusher',
                 ])
                     ? '  bg-primary-50  dark:border-primary-600 text-primary-700 dark:bg-slate-900 dark:text-white'
                     : 'text-gray-600 hover:bg-primary-100 hover:text-primary-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white' }}">
@@ -78,7 +81,6 @@
                     {{ in_array(request()->route()->getName(), [
                         'tenant.settings.general',
                         'tenant.settings.email',
-                        'tenant.settings.pusher',
                     ])
                         ? 'text-primary-600 dark:text-slate-300'
                         : 'text-gray-500 group-hover:text-primary-700 dark:text-slate-400 group-hover:dark:text-slate-300' }}"

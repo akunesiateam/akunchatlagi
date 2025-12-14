@@ -185,7 +185,7 @@ class TenantSidebarNavigation extends Component
 
         if ($user) {
             $subscription = \App\Models\Subscription::where('tenant_id', $user->tenant_id)
-                ->whereIn('status', ['active', 'trial'])
+                ->whereIn('status', ['active', 'trial', 'cancelled'])
                 ->latest()
                 ->first();
 

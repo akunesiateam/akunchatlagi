@@ -204,9 +204,7 @@
                                     <x-dynamic-alert type="warning" class="w-full mt-3">
                                         <p class="text-sm">
                                             <span class="font-medium"> {{ t('note') }}</span>
-                                            {{ t('increase_webhook_note') }} <a
-                                                href="https://docs.corbitaltech.dev/products/whatsmark-saas/"
-                                                target="blank" class="underline">{{ t('link') }}</a>
+                                            {{ t('increase_webhook_note') }}
                                         </p>
                                     </x-dynamic-alert>
                                 </template>

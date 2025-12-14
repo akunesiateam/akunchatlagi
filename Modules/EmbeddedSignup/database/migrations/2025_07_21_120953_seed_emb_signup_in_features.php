@@ -11,15 +11,17 @@ return new class extends Migration
     public function up(): void
     {
         // Seed the embedded signup feature
-        DB::table('features')->insert([
-            'name' => 'Embedded SignUp',
-            'slug' => 'emb_signup',
-            'description' => 'Allow users to sign up via Embedded SignUp',
-            'type' => 'limit',
-            'display_order' => 10,
-            'default' => false,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        if (! DB::table('features')->where('slug', 'emb_signup')->exists()) {
+            DB::table('features')->insert([
+                'name' => 'Embedded SignUp',
+                'slug' => 'emb_signup',
+                'description' => 'Allow users to sign up via Embedded SignUp',
+                'type' => 'limit',
+                'display_order' => 10,
+                'default' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 };

@@ -242,13 +242,10 @@
                                                     class="text-gray-700 dark:text-gray-300 font-medium" />
                                             </div>
                                             <div class="relative">
-                                                <div
-                                                    class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                    <x-heroicon-o-globe-alt class="h-6 w-6 text-gray-400" />
-                                                </div>
+
                                                 <div wire:ignore>
                                                     <x-select name="country_id" id="country_id"
-                                                        class="w-full mt-1 tom-select">
+                                                        class="w-full mt-1">
                                                         <option value="">{{ t('select_country') }}</option>
                                                         @foreach (get_country_list() as $country)
                                                         <option value="{{ $country['id'] }}" {{
@@ -280,7 +277,7 @@
                                                 <!-- Show dropdown for available plans -->
                                                 <div wire:ignore>
                                                     <x-select name="plan_id" id="plan_id"
-                                                        class="block w-full tom-select rounded-lg border-gray-300 dark:border-gray-600 focus:border-primary-500 focus:ring-primary-500 dark:focus:ring-primary-500 dark:focus:border-primary-500 dark:bg-gray-700 dark:text-white">
+                                                        class="block w-full rounded-lg border-gray-300 dark:border-gray-600 focus:border-primary-500 focus:ring-primary-500 dark:focus:ring-primary-500 dark:focus:border-primary-500 dark:bg-gray-700 dark:text-white">
                                                         <option value="">{{ t('select_a_plan') }}</option>
                                                         @foreach ($plans as $p)
                                                         <option value="{{ $p->id }}" {{ old('plan_id')==$p->id ?
@@ -295,9 +292,9 @@
                                             </div>
                                             <x-input-error class="mt-2" for="plan_id" />
                                         </div>
-                                         
+
                                     </div>
-                                      
+
                                 </div>
 
                                 <!-- Navigation Buttons -->
@@ -387,7 +384,7 @@
                                     </div>
 
                                     {{ do_action('registration.business_identification_fileds')}}
-                                  
+
                                 </div>
 
 
@@ -477,10 +474,10 @@
                                             <x-input-error class="mt-2" for="password_confirmation" />
                                         </div>
                                     </div>
-                                   
+
                                 </div>
                                         {{ do_action('registration.legal_agreemnet_checkbox')}}
-                               
+
                                 @php
                                 $settings = get_batch_settings(['re-captcha.isReCaptchaEnable']);
                                 @endphp
@@ -566,3 +563,4 @@ $settings = get_batch_settings(['re-captcha.isReCaptchaEnable', 're-captcha.site
 <script>
     window.existingSubdomains = @json($subdomains);
 </script>
+

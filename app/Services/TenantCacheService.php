@@ -50,12 +50,14 @@ class TenantCacheService
 
     /**
      * Get tenant by subdomain with simple caching.
+     * Uses standardized cache key format: tenant:subdomain:{subdomain}
      */
     public static function getBySubdomain(string $subdomain): ?Tenant
     {
-        $cacheKey = "tenant_subdomain_{$subdomain}";
+        // Use standardized cache key matching PathTenantFinder format
+        $cacheKey = "tenant:subdomain:{$subdomain}";
 
-        return Cache::remember($cacheKey, now()->addMinutes(60), function () use ($subdomain) {
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($subdomain) {
             return Tenant::select([
                 'id', 'company_name', 'subdomain', 'domain',
                 'status', 'expires_at', 'created_at', 'updated_at',
@@ -65,16 +67,18 @@ class TenantCacheService
 
     /**
      * Forget cached tenant data.
+     * Clears both ID-based and subdomain-based cache keys.
      */
     public static function forget(int $tenantId): void
     {
-        // Clear specific tenant cache
-        Cache::forget("tenant_{$tenantId}");
+        // Clear standardized ID-based cache
+        Cache::forget("tenant:{$tenantId}");
 
         // If we have the tenant, also clear subdomain cache
         $tenant = Tenant::find($tenantId);
         if ($tenant) {
-            Cache::forget("tenant_subdomain_{$tenant->subdomain}");
+            // Use standardized subdomain cache key
+            Cache::forget("tenant:subdomain:{$tenant->subdomain}");
         }
     }
 

@@ -270,6 +270,11 @@ class Tenant extends BaseTenant implements Team
 
     /**
      * Get the current tenant with proper type handling.
+     *
+     * Wraps Spatie's BaseTenant::current() and ensures it returns
+     * an instance of App\Models\Tenant instead of the base Tenant.
+     *
+     * @return static|null Current tenant instance or null
      */
     public static function current(): ?static
     {
@@ -279,25 +284,14 @@ class Tenant extends BaseTenant implements Team
             return null;
         }
 
-        // Use request-level caching to prevent duplicate queries
-        if ($tenant && get_class($tenant) === BaseTenant::class) {
-            try {
-                $tenantId = $tenant->getKey();
-                // Use the cache service to avoid repeated lookups
-                $cachedTenant = app(\App\Services\TenantCacheService::class)->remember($tenantId);
-                if ($cachedTenant) {
-                    return $cachedTenant;
-                }
-
-                return static::find($tenantId);
-            } catch (\Exception $e) {
-                app_log('Error getting cached tenant', 'error', $e);
-
-                return static::find($tenant->getKey());
-            }
+        // If it's already our App\Models\Tenant, return it
+        if ($tenant instanceof static) {
+            return $tenant;
         }
 
-        return $tenant;
+        // Convert BaseTenant to App\Models\Tenant
+        // This uses the already-cached data from PathTenantFinder
+        return static::find($tenant->getKey());
     }
 
     /**

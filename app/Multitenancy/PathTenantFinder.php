@@ -72,20 +72,20 @@ class PathTenantFinder extends TenantFinder
 
     /**
      * Find tenant by subdomain with efficient caching.
+     * Cache key standardized to match application-wide pattern.
      */
     private function findTenantBySubdomain(string $subdomain): ?Tenant
     {
-        $cacheKey = "tenant_lookup_{$subdomain}";
+        // Standardized cache key format: tenant:subdomain:{value}
+        $cacheKey = "tenant:subdomain:{$subdomain}";
 
-        return Cache::remember($cacheKey, now()->addMinutes(60), function () use ($subdomain) {
-            $tenant = Tenant::select([
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($subdomain) {
+            return Tenant::select([
                 'id', 'company_name', 'subdomain', 'domain',
                 'status', 'expires_at', 'created_at', 'updated_at',
             ])
                 ->where('subdomain', $subdomain)
                 ->first();
-
-            return $tenant;
         });
     }
 }

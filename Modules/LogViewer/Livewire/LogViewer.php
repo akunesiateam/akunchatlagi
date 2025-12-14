@@ -52,11 +52,11 @@ class LogViewer extends Component
         $tenantId = tenant_id() ?? null;
         if ($user && $user->user_type === 'tenant') {
             $base_path = storage_path("logs/tenant/{$tenantId}");
-            if (File::exists($base_path)) {
-                $files = File::files(storage_path("logs/tenant/{$tenantId}"));
-            } else {
-                $files = File::files(storage_path('logs'));
-            }
+
+            $files = File::exists($base_path)
+                      ? File::files(storage_path("logs/tenant/{$tenantId}"))
+                      : File::files(storage_path('logs/tenant'));
+
         } else {
             $files = File::files(storage_path('logs'));
         }

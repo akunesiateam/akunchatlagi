@@ -43,12 +43,6 @@ class SendPaymentApprovedMail
                     }
                 }
 
-                if (! $result) {
-                    app_log('Failed to send payment approval email', 'error', null, [
-                        'transaction_id' => $transaction->id,
-                        'email' => $user->email,
-                    ]);
-                }
             } catch (\Exception $e) {
                 app_log('Error sending payment approval email', 'error', $e, [
                     'transaction_id' => $transaction->id,

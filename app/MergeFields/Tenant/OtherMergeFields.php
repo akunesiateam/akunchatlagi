@@ -29,10 +29,6 @@ class OtherMergeFields
                 'key' => '{company_name}',
             ],
             [
-                'name' => 'Company Email',
-                'key' => '{company_email}',
-            ],
-            [
                 'name' => 'Dark Logo',
                 'key' => '{dark_logo}',
                 'absent' => [
@@ -56,14 +52,14 @@ class OtherMergeFields
     public function format(): array
     {
         $settings = get_batch_settings([
-            'system.site_name',
-            'email.sender_email',
             'theme.dark_logo',
             'theme.site_logo',
         ]);
 
+        $tenant_company = tenant_name() ?? '';
+
         return [
-            '{company_name}' => $settings['system.site_name'] ?? config('app.name'),
+            '{company_name}' => $tenant_company,
             '{dark_logo}' => $settings['theme.dark_logo'] && Storage::disk('public')->exists($settings['theme.dark_logo'])
                 ? asset('storage/'.$settings['theme.dark_logo'])
                 : asset('/img/dark_logo.png'),

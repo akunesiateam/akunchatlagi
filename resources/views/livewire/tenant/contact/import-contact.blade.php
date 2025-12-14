@@ -491,7 +491,7 @@
                                 <td class="border-r border-t px-4 py-2">{{ t('lead/customer') }}</td>
                                 <td class="border-r border-t px-4 py-2">{{ t('abc_mail') }}</td>
                                 <td class="border-r border-t px-4 py-2">{{ t('phone_sample') }}</td>
-                                <td class="border-r border-t px-4 py-2">{{ t('group_sample') }}</td>
+                                <td class="border-r border-t px-4 py-2">"1,2,3"</td>
                                 @foreach($customFields as $field)
                                     <td class="border-r border-t px-4 py-2">
                                         @switch($field->field_type)

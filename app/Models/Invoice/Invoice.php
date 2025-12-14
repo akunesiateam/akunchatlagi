@@ -1704,7 +1704,6 @@ class Invoice extends BaseModel
                         : storage_path('app/public/'.$path));
 
                 if (! file_exists($resolvedPath)) {
-                    app_log("Invoice logo not found: {$resolvedPath}", 'warning');
 
                     return null;
                 }
@@ -1725,7 +1724,6 @@ class Invoice extends BaseModel
             };
 
             if (! $mime) {
-                app_log("Invalid logo file type: {$extension}", 'warning');
 
                 return null;
             }

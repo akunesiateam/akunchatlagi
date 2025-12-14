@@ -3,12 +3,10 @@
 namespace Modules\ApiWebhookManager\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Tenant\ManageChat;
 use App\Models\Tenant\Chat;
 use App\Models\Tenant\ChatMessage;
 use App\Models\Tenant\Contact as TenantContact;
 use App\Services\FeatureService;
-use App\Services\pusher\PusherService;
 use App\Traits\WhatsApp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -234,6 +232,15 @@ class MessageController extends Controller
 
             $contact = $contactResult['contact'];
             $contactCreated = $contactResult['created'];
+
+            // Check if contact has opted out
+            if ($contact->is_opted_out) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Contact has opted out of receiving messages',
+                    'error_code' => 'CONTACT_OPTED_OUT',
+                ], 403);
+            }
 
             // Check if WhatsApp connection is configured for this tenant
             $whatsappSettings = $this->getWhatsAppConnectionSettings($tenant_id);
@@ -726,7 +733,6 @@ class MessageController extends Controller
             } else {
                 $chat->update([
                     'last_message' => $message,
-                    'last_msg_time' => now(),
                     'updated_at' => now(),
                 ]);
             }
@@ -767,13 +773,6 @@ class MessageController extends Controller
                 'updated_at' => now(),
                 'is_read' => 1,
             ]);
-
-            if (! empty(get_tenant_setting_by_tenant_id('pusher', 'app_key', null, $tenant_id)) && ! empty(get_tenant_setting_by_tenant_id('pusher', 'app_secret', null, $tenant_id)) && ! empty(get_tenant_setting_by_tenant_id('pusher', 'app_id', null, $tenant_id)) && ! empty(get_tenant_setting_by_tenant_id('pusher', 'cluster', null, $tenant_id))) {
-                $pusherService = new PusherService($tenant_id);
-                $pusherService->trigger('whatsmark-saas-chat-channel', 'whatsmark-saas-chat-event', [
-                    'chat' => ManageChat::newChatMessage($chatInteraction->id, $chatMessage->id, $tenant_id),
-                ]);
-            }
 
             return $chatMessage;
         } catch (\Exception $e) {
@@ -1105,6 +1104,15 @@ class MessageController extends Controller
 
             $contact = $contactResult['contact'];
             $contactCreated = $contactResult['created'];
+
+            // Check if contact has opted out
+            if ($contact->is_opted_out) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Contact has opted out of receiving messages',
+                    'error_code' => 'CONTACT_OPTED_OUT',
+                ], 403);
+            }
 
             // 5. GET WHATSAPP SETTINGS
             $whatsappSettings = $this->getWhatsAppConnectionSettings($tenant_id);
@@ -1608,19 +1616,6 @@ class MessageController extends Controller
 
             $message_id = ChatMessage::fromTenant($subdomain)->insertGetId($chat_message);
 
-            // Send real-time notification via Pusher if configured
-            if (
-                ! empty(get_tenant_setting_by_tenant_id('pusher', 'app_key', null, $tenant_id)) &&
-                ! empty(get_tenant_setting_by_tenant_id('pusher', 'app_secret', null, $tenant_id)) &&
-                ! empty(get_tenant_setting_by_tenant_id('pusher', 'app_id', null, $tenant_id)) &&
-                ! empty(get_tenant_setting_by_tenant_id('pusher', 'cluster', null, $tenant_id))
-            ) {
-                $pusherService = new PusherService($tenant_id);
-                $pusherService->trigger('whatsmark-saas-chat-channel', 'whatsmark-saas-chat-event', [
-                    'chat' => ManageChat::newChatMessage($interactionId, $message_id, $tenant_id),
-                ]);
-            }
-
             return $message_id;
         } catch (\Exception $e) {
             whatsapp_log('Error storing template message in chat', 'error', [
@@ -1887,6 +1882,15 @@ class MessageController extends Controller
             $contact = $contactResult['contact'];
             $contactCreated = $contactResult['created'];
 
+            // Check if contact has opted out
+            if ($contact->is_opted_out) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Contact has opted out of receiving messages',
+                    'error_code' => 'CONTACT_OPTED_OUT',
+                ], 403);
+            }
+
             // Check if WhatsApp connection is configured for this tenant
             $whatsappSettings = $this->getWhatsAppConnectionSettings($tenant_id);
 
@@ -2084,20 +2088,6 @@ class MessageController extends Controller
                 'updated_at' => now(),
                 'is_read' => 1,
             ]);
-
-            // Send real-time notification via Pusher
-            if (
-                ! empty(get_tenant_setting_by_tenant_id('pusher', 'app_key', null, $tenant_id)) &&
-                ! empty(get_tenant_setting_by_tenant_id('pusher', 'app_secret', null, $tenant_id)) &&
-                ! empty(get_tenant_setting_by_tenant_id('pusher', 'app_id', null, $tenant_id)) &&
-                ! empty(get_tenant_setting_by_tenant_id('pusher', 'cluster', null, $tenant_id))
-            ) {
-
-                $pusherService = new PusherService($tenant_id);
-                $pusherService->trigger('whatsmark-saas-chat-channel', 'whatsmark-saas-chat-event', [
-                    'chat' => ManageChat::newChatMessage($chatInteraction->id, $chatMessage->id, $tenant_id),
-                ]);
-            }
 
             return $chatMessage;
         } catch (\Exception $e) {
@@ -2309,15 +2299,6 @@ class MessageController extends Controller
             ];
 
             $message_id = ChatMessage::fromTenant($subdomain)->insertGetId($chat_message);
-
-            if (
-                ! empty($this->pusher_settings['app_key']) && ! empty($this->pusher_settings['app_secret']) && ! empty($this->pusher_settings['app_id']) && ! empty($this->pusher_settings['cluster'])
-            ) {
-                $pusherService = new PusherService($subdomain);
-                $pusherService->trigger('whatsmark-saas-chat-channel', 'whatsmark-saas-chat-event', [
-                    'chat' => ManageChat::newChatMessage($interactionId, $message_id, $subdomain),
-                ]);
-            }
 
             return $message_id;
         }

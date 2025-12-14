@@ -2,7 +2,6 @@
 
 use App\Http\Middleware\SetLocale;
 use App\Listeners\TenantCacheManager;
-use App\Multitenancy\PathTenantFinder;
 use App\Services\PlanFeatureCache;
 use Corbital\Installer\Http\Middleware\CheckDatabaseVersion;
 use Illuminate\Foundation\Application;
@@ -104,6 +103,27 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(\Corbital\ModuleManager\Http\Middleware\ValidateModuleBackendRequest::class);
     })
     /**
+     * Configure scheduled tasks
+     */
+    ->withSchedule(function ($schedule) {
+        // Horizon snapshot for metrics/charts - runs every hour when queue is Redis
+        $schedule->command('horizon:snapshot')
+            ->hourly()
+            ->when(function () {
+                try {
+                    // Only run if queue connection is Redis
+                    return config('queue.default') === 'redis';
+                } catch (\Exception $e) {
+                    // Log the error but don't fail silently
+                    \Illuminate\Support\Facades\Log::warning('Failed to check queue config for Horizon snapshot: '.$e->getMessage());
+
+                    return false;
+                }
+            })
+            ->withoutOverlapping(30) // Prevent overlapping runs, timeout after 30 minutes
+            ->onOneServer(); // Only run on one server in multi-server setup
+    })
+    /**
      * Register additional service providers
      */
     ->withProviders([
@@ -115,9 +135,6 @@ return Application::configure(basePath: dirname(__DIR__))
      * Register custom bindings in the service container
      */
     ->withBindings([
-        // Custom tenant finder implementation
-        'tenant.finder' => PathTenantFinder::class,
-
         // PlanFeatureCache singleton for consistent feature availability checks
         PlanFeatureCache::class => function () {
             return new PlanFeatureCache;

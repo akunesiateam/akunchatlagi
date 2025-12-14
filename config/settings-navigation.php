@@ -79,6 +79,11 @@ return [
             'route' => 'admin.theme-style.index',
             'icon' => 'heroicon-o-beaker',
         ],
+        'pusher' => [
+            'label' => 'pusher',
+            'route' => 'admin.pusher.settings.view',
+            'icon' => 'heroicon-o-bell-alert',
+        ],
     ],
 
     // Website/Theme settings navigation
@@ -155,11 +160,6 @@ return [
             'route' => 'tenant.settings.general',
             'icon' => 'heroicon-o-cog',
         ],
-        'pusher' => [
-            'label' => 'pusher',
-            'route' => 'tenant.settings.pusher',
-            'icon' => 'heroicon-o-bell-alert',
-        ],
         'miscellaneous' => [
             'label' => 'miscellaneous',
             'route' => 'tenant.settings.miscellaneous',
@@ -207,6 +207,16 @@ return [
             'label' => 'auto_clear_chat_history',
             'route' => 'tenant.settings.auto-clear-chat-history',
             'icon' => 'heroicon-o-trash',
+        ],
+        'whatsapp_session_management' => [
+            'label' => 'whatsapp_session_management',
+            'route' => 'tenant.settings.whatsapp-session-management',
+            'icon' => 'heroicon-o-clock',
+        ],
+        'opt_in_out' => [
+            'label' => 'opt_in_out',
+            'route' => 'tenant.settings.opt-in-out',
+            'icon' => 'heroicon-o-cog-6-tooth',
         ],
     ],
 ];

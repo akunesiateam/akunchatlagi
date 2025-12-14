@@ -14,6 +14,8 @@ Route::middleware(['auth', SanitizeInputs::class, TenantMiddleware::class])->gro
             'notification-sound' => App\Livewire\Tenant\Settings\WhatsMark\NotificationSoundSettings::class,
             'ai-integration' => App\Livewire\Tenant\Settings\WhatsMark\AiIntegrationSettings::class,
             'auto-clear-chat-history' => App\Livewire\Tenant\Settings\WhatsMark\AutoClearChatHistorySettings::class,
+            'opt-in-out' => App\Livewire\Tenant\Settings\WhatsMark\OptInOutSettings::class,
+            'whatsapp-session-management' => App\Livewire\Tenant\Settings\WhatsMark\WhatsappSessionManagementSettings::class,
         ];
 
         foreach ($settings as $prefix => $component) {

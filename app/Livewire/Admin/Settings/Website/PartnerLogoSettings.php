@@ -11,6 +11,14 @@ class PartnerLogoSettings extends Component
 {
     use WithFileUploads;
 
+    public ?bool $partners_logos_enabled = false;
+
+    public ?string $partners_logo_header;
+
+    public ?string $partners_logo_description;
+
+    public ?string $partners_logo_footer;
+
     public $logoItems = [];
 
     public $tempImages = [];
@@ -19,12 +27,19 @@ class PartnerLogoSettings extends Component
 
     protected $rules = [
         'logoItems.*.image' => 'nullable|image|max:1024|dimensions:max_width=800,max_height=200',
+        'partners_logos_enabled' => 'nullable|boolean',
+        'partners_logo_header' => 'required_if:partners_logos_enabled,true|string|max:255',
+        'partners_logo_description' => 'required_if:partners_logos_enabled,true|string|max:255',
+        'partners_logo_footer' => 'required_if:partners_logos_enabled,true|string|max:255',
     ];
 
     protected $messages = [
         'logoItems.*.image.image' => 'The file must be an image.',
         'logoItems.*.image.max' => 'The image must not be larger than 1MB.',
         'logoItems.*.image.dimensions' => 'The image dimensions should not exceed 800x200 pixels.',
+        'partners_logo_header.required_if' => 'Header field is required.',
+        'partners_logo_description.required_if' => 'Description field is required.',
+        'partners_logo_footer.required_if' => 'Footer field is required.',
     ];
 
     public function mount()
@@ -34,6 +49,13 @@ class PartnerLogoSettings extends Component
 
             return redirect(route('admin.dashboard'));
         }
+
+        $settings = get_settings_by_group('theme') ?? (object) [];
+
+        $this->partners_logos_enabled = $settings->partners_logos_enabled ?? false;
+        $this->partners_logo_header = $settings->partners_logo_header ?? '';
+        $this->partners_logo_description = $settings->partners_logo_description ?? '';
+        $this->partners_logo_footer = $settings->partners_logo_footer ?? '';
 
         $this->loadExistingLogos();
 
@@ -214,14 +236,29 @@ class PartnerLogoSettings extends Component
                 $this->addItem();
             }
 
-            if ($changesDetected) {
+            $originalSettings = get_settings_by_group('theme');
+            $newSettings = [
+                'partners_logos_enabled' => $this->partners_logos_enabled,
+                'partners_logo_header' => $this->partners_logo_header,
+                'partners_logo_description' => $this->partners_logo_description,
+                'partners_logo_footer' => $this->partners_logo_footer,
+            ];
+
+            $modifiedSettings = array_filter($newSettings, function ($value, $key) use ($originalSettings) {
+                return $value !== $originalSettings->$key;
+            }, ARRAY_FILTER_USE_BOTH);
+
+            if ($modifiedSettings || $changesDetected) {
+
+                set_settings_batch('theme', $modifiedSettings);
+
                 $this->notify([
                     'type' => 'success',
                     'message' => t('partner_logo_saved_successfully'),
-                ], true);
+                ]);
 
-                return to_route('admin.partner-logo.settings.view');
             }
+
         }
     }
 

@@ -5,6 +5,7 @@
 
     <x-breadcrumb :items="[['label' => t('dashboard'), 'route' => route('admin.dashboard')], ['label' => t('users')]]" />
 
+    @if(CheckPermission('admin.users.create'))
     <div class="flex justify-start mb-3  items-center gap-2">
         <a href="{{ route('admin.users.save') }}">
             <x-button.primary>
@@ -12,6 +13,7 @@
             </x-button.primary>
         </a>
     </div>
+    @endif
 
     <div class="mt-8 lg:mt-0" wire:poll.30s="refreshTable">
         <livewire:admin.tables.filament.user-filament-table />

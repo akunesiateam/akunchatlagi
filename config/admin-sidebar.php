@@ -227,6 +227,7 @@ return [
                         'admin.privacy-policy.settings.view',
                         'admin.terms-conditions.settings.view',
                         'admin.miscellaneous.settings.view',
+                        'admin.pusher.settings.view',
                     ],
                 ],
             ],
@@ -292,6 +293,7 @@ return [
             'permission' => null,
             'order' => 5,
             'active_routes' => ['admin.theme'],
+            'visible_when' => 'App\Services\Sidebar\SidebarVisibilityService::isAdmin',
         ],
         'currencies' => [
             'type' => 'item',
