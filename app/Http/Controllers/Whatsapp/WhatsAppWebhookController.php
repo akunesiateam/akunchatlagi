@@ -694,8 +694,37 @@ protected function extractMessageContent(array $messageEntry, string $messageTyp
             break;
 
         case 'interactive':
-            $content = $messageEntry['interactive']['button_reply']['title'] ?? '';
+            $i = $messageEntry['interactive'] ?? [];
+        
+            switch ($i['type'] ?? null) {
+        
+                case 'button_reply':
+                    $content = $i['button_reply']['title'] ?? '';
+                    break;
+        
+                case 'list_reply':
+                    $content = $i['list_reply']['title'] ?? '';
+                    break;
+        
+                case 'flow_reply':
+                    $summary = json_decode($i['flow_reply']['response_json'] ?? '', true);
+                    $content = '[Flow Reply]';
+                    break;
+        
+                case 'native_flow_reply':
+                    $content = '[Flow Form Submitted]';
+                    break;
+        
+                case 'shop_order_reply':
+                    $content = '[Shop Order Reply]';
+                    break;
+        
+                default:
+                    $content = '[Interactive]';
+                    break;
+            }
             break;
+
 
         case 'button':
             $content = $messageEntry['button']['text'] ?? '';

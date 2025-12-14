@@ -693,7 +693,7 @@
                                                 
                                                 
                                                 <!-- Message Content -->
-                                                <div class="p-2 rounded-lg w-fit max-w-[250px] break-words my-2 message-item"
+                                                <div class="p-2 rounded-lg w-fit max-w-[210px] break-words my-2 message-item"
                                                     :data-message-id='message.message_id' :class="{
                                                             'bg-[#c7c8ff] dark:bg-[#2d2454]': message.sender_id ===
                                                                 selectedUser.wa_no,
