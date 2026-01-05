@@ -99,8 +99,31 @@ class WhatsAppWebhookController extends Controller
 
                 return;
             }
+            
+            // ✅ VALIDASI STRUKTUR PAYLOAD DULU
+            if (empty($payload['entry']) || !is_array($payload['entry'])) {
+                Log::warning('Invalid webhook payload: no entry', ['payload' => $payload]);
+                return;
+            }
 
             $entry = reset($payload['entry']);
+            
+            // ✅ VALIDASI CHANGES EXISTS
+            if (empty($entry['changes']) || !is_array($entry['changes'])) {
+                Log::warning('Invalid webhook payload: no changes', ['entry' => $entry]);
+                return;
+            }
+            
+            // ✅ VALIDASI VALUE EXISTS SEBELUM AKSES
+            $firstChange = $entry['changes'][0] ?? null;
+            if (empty($firstChange['value']) || !is_array($firstChange['value'])) {
+                Log::warning('Invalid webhook payload: no value in changes', [
+                    'entry_id' => $entry['id'] ?? null,
+                    'changes' => $entry['changes']
+                ]);
+                return;
+            }
+        
             $business_id = $entry['id'] ?? null;
 
             $this->isTemplateWebhook($payload);
@@ -108,13 +131,32 @@ class WhatsAppWebhookController extends Controller
             $phoneNumberId = $entry['changes'][0]['value']['metadata']['phone_number_id'] ?? null;
             $this->tenant_id = getTenantIdFromWhatsappDetails($business_id, $phoneNumberId);
 
+            // Early return if no valid tenant found - NO LOGGING for invalid tenants
             if (empty($this->tenant_id)) {
+                Log::info('Webhook received for invalid tenant', [
+                    'business_id' => $business_id,
+                    'phone_number_id' => $phoneNumberId
+                ]);
                 return;
             }
-
+            
             $this->pusher_settings = get_settings_by_group('pusher');
 
             $this->tenant_subdomain = tenant_subdomain_by_tenant_id($this->tenant_id);
+            
+            // Additional check: ensure tenant has valid subdomain
+            if (empty($this->tenant_subdomain)) {
+                Log::warning('Tenant found but no subdomain configured', [
+                    'tenant_id' => $this->tenant_id,
+                    'business_id' => $business_id,
+                    'phone_number_id' => $phoneNumberId
+                ]);
+                return;
+            }
+            
+            // NOW we do detailed logging - only for valid tenants with subdomain
+            $payloadForLog = $this->sanitizePayloadForLogging($payload);
+            Log::info('=== WEBHOOK PAYLOAD RECEIVED (VALID TENANT) === ' . json_encode($payloadForLog, JSON_PRETTY_PRINT));
 
             // Set the tenant ID in the trait for all subsequent API calls
             $this->setWaTenantId($this->tenant_id);
@@ -125,6 +167,7 @@ class WhatsAppWebhookController extends Controller
                 [
                     'payload' => $feedData,
                     'tenant_id' => $this->tenant_id,
+                    'tenant_subdomain' => $this->tenant_subdomain,
                 ],
                 null,
                 $this->tenant_id
@@ -154,6 +197,31 @@ class WhatsAppWebhookController extends Controller
             // Forward webhook data if enabled
             $this->forwardWebhookData($feedData, $payload);
         }
+    }
+    
+    /**
+     * Sanitize payload for logging (remove sensitive data)
+     */
+    private function sanitizePayloadForLogging(array $payload): array
+    {
+        // Create deep copy
+        $sanitized = json_decode(json_encode($payload), true);
+        
+        // Remove or mask sensitive fields
+        array_walk_recursive($sanitized, function (&$value, $key) {
+            $sensitiveFields = ['token', 'password', 'secret', 'key'];
+            
+            if (in_array(strtolower($key), $sensitiveFields)) {
+                $value = '***REDACTED***';
+            }
+            
+            // Truncate very long text content for logs
+            if ($key === 'body' && is_string($value) && strlen($value) > 500) {
+                $value = substr($value, 0, 500) . '... [TRUNCATED]';
+            }
+        });
+        
+        return $sanitized;
     }
 
     /**
@@ -199,17 +267,112 @@ class WhatsAppWebhookController extends Controller
         }
     }
 
-    private function processBotSending(array $message_data)
-    {
-        if (! empty($message_data['messages'])) {
-            $message = reset($message_data['messages']);
-            $trigger_msg = isset($message['button']['text']) ? $message['button']['text'] : $message['text']['body'] ?? '';
-            if (! empty($message['interactive']) && $message['interactive']['type'] == 'button_reply') {
-                $trigger_msg = $message['interactive']['button_reply']['id'];
-            } elseif (! empty($message['interactive']) && $message['interactive']['type'] == 'list_reply') {
-                $trigger_msg = $message['interactive']['list_reply']['title'];
+     private function processBotSending(array $message_data) {
+         
+    if (! empty($message_data['messages'])) {
+        $message = reset($message_data['messages']);
+
+        // ✅ Tambahan: paksa trigger jika pesan ORDER dari katalog
+        if (isset($message['type']) && $message['type'] === 'order') {
+            
+            // ✅ Paksa trigger FlowBot untuk pesan ORDER
+            if (method_exists($this, 'processBotFlow')) {
+                $fakeMessageData = [
+                    'messages' => [
+                        [
+                            'from' => $message['from'],
+                            'text' => ['body' => 'ORDER'], // biar cocok sama trigger keyword flow
+                            'type' => 'text',
+                        ],
+                    ],
+                    'contacts' => $message_data['contacts'] ?? [],
+                    'metadata' => $message_data['metadata'] ?? [],
+                ];
+            
+                $this->processBotFlow($fakeMessageData);
             }
 
+
+            // Hindari trigger dobel dari processIncomingMessages
+            if (defined('ORDER_BOT_TRIGGERED')) {
+                return;
+            }
+
+            $contact = reset($message_data['contacts']);
+            $metadata = $message_data['metadata'] ?? [
+                'display_phone_number' => null,
+                'phone_number_id' => null,
+            ];
+
+            // Definisikan trigger_msg manual agar bisa cocok dengan bot "On Exact Match ORDER"
+            $trigger_msg = 'ORDER';
+
+            // Jalankan seperti biasa tapi paksa keyword ORDER
+            do_action('before_process_bot_sending', [
+                'tenant_id' => $this->tenant_id,
+                'tenant_subdomain' => $this->tenant_subdomain,
+                'contact' => $contact,
+                'message' => $message,
+                'trigger_msg' => $trigger_msg,
+                'metadata' => $metadata,
+            ]);
+
+            try {
+                $contact_number = $message['from'];
+                $contact_data = $this->getContactData($contact_number, $contact['profile']['name']);
+                if ($contact_data instanceof stdClass && empty((array) $contact_data)) {
+                    return;
+                }
+
+                $query_trigger_msg = $trigger_msg;
+                $reply_type = null;
+
+                $current_interaction = Chat::fromTenant($this->tenant_subdomain)->where([
+                    'type' => $contact_data->type,
+                    'type_id' => $contact_data->id,
+                    'wa_no' => $metadata['display_phone_number'],
+                    'tenant_id' => $this->tenant_id,
+                ])->first();
+
+                if (! $this->is_bot_stop) {
+                    // Panggil bot seperti biasa, tapi dengan trigger ORDER
+                    $template_bots = TemplateBot::getTemplateBotsByRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, $reply_type);
+                    $message_bots = MessageBot::getMessageBotsbyRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, $reply_type);
+
+                    foreach ($template_bots as $template) {
+                        $template['rel_id'] = $contact_data->id;
+                        $response = $this->setWaTenantId($this->tenant_id)->sendTemplate($contact_number, $template, 'template_bot', $metadata['phone_number_id']);
+                        $chatId = $this->createOrUpdateInteraction($contact_number, $metadata['display_phone_number'], $metadata['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
+                        $this->storeBotMessages($template, $chatId, $contact_data, 'template_bot', $response);
+                    }
+
+                    foreach ($message_bots as $msg) {
+                        $msg['rel_id'] = $contact_data->id;
+                        $response = $this->setWaTenantId($this->tenant_id)->sendMessage($contact_number, $msg, $metadata['phone_number_id']);
+                        $chatId = $this->createOrUpdateInteraction($contact_number, $metadata['display_phone_number'], $metadata['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
+                        $this->storeBotMessages($msg, $chatId, $contact_data, '', $response);
+                    }
+                }
+            } catch (\Throwable $th) {
+                Log::error('Error process ORDER bot trigger: ' . $th->getMessage());
+            }
+
+            // Setelah trigger ORDER dieksekusi, keluar biar gak double-run
+            define('ORDER_BOT_TRIGGERED', true);
+            return;
+        }
+
+        // 👇 Lanjut ke logic existing
+        $trigger_msg = isset($message['button']['text'])
+            ? $message['button']['text']
+            : $message['text']['body'] ?? '';
+            //if (! empty($message['interactive']) && //$message['interactive']['type'] == 'button_reply') {
+                //$trigger_msg = $message['interactive']['button_reply']['id'];
+        //    }
+                if (! empty($message['interactive']) && $message['interactive']['type'] == 'button_reply') {
+                    // ✅ Gunakan title (text yang tampil) bukan ID untuk matching bot trigger
+                    $trigger_msg = $message['interactive']['button_reply']['title'] ?? $message['interactive']['button_reply']['id'];
+                }
             if (! empty($trigger_msg)) {
                 $contact = reset($message_data['contacts']);
                 $metadata = $message_data['metadata'];
@@ -328,6 +491,15 @@ class WhatsAppWebhookController extends Controller
         }
         $this->processBotFlow($message_data);
     }
+    
+    /**
+     * Check if this is a first-time interaction
+     */
+    protected function isFirstTimeInteraction(string $from): bool
+    {
+        return ! (bool) Chat::fromTenant($this->tenant_subdomain)->where('receiver_id', $from)->count();
+    }
+    
 
     /**
      * Process incoming messages
@@ -354,8 +526,17 @@ class WhatsAppWebhookController extends Controller
         $wa_no_id = $metadata['phone_number_id'] ?? '';
         $messageType = $messageEntry['type'];
         $message_id = $messageEntry['id'];
-        $ref_message_id = isset($messageEntry['context']) ? $messageEntry['context']['id'] ?? '' : '';
+        //$ref_message_id = isset($messageEntry['context']) ? $messageEntry['context']['id'] ?? '' : '';
 
+        // Penanganan reference message ID dengan cara lebih eksplisit
+        $ref_message_id = '';
+        if (isset($messageEntry['context']) && isset($messageEntry['context']['id'])) {
+            $ref_message_id = $messageEntry['context']['id'];
+        }
+        
+        // Deteksi forwarded message (fitur baru)
+        $isForwarded = isset($messageEntry['context']['forwarded']) && $messageEntry['context']['forwarded'] === true;
+        
         // Determine if this is a first-time interaction
         $this->is_first_time = $this->isFirstTimeInteraction($from);
 
@@ -434,7 +615,9 @@ class WhatsAppWebhookController extends Controller
             }
         }
 
-        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video') {
+        // Retrieve media URL for specific media types
+        $attachment = '';
+        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video' || $messageType == 'sticker') {
             $media_id = $messageEntry[$messageType]['id'];
             // Make sure to use setWaTenantId when retrieving URL
             $attachment = $this->setWaTenantId($this->tenant_id)->retrieveUrl($media_id);
@@ -449,6 +632,7 @@ class WhatsAppWebhookController extends Controller
                 'message_type' => $messageType,
                 'is_first_time' => $this->is_first_time,
                 'tenant_id' => $this->tenant_id,
+                'is_forwarded' => $isForwarded, // Tambahkan status forward ke log
             ],
             null,
             $this->tenant_id
@@ -535,7 +719,7 @@ class WhatsAppWebhookController extends Controller
 
         // Extract message content based on type
         $message = $this->extractMessageContent($messageEntry, $messageType);
-        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video') {
+        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video' || $messageType == 'sticker') {
             $media_id = $messageEntry[$messageType]['id'];
             // Make sure to use setWaTenantId when retrieving URL
             $attachment = $this->setWaTenantId($this->tenant_id)->retrieveUrl($media_id);
@@ -603,40 +787,232 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
-     * Check if this is a first-time interaction
-     */
-    protected function isFirstTimeInteraction(string $from): bool
-    {
-        return ! (bool) Chat::fromTenant($this->tenant_subdomain)->where('receiver_id', $from)->count();
+ * Extract message content based on type
+ */
+protected function extractMessageContent(array $messageEntry, string $messageType): string
+{
+    // Cek forwarded message di semua tipe
+    $isForwarded = isset($messageEntry['context']['forwarded']) && $messageEntry['context']['forwarded'] === true;
+    $isFrequentlyForwarded = isset($messageEntry['context']['frequently_forwarded']) && $messageEntry['context']['frequently_forwarded'] === true;
+
+    $content = '';
+
+    switch ($messageType) {
+        case 'text':
+            $content = $messageEntry['text']['body'] ?? '';
+            break;
+
+        case 'interactive':
+            $i = $messageEntry['interactive'] ?? [];
+        
+            switch ($i['type'] ?? null) {
+        
+                case 'button_reply':
+                    $content = $i['button_reply']['title'] ?? '';
+                    break;
+        
+                case 'list_reply':
+                    $content = $i['list_reply']['title'] ?? '';
+                    break;
+        
+                case 'flow_reply':
+                    $summary = json_decode($i['flow_reply']['response_json'] ?? '', true);
+                    $content = '[Flow Reply]';
+                    break;
+        
+                case 'native_flow_reply':
+                    $content = '[Flow Form Submitted]';
+                    break;
+        
+                case 'shop_order_reply':
+                    $content = '[Shop Order Reply]';
+                    break;
+        
+                default:
+                    $content = '[Interactive]';
+                    break;
+            }
+            break;
+
+
+        case 'button':
+            $content = $messageEntry['button']['text'] ?? '';
+            break;
+
+        case 'reaction':
+            $content = json_decode('"'.($messageEntry['reaction']['emoji'] ?? '').'"', false, 512, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'image':
+            $content = $messageEntry['image']['caption'] ?? 'image';
+            break;
+
+        case 'audio':
+            $content = 'audio';
+            break;
+
+        case 'document':
+            $caption = $messageEntry['document']['caption'] ?? '';
+            $filename = $messageEntry['document']['filename'] ?? '';
+            if ($caption) {
+                $content = $caption;
+            } elseif ($filename) {
+                $content = $filename;
+            } else {
+                $content = 'document';
+            }
+            break;
+
+        case 'video':
+            $content = $messageEntry['video']['caption'] ?? 'video';
+            break;
+
+        case 'location':
+            $latitude = $messageEntry['location']['latitude'] ?? '';
+            $longitude = $messageEntry['location']['longitude'] ?? '';
+            $name = $messageEntry['location']['name'] ?? '';
+            $address = $messageEntry['location']['address'] ?? '';
+
+            $locationParts = [];
+            if ($name) $locationParts[] = $name;
+            if ($address) $locationParts[] = $address;
+            $locationParts[] = "$latitude,$longitude";
+
+            $content = implode(' - ', $locationParts);
+            break;
+
+        case 'contacts':
+            $contact = $messageEntry['contacts'][0] ?? [];
+            $name = $contact['name']['formatted_name'] ?? '';
+            $phone = $contact['phones'][0]['phone'] ?? '';
+            if ($name && $phone) {
+                $content = "$name - $phone";
+            } elseif ($name) {
+                $content = $name;
+            } elseif ($phone) {
+                $content = $phone;
+            } else {
+                $content = 'contact';
+            }
+            break;
+
+        case 'sticker':
+            $animated = $messageEntry['sticker']['animated'] ?? false;
+            $stickerId = $messageEntry['sticker']['id'] ?? '';
+            
+            if ($animated) {
+                $content = '🎬 Animated Sticker';
+            } else {
+                $content = '📎 Sticker';
+            }
+            
+            break;
+
+        // ✅ Tambahan baru: dukungan pesan ORDER via katalog + trigger "ORDER:"
+        case 'order':
+            try {
+                $order = $messageEntry['order'] ?? [];
+                $items = [];
+                $grandTotal = 0;
+                $catalogId = $order['catalog_id'] ?? null;
+        
+                if (!empty($order['product_items'])) {
+                    foreach ($order['product_items'] as $i => $item) {
+                        $retailerId = $item['product_retailer_id'] ?? null;
+        
+                        // 🔹 Ambil nama produk dari Meta Catalog API jika bisa
+                        $productName = $this->getCatalogProductName($catalogId, $retailerId)
+                            ?? ($item['product_name']
+                                ?? ($retailerId ? 'Produk ' . $retailerId : '-'));
+        
+                        $qty = $item['quantity'] ?? 1;
+                        $price = $item['item_price'] ?? 0;
+                        $currency = $item['currency'] ?? 'IDR';
+                        $subtotal = $price * $qty;
+                        $grandTotal += $subtotal;
+        
+                        $items[] = sprintf("%d. %s x%d = Rp%s",
+                            $i + 1,
+                            $productName,
+                            $qty,
+                            number_format($subtotal, 0, ',', '.')
+                        );
+                    }
+                }
+        
+                // 🔹 Tentukan mata uang & buat kode unik order
+                $currency = $order['product_items'][0]['currency'] ?? 'IDR';
+                $orderCode = 'ORD-' . date('ymd') . '-' . strtoupper(Str::random(4));
+        
+                // 🔹 Susun pesan final dengan format nota mini
+                $contentBody =
+                    "🛍️ Pesanan dari katalog\n\n" .
+                    implode("\n", $items) .
+                    "\n-------------------------\n" .
+                    "Total: Rp" . number_format($grandTotal, 0, ',', '.') . " {$currency}" .
+                    "\nOrder ID: {$orderCode}";
+        
+                // 🔹 Tambahkan kata pemicu agar bisa dipakai di On Exact Match
+                // Pemicu: "ORDER"
+                // 🔹 Tambahkan kata pemicu agar bisa dipakai di On Exact Match
+        $content = "ORDER\n" . $contentBody;
+        
+        // 🔹 Paksa tipe pesan jadi text supaya bisa diproses bot
+        $messageType = 'text';
+    
+        } catch (\Throwable $e) {
+            Log::error('Gagal memproses pesan order: ' . $e->getMessage());
+            $content = 'Pesanan dari katalog (tidak dapat diproses sepenuhnya).';
+        }
+        break;
+
+        default:
+            $content = 'Unknown message type';
+            break;
     }
 
-    /**
-     * Extract message content based on type
-     */
-    protected function extractMessageContent(array $messageEntry, string $messageType): string
-    {
-        switch ($messageType) {
-            case 'text':
-                return $messageEntry['text']['body'] ?? '';
-            case 'interactive':
-                return $messageEntry['interactive']['button_reply']['title'] ?? $messageEntry['interactive']['list_reply']['title'] ?? '';
-            case 'button':
-                return $messageEntry['button']['text'] ?? '';
-            case 'reaction':
-                return json_decode('"'.($messageEntry['reaction']['emoji'] ?? '').'"', false, 512, JSON_UNESCAPED_UNICODE);
-            case 'image':
-            case 'audio':
-            case 'document':
-            case 'video':
-                return $messageEntry[$messageType]['caption'] ?? $messageType;
-            case 'contacts':
-                return json_encode($messageEntry['contacts']);
-            case 'location':
-                return json_encode($messageEntry['location']);
-            default:
-                return 'Unknown message type';
-        }
+    // Tambah prefix forwarded jika perlu
+    if ($isFrequentlyForwarded) {
+        return "[VIRAL] " . $content;
+    } elseif ($isForwarded) {
+        return "[FORWARDED] " . $content;
     }
+
+    return $content;
+}
+
+
+protected function getCatalogProductName(string $catalogId, string $retailerId): ?string
+{
+    try {
+        $settings = get_batch_settings(['whatsapp.wm_access_token', 'wm_access_token']);
+        $accessToken = $settings['whatsapp.wm_access_token']
+    ?? $settings['wm_access_token']
+    ?? (function_exists('get_tenant_setting_by_group_and_key')
+        ? get_tenant_setting_by_group_and_key('whatsapp', 'wm_access_token', $this->tenant_id)
+        : null);
+
+        if (empty($accessToken)) {
+            Log::warning("Tenant {$this->tenant_id} belum punya access token Meta.");
+            return null;
+        }
+
+        $url = "https://graph.facebook.com/v24.0/{$catalogId}/products";
+        $response = Http::withToken($accessToken)
+            ->get($url, [
+                'fields' => 'name,retailer_id,price',
+                'limit'  => 50,
+            ])
+            ->json();
+
+        $found = collect($response['data'] ?? [])->firstWhere('retailer_id', $retailerId);
+
+        return $found['name'] ?? null;
+    } catch (\Throwable $e) {
+        Log::error("Gagal ambil nama produk dari Catalog API: {$e->getMessage()}");
+        return null;
+    }
+}
 
     /**
      * Create or update interaction
@@ -1130,6 +1506,17 @@ class WhatsAppWebhookController extends Controller
 
             $to = $existing_interaction->receiver_id;
             $message = strip_tags($request->input('message', ''));
+            
+            // --- CUSTOM @AkunChat MODUL SIGNMODULES --- //
+            $filter_data = [
+                'message' => $message,
+                'user_id' => auth()->id(),
+                'tenant_id' => $this->tenant_id
+            ];
+            $filtered_data = apply_filters('whatsapp.message.before_send', $filter_data);
+            $message = $filtered_data['message']; // Ambil kembali pesan yang sudah dimodifikasi
+            
+            // --- END CUSTOM MODUL SIGNMODULES --- //
 
             // Parse message text for contacts or leads
             $user_id = null;
@@ -1199,31 +1586,90 @@ class WhatsAppWebhookController extends Controller
             try {
                 foreach ($message_data as $data) {
                     $response = null;
-
-                    switch ($data['type']) {
-                        case 'text':
-                            $response = $whatsapp_cloud_api->sendTextMessage($to, $data['text']['body']);
-                            break;
-                        case 'audio':
-                            $response = $whatsapp_cloud_api->sendAudio($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['audio']['url']));
-                            break;
-                        case 'image':
-                            $response = $whatsapp_cloud_api->sendImage($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['image']['url']));
-                            break;
-                        case 'video':
-                            $response = $whatsapp_cloud_api->sendVideo($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['video']['url']));
-                            break;
-                        case 'document':
-                            $fileName = basename($data['document']['url']);
-                            $response = $whatsapp_cloud_api->sendDocument($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['document']['url']), $fileName, '');
-                            break;
-                        default:
-                            continue 2;
+                
+                    // kalau ada ref_message_id → bypass ke payload manual
+                    if (!empty($ref_message_id)) {
+                        $payload = [
+                            'messaging_product' => 'whatsapp',
+                            'to' => $to,
+                            'type' => $data['type'],
+                        ];
+                
+                        switch ($data['type']) {
+                            case 'text':
+                                $payload['text'] = [
+                                    'body' => $data['text']['body'],
+                                    'preview_url' => true,
+                                ];
+                                break;
+                
+                            case 'audio':
+                                $payload['audio'] = [
+                                    'link' => $data['audio']['url'],
+                                ];
+                                break;
+                
+                            case 'image':
+                                $payload['image'] = [
+                                    'link' => $data['image']['url'],
+                                ];
+                                break;
+                
+                            case 'video':
+                                $payload['video'] = [
+                                    'link' => $data['video']['url'],
+                                ];
+                                break;
+                
+                            case 'document':
+                                $payload['document'] = [
+                                    'link' => $data['document']['url'],
+                                    'filename' => basename($data['document']['url']),
+                                ];
+                                break;
+                
+                            default:
+                                continue 2;
+                        }
+                
+                        // inject context untuk reply
+                        $payload['context'] = ['message_id' => $ref_message_id];
+                
+                        $url = self::getBaseUrl() . $this->getPhoneID() . '/messages';
+                        $response = Http::withToken($this->getToken())->post($url, $payload);
+                        $response_data = $response->json();
+                
+                    } else {
+                        // === MODE NORMAL, tanpa reply === //
+                        switch ($data['type']) {
+                            case 'text':
+                                $response = $whatsapp_cloud_api->sendTextMessage($to, $data['text']['body']);
+                                break;
+                            case 'audio':
+                                $response = $whatsapp_cloud_api->sendAudio($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['audio']['url']));
+                                break;
+                            case 'image':
+                                $response = $whatsapp_cloud_api->sendImage($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['image']['url']));
+                                break;
+                            case 'video':
+                                $response = $whatsapp_cloud_api->sendVideo($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['video']['url']));
+                                break;
+                            case 'document':
+                                $fileName = basename($data['document']['url']);
+                                $response = $whatsapp_cloud_api->sendDocument(
+                                    $to,
+                                    new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['document']['url']),
+                                    $fileName,
+                                    ''
+                                );
+                                break;
+                            default:
+                                continue 2;
+                        }
+                
+                        $response_data = $response->decodedBody();
                     }
-
-                    // Decode the response JSON
-                    $response_data = $response->decodedBody();
-
+                
                     // Store the message ID if available
                     if (isset($response_data['messages'][0]['id'])) {
                         $messageIds[] = $response_data['messages'][0]['id'];

@@ -8,5 +8,7 @@
     "AiAssistant": true,
     "Ecommerce": true,
     "FBLead": true,
-    "ThemeBuilder": true
+    "ThemeBuilder": true,
+    "SignAdmin": true,
+    "MaskingNumber": true
 }

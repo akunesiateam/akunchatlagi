@@ -211,14 +211,27 @@
               </div>
 
               <!-- Phone -->
-              <div>
-                <span class=" text-sm text-slate-400 dark:text-slate-400">{{ t('phone') }}</span>
-                <p>
-                  <a href='tel:{{ $contact->phone ?? ' -' }}' class="text-info-600 text-sm">
-                    {{ $contact->phone ?? '-' }}
-                  </a>
-                </p>
-              </div>
+                <div>
+                    <span class="text-sm text-slate-400 dark:text-slate-400">
+                        {{ t('phone') }}
+                    </span>
+                
+                    @php
+                        $rawPhone   = $contact->phone ?? null;
+                        $cleanPhone = $rawPhone ? preg_replace('/\D/', '', $rawPhone) : null;
+                    @endphp
+                
+                    <p>
+                        @if($cleanPhone)
+                            <a href="tel:+{{ $cleanPhone }}" class="text-info-600 text-sm">
+                                {{ mask_phone_number($rawPhone) }}
+                            </a>
+                        @else
+                            <span class="text-sm text-gray-400">-</span>
+                        @endif
+                    </p>
+                </div>
+
 
               <!-- Website -->
               <div>
