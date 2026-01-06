@@ -1,0 +1,24 @@
+{
+    "name": "app/signadmin",
+    "description": "SignAdmin module for agent signatures in chat conversations",
+    "type": "laravel-module",
+    "authors": [
+        {
+            "name": "Internal Development Team",
+            "email": "dev@company.com"
+        }
+    ],
+    "require": {},
+    "extra": {
+        "laravel": {
+            "providers": [
+                "App\\Modules\\SignAdmin\\Providers\\SignAdminServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\Modules\\SignAdmin\\": ""
+        }
+    }
+}

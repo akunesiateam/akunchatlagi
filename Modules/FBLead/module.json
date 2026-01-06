@@ -1,0 +1,23 @@
+{
+    "name": "FBLead",
+    "alias": "f-b-lead",
+    "namespace": "Modules\\FBLead\\",
+    "provider": "Modules\\FBLead\\Providers\\FBLeadServiceProvider",
+    "author": "Corbital Technologies",
+    "url": "https://codecanyon.net/user/corbitaltech",
+    "version": "1.0.0",
+    "description": "Allow users to connect Facebook pages and collect leads from Facebook Lead Ads forms.",
+    "keywords": [],
+    "order": 0,
+    "providers": [
+        "Modules\\FBLead\\Providers\\FBLeadServiceProvider"
+    ],
+    "aliases": [],
+    "require": [],
+    "conflicts": [],
+    "requires_at": "1.4.0",
+    "license_required": true,
+    "license_product_id": "60377495",
+    "license_grace_period": 3,
+    "type": "addon"
+}

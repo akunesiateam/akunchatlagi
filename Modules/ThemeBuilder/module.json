@@ -1,0 +1,23 @@
+{
+    "name": "ThemeBuilder",
+    "alias": "theme-builder",
+    "namespace": "Modules\\ThemeBuilder\\",
+    "provider": "Modules\\ThemeBuilder\\Providers\\ThemeBuilderServiceProvider",
+    "author": "Corbital Technologies",
+    "url": "https://codecanyon.net/user/corbitaltech",
+    "version": "1.0.0",
+    "description": "fully responsive drag-and-drop builder theme powered by GrapesJS",
+    "keywords": [],
+    "order": 0,
+    "providers": [
+        "Modules\\ThemeBuilder\\Providers\\ThemeBuilderServiceProvider"
+    ],
+    "aliases": [],
+    "require": [],
+    "requires_at": "1.4.0",
+    "license_required": true,
+    "license_product_id": "60395541",
+    "license_grace_period": 3,
+    "conflicts": [],
+    "type": "addon"
+}
