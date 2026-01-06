@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Events\Language\LanguageEvent;
-use App\Facades\AdminCache;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Cache;
 
@@ -45,9 +44,6 @@ class Language extends BaseModel
         return $this->belongsTo(Tenant::class);
     }
 
-    /**
-     * The "booted" method of the model.
-     */
     protected static function boot()
     {
         parent::boot();
@@ -94,5 +90,14 @@ class Language extends BaseModel
                 })
                 ->get();
         });
+
+    }
+
+    /**
+     * Get the language file path in the public directory
+     */
+    public function getFilePathAttribute()
+    {
+        return resource_path("lang/translations/{$this->code}.json");
     }
 }

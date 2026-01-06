@@ -3,12 +3,12 @@
 </x-slot:title>
 
 <div class="min-h-screen">
-   
+
     <div class="max-w-6xl mx-auto sm:px-6 lg:px-6">
-          <x-breadcrumb :items="[
-        ['label' => t('dashboard'), 'route' => route('admin.dashboard')],
-        ['label' => t('whatsapp_webhook')],
-    ]" />
+        <x-breadcrumb :items="[
+            ['label' => t('dashboard'), 'route' => route('admin.dashboard')],
+            ['label' => t('whatsapp_webhook')],
+        ]" />
         <!-- Page Header -->
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ t('meta_whatsapp_api_webhook') }}</h1>
@@ -26,11 +26,11 @@
                                 d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                         </svg>
 
-                        <h1 class="text-xl font-semibold text-white dark:text-slate-300">
+                        <h3 class="text-base sm:text-lg font-semibold text-white dark:text-slate-300">
                             {{ t('whatsapp_webhook_configuration') }}
-                        </h1>
+                        </h3>
                     </div>
-                    <p class="text-white dark:text-gray-300 text-sm mt-1">
+                    <p class="text-xs sm:text-sm text-white dark:text-gray-400 mt-1">
                         {{ t('configure_your_webhook_connection') }}
                     </p>
                 </div>
@@ -43,26 +43,66 @@
                     <x-card class="border-l-4 border-info-500">
                         <x-slot:content>
                             <div>
-                                <div class="flex">
-                                    <div class="flex-shrink-0">
-                                        <x-heroicon-o-information-circle class="h-5 w-5 text-info-500" />
+                                <div class="space-y-4">
+                                    <!-- First section -->
+                                    <div class="flex gap-3">
+                                        <x-heroicon-o-information-circle class="h-5 w-5 text-info-500 mt-1" />
+
+                                        <div class="flex-1">
+                                            <h3 class="font-semibold text-info-800 dark:text-info-200">
+                                                {{ t('meta_whatsapp_business_api_setup') }}
+                                            </h3>
+
+                                            <div class="mt-2 text-sm text-info-700 dark:text-info-300 space-y-2">
+                                                <p>{{ t('configure_the_webhook_endpoint') }}</p>
+
+                                                <ul class="list-disc list-inside space-y-1">
+                                                    <li>{{ t('facebook_app_id_and_secret') }}</li>
+                                                    <li>{{ t('admin_privileges_facebook') }}</li>
+                                                </ul>
+
+                                                <p>{{ t('api_endpoint_receive_and_process') }}</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="ml-3">
-                                        <h3 class="text-info-800 dark:text-info-200 font-semibold">
-                                            {{ t('meta_whatsapp_business_api_setup') }}</h3>
-                                        <div class="mt-2 text-sm text-info-700 dark:text-info-300">
-                                            <p>{{ t('configure_the_webhook_endpoint') }}</p>
-                                            <ul class="list-disc list-inside mt-2 space-y-1">
-                                                <li>{{ t('facebook_app_id_and_secret') }}
-                                                </li>
-                                                <li>{{ t('admin_privileges_facebook') }}</li>
-                                            </ul>
-                                            <p class="mt-2">
-                                                {{ t('api_endpoint_receive_and_process') }}
+
+                                    <!-- Divider -->
+                                    <hr class="border-info-200 dark:border-info-700">
+
+                                    <!-- Second section (icon starts at same position) -->
+                                    <div class="flex gap-3">
+                                        <x-heroicon-o-exclamation-circle class="h-5 w-5 text-warning-500 mt-1" />
+
+                                        <div class="flex-1">
+                                            <h4 class="font-semibold text-info-800 dark:text-info-200">
+                                                {{ t('webhook_event_subscriptions') }}
+                                            </h4>
+
+                                            <p class="mt-1.5 text-sm text-info-700 dark:text-info-300">
+                                                {{ t('webhook_event_subscriptions_desc') }}
                                             </p>
+
+                                            <ul
+                                                class="mt-3 text-sm text-info-700 dark:text-info-300 list-disc list-inside space-y-2">
+                                                <li>
+                                                    {{ t('subscribe_to_events_desc') }}
+                                                    <code
+                                                        class="px-1.5 py-0.5 bg-info-100 dark:bg-info-900/50 rounded text-xs">
+                                                        message_template_status_update
+                                                    </code>
+                                                    {{ t('and') }}
+                                                    <code
+                                                        class="px-1.5 py-0.5 bg-info-100 dark:bg-info-900/50 rounded text-xs">
+                                                        template_category_update
+                                                    </code>
+                                                </li>
+                                                <li>{{ t('without_subscriptions_desc') }}</li>
+                                                <li>{{ t('tenant_users_need_manual_reload') }}</li>
+                                            </ul>
                                         </div>
                                     </div>
                                 </div>
+
                             </div>
                         </x-slot:content>
                     </x-card>
@@ -74,7 +114,8 @@
                                 <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
                                     <x-heroicon-o-cog-6-tooth class="h-5 w-5 text-primary-500 dark:text-primary-400 " />
                                 </div>
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                                <h3
+                                    class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                                     {{ t('meta_application_details') }}
                                 </h3>
                             </div>
@@ -96,7 +137,8 @@
                                             class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                             <x-heroicon-o-identification class="h-5 w-5 text-gray-400" />
                                         </div>
-                                        <x-input id="wm_fb_app_id" type="text" class="pl-10" wire:model="wm_fb_app_id"
+                                        <x-input id="wm_fb_app_id" type="text" class="pl-10"
+                                            wire:model="wm_fb_app_id"
                                             placeholder="{{ t('enter_your_facebook_app_id') }}" />
                                     </div>
                                     <x-input-error for="wm_fb_app_id" class="mt-2" />
@@ -130,12 +172,14 @@
                                 </div>
                                 <div class="mt-4">
                                     <div class="flex items-center gap-1 mb-2">
-                                        <x-label for="wm_fb_config_id" class="text-gray-700 dark:text-gray-300 font-medium">
+                                        <x-label for="wm_fb_config_id"
+                                            class="text-gray-700 dark:text-gray-300 font-medium">
                                             {{ t('facebook_config_id') }}
                                         </x-label>
                                     </div>
                                     <div class="relative">
-                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <div
+                                            class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                             <x-heroicon-o-cog-6-tooth class="h-5 w-5 text-gray-400" />
                                         </div>
                                         <x-input id="wm_fb_config_id" type="text" class="pl-10"
@@ -176,7 +220,8 @@
                                 <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
                                     <x-heroicon-o-link class="h-5 w-5 text-primary-500 dark:text-primary-400 " />
                                 </div>
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                                <h3
+                                    class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                                     {{ t('webhook_connection') }}
                                 </h3>
                             </div>
@@ -215,12 +260,13 @@
 
                                         <!-- Copy Button -->
                                         @php
-                                        $copyText = t('copy');
-                                        $copiedText = t('copied');
+                                            $copyText = t('copy');
+                                            $copiedText = t('copied');
                                         @endphp
                                         <div class="flex justify-end mt-1">
                                             <x-button.secondary x-on:click="copyText()">
-                                                <span x-text="copied ? '{{ $copiedText }}' : '{{ $copyText }}'"></span>
+                                                <span
+                                                    x-text="copied ? '{{ $copiedText }}' : '{{ $copyText }}'"></span>
                                             </x-button.secondary>
                                         </div>
 
@@ -242,50 +288,50 @@
                                     <span
                                         class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $is_webhook_connected ? 'bg-success-100 dark:bg-success-900/30 text-success-800 dark:text-success-200' : 'bg-danger-100 dark:bg-danger-900/30 text-danger-800 dark:text-danger-200' }}">
                                         @if ($is_webhook_connected)
-                                        <x-heroicon-o-check-circle class="h-4 w-4 mr-2" />
-                                        {{ t('connected') }}
+                                            <x-heroicon-o-check-circle class="h-4 w-4 mr-2" />
+                                            {{ t('connected') }}
                                         @else
-                                        <x-heroicon-o-x-circle class="h-4 w-4 mr-2" />
-                                        {{ t('disconnected') }}
+                                            <x-heroicon-o-x-circle class="h-4 w-4 mr-2" />
+                                            {{ t('disconnected') }}
                                         @endif
                                     </span>
                                 </div>
 
                                 <div class="flex flex-col lg:flex-row gap-3">
                                     @if (!$is_webhook_connected)
-                                    <x-button.primary wire:click="connectHook"
-                                        class="flex items-center justify-center space-x-2 w-[200px]">
-                                        <!-- Normal state -->
-                                        <span wire:loading.remove wire:target="connectHook"
-                                            class="flex items-center space-x-2">
-                                            <x-heroicon-o-check-circle class="h-3 w-3" />
-                                            <span>{{ t('connect_webhook') }}</span>
-                                        </span>
+                                        <x-button.primary wire:click="connectHook"
+                                            class="flex items-center justify-center space-x-2 w-[200px]">
+                                            <!-- Normal state -->
+                                            <span wire:loading.remove wire:target="connectHook"
+                                                class="flex items-center space-x-2">
+                                                <x-heroicon-o-check-circle class="h-3 w-3" />
+                                                <span>{{ t('connect_webhook') }}</span>
+                                            </span>
 
-                                        <!-- Loading state -->
-                                        <span wire:loading wire:target="connectHook"
-                                            class="flex items-center space-x-2">
-                                            <x-heroicon-o-arrow-path class="animate-spin h-4 w-4" />
+                                            <!-- Loading state -->
+                                            <span wire:loading wire:target="connectHook"
+                                                class="flex items-center space-x-2">
+                                                <x-heroicon-o-arrow-path class="animate-spin h-4 w-4" />
 
-                                        </span>
-                                    </x-button.primary>
+                                            </span>
+                                        </x-button.primary>
                                     @else
-                                    <x-button.secondary wire:click="disconnectHook"
-                                        class="flex items-center justify-center space-x-2 w-[200px]">
-                                        <!-- Normal state -->
-                                        <span wire:loading.remove wire:target="disconnectHook"
-                                            class="flex items-center space-x-2">
-                                            <x-heroicon-o-x-mark class="h-4 w-4" />
-                                            <span>{{ t('disconnect_webhook') }}</span>
-                                        </span>
+                                        <x-button.secondary wire:click="disconnectHook"
+                                            class="flex items-center justify-center space-x-2 w-[200px]">
+                                            <!-- Normal state -->
+                                            <span wire:loading.remove wire:target="disconnectHook"
+                                                class="flex items-center space-x-2">
+                                                <x-heroicon-o-x-mark class="h-4 w-4" />
+                                                <span>{{ t('disconnect_webhook') }}</span>
+                                            </span>
 
-                                        <!-- Loading state -->
-                                        <span wire:loading wire:target="disconnectHook"
-                                            class="flex items-center space-x-2">
-                                            <x-heroicon-o-arrow-path class="animate-spin h-4 w-4" />
+                                            <!-- Loading state -->
+                                            <span wire:loading wire:target="disconnectHook"
+                                                class="flex items-center space-x-2">
+                                                <x-heroicon-o-arrow-path class="animate-spin h-4 w-4" />
 
-                                        </span>
-                                    </x-button.secondary>
+                                            </span>
+                                        </x-button.secondary>
                                     @endif
 
                                     <!-- Verify Connection Button -->
@@ -383,8 +429,8 @@
 </div>
 
 @push('scripts')
-<script>
-    // Webhook Configuration Helper
+    <script>
+        // Webhook Configuration Helper
         const WebhookConfig = {
             copyToClipboard(text) {
                 // Modern clipboard API
@@ -482,5 +528,5 @@
                 }, 4000);
             }
         };
-</script>
+    </script>
 @endpush

@@ -24,6 +24,7 @@ class WhatsappDynamicTemplateController extends Controller
     const CATEGORIES = [
         'MARKETING' => 'Marketing',
         'UTILITY' => 'Utility',
+        'AUTHENTICATION' => 'Authentication',
     ];
 
     const LANGUAGES = [
@@ -370,11 +371,13 @@ class WhatsappDynamicTemplateController extends Controller
             'data' => 'required|array',
             'header_variable_value' => 'nullable|array',
             'body_variable_value' => 'nullable|array',
+            'cards_json' => 'nullable|array',
+        ], [
+            'template_name.regex' => 'Invalid template name. Only lowercase letters, numbers, and underscores (_) are allowed.',
         ]);
 
         // Extract and process template data
         $data = $validated['data'];
-
         $template_creation = $this->createTemplate($validated);
 
         if (! $template_creation['status']) {
@@ -422,6 +425,14 @@ class WhatsappDynamicTemplateController extends Controller
             $buttonsData = json_encode($data['buttons']);
         }
 
+        // Determine template type
+        $templateType = 'TEXT'; // Default type
+        if (! empty($validated['cards_json'])) {
+            $templateType = 'CAROUSEL';
+        } elseif (! empty($headerDataFormat) && in_array($headerDataFormat, ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
+            $templateType = 'MEDIA';
+        }
+
         $template = WhatsappTemplate::create([
             'tenant_id' => $this->tenant_id,
             'template_id' => $template_creation['template_id'] ?? null,
@@ -440,6 +451,8 @@ class WhatsappDynamicTemplateController extends Controller
             'header_file_url' => $mediaUrl,
             'header_variable_value' => isset($validated['header_variable_value']) ? json_encode($validated['header_variable_value']) : null,
             'body_variable_value' => isset($validated['body_variable_value']) ? json_encode($validated['body_variable_value']) : null,
+            'cards_json' => ! empty($validated['cards_json']) ? json_encode($validated['cards_json']) : null,
+            'template_type' => $templateType,
         ]);
 
         return response()->json([
@@ -483,12 +496,15 @@ class WhatsappDynamicTemplateController extends Controller
         $template = WhatsappTemplate::findOrFail($id);
 
         $validated = $request->validate([
-            'template_name' => 'required|string|max:512',
+            'template_name' => ['required', 'string', 'max:512', 'regex:/^[a-z0-9_]+$/'],
             'category' => ['required', Rule::in(array_keys(self::CATEGORIES))],
             'language' => ['required', Rule::in(array_keys(self::LANGUAGES))],
             'data' => 'required|array',
             'header_variable_value' => 'nullable|array',
             'body_variable_value' => 'nullable|array',
+            'cards_json' => 'nullable|array',
+        ], [
+            'template_name.regex' => 'Invalid template name. Only lowercase letters, numbers, and underscores (_) are allowed.',
         ]);
 
         // Extract and process template data
@@ -541,6 +557,14 @@ class WhatsappDynamicTemplateController extends Controller
             $buttonsData = json_encode($data['buttons']);
         }
 
+        // Determine template type for update
+        $templateType = 'TEXT'; // Default type
+        if (! empty($validated['cards_json'])) {
+            $templateType = 'CAROUSEL';
+        } elseif (! empty($headerDataFormat) && in_array($headerDataFormat, ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
+            $templateType = 'MEDIA';
+        }
+
         $template->update([
             'tenant_id' => $this->tenant_id,
             'template_name' => $validated['template_name'],
@@ -559,6 +583,8 @@ class WhatsappDynamicTemplateController extends Controller
             'header_file_url' => $mediaUrl,
             'header_variable_value' => isset($validated['header_variable_value']) ? json_encode($validated['header_variable_value']) : null,
             'body_variable_value' => isset($validated['body_variable_value']) ? json_encode($validated['body_variable_value']) : null,
+            'cards_json' => ! empty($validated['cards_json']) ? json_encode($validated['cards_json']) : null,
+            'template_type' => $templateType,
         ]);
 
         return response()->json([
@@ -608,6 +634,7 @@ class WhatsappDynamicTemplateController extends Controller
             'status' => $template->status,
             'header_variable_value' => $template->header_variable_value ? json_decode($template->header_variable_value, true) : [],
             'body_variable_value' => $template->body_variable_value ? json_decode($template->body_variable_value, true) : [],
+            'cards_json' => $template->cards_json ?? [],
             // IMPORTANT: The Vue component expects the template content in __data property
             '__data' => [
                 'header' => $header,
@@ -618,5 +645,78 @@ class WhatsappDynamicTemplateController extends Controller
             'created_at' => $template->created_at,
             'updated_at' => $template->updated_at,
         ];
+    }
+
+    /**
+     * Store a new authentication template
+     *
+     * @param  string  $subdomain
+     */
+    public function storeAuthentication($subdomain, Request $request): JsonResponse
+    {
+        // Validate authentication template specific data
+        $validated = $request->validate([
+            'template_name' => ['required', 'string', 'max:512', 'regex:/^[a-z0-9_]+$/'],
+            'language' => ['required', Rule::in(array_keys(self::LANGUAGES))],
+            'category' => ['required', 'in:AUTHENTICATION'],
+            'message_send_ttl_seconds' => ['nullable', 'integer', 'min:60', 'max:600'],
+            'data' => 'required|array',
+            'data.body.add_security_recommendation' => 'nullable|boolean',
+            'data.footer.code_expiration_minutes' => ['nullable', 'integer', 'min:1', 'max:90'],
+            'data.buttons' => 'required|array|min:1',
+            'data.buttons.*.type' => 'required|in:OTP',
+            'data.buttons.*.otp_type' => 'required|in:COPY_CODE,ONE_TAP,ZERO_TAP',
+            'data.buttons.*.text' => 'nullable|string',
+            'data.buttons.*.autofill_text' => 'nullable|string',
+            'data.buttons.*.package_name' => 'required_if:data.buttons.*.otp_type,ONE_TAP,ZERO_TAP|nullable|string',
+            'data.buttons.*.signature_hash' => 'required_if:data.buttons.*.otp_type,ONE_TAP,ZERO_TAP|nullable|string',
+        ], [
+            'template_name.regex' => 'Invalid template name. Only lowercase letters, numbers, and underscores (_) are allowed.',
+        ]);
+
+        // Additional validation for ONE_TAP and ZERO_TAP
+        if (isset($validated['data']['buttons'])) {
+            foreach ($validated['data']['buttons'] as $button) {
+                if (in_array($button['otp_type'] ?? '', ['ONE_TAP', 'ZERO_TAP'])) {
+                    if (empty($button['package_name']) || empty($button['signature_hash'])) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Package name and signature hash are required for ONE_TAP and ZERO_TAP authentication.',
+                        ], 422);
+                    }
+                }
+            }
+        }
+
+        // Create authentication template via WhatsApp trait
+        $result = $this->createAuthenticationTemplate($validated);
+
+        if (! $result['status']) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'] ?? 'Failed to create authentication template',
+                'error_details' => $result['error_details'] ?? null,
+            ], $result['error_code'] ?? 400);
+        }
+
+        // Log the activity
+        whatsapp_log('Authentication template created via API', 'info', [
+            'template_name' => $validated['template_name'],
+            'template_id' => $result['template_id'],
+            'local_id' => $result['local_id'],
+            'tenant_id' => $this->tenant_id,
+        ], null, $this->tenant_id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Authentication template created successfully',
+            'data' => [
+                'template_id' => $result['template_id'],
+                'local_id' => $result['local_id'],
+                'status' => $result['data']['status'] ?? 'PENDING',
+                'template' => $result['template'] ?? null,
+            ],
+            'redirect_url' => tenant_route('tenant.template.list'),
+        ], 201);
     }
 }

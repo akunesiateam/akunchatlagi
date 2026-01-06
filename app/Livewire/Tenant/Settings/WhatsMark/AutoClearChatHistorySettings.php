@@ -7,6 +7,7 @@ use App\Models\Tenant\ChatMessage;
 use App\Rules\PurifiedInput;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class AutoClearChatHistorySettings extends Component
@@ -107,6 +108,15 @@ class AutoClearChatHistorySettings extends Component
             if ($messageCount > 0) {
                 // Get interaction IDs to potentially delete empty chats later
                 $affectedInteractionIds = $oldMessages->pluck('interaction_id')->unique()->toArray();
+
+                foreach ($oldMessages as $message) {
+                    // Change this field name if needed
+                    $attachmentPath = $message->url ?? null;
+
+                    if ($attachmentPath && Storage::disk('public')->exists('whatsapp-attachments/'.$attachmentPath)) {
+                        Storage::disk('public')->delete('whatsapp-attachments/'.$attachmentPath);
+                    }
+                }
 
                 // Delete old messages
                 ChatMessage::fromTenant($this->tenant_subdomain)->where('time_sent', '<', $cutoffDate->format('Y-m-d H:i:s'))->delete();

@@ -68,7 +68,9 @@ class ManageCampaigns extends Controller
             ->where('whatsapp_templates.tenant_id', $this->tenant_id);
         // ->paginate(20);
 
-        $templates = WhatsappTemplate::all();
+        $templates = WhatsappTemplate::whereIn('category', ['MARKETING', 'UTILITY', 'AUTHENTICATION'])
+            ->where('status', 'APPROVED')
+            ->get();
 
         // Fetch statuses
         $statuses = Status::select('id', 'name')->orderBy('name')->get();
@@ -533,12 +535,14 @@ class ManageCampaigns extends Controller
         }
 
         return [
-            'templates' => WhatsappTemplate::where('status', 'APPROVED')->get(),
+            'templates' => WhatsappTemplate::whereIn('category', ['MARKETING', 'UTILITY', 'AUTHENTICATION'])
+                ->where('status', 'APPROVED')
+                ->get(),
             'statuses' => Status::select('id', 'name')->orderBy('name')->get(),
             'sources' => Source::select('id', 'name')->orderBy('name')->get(),
             'groups' => Group::select('id', 'name')->orderBy('name')->get(),
             'mergeFields' => $this->getMergeFieldsData(),
-            'relationTypes' => ['lead' => 'Lead', 'customer' => 'Customer'],
+            'relationTypes' => ['lead' => 'Lead', 'customer' => 'Customer', 'Guest' => 'guest'],
             'campaign' => $campaign,
             'existingVariables' => $existingVariables,
             'existingFile' => $existingFile,
@@ -587,7 +591,7 @@ class ManageCampaigns extends Controller
 
                 new PurifiedInput(t('sql_injection_error')),
             ],
-            'rel_type' => 'required|in:lead,customer',
+            'rel_type' => 'required|in:lead,customer,guest',
             'template_id' => 'required|exists:whatsapp_templates,template_id',
             'send_now' => 'required|in:0,1,true,false', // Accept both string and boolean
             'select_all' => 'required|in:0,1,true,false', // Accept both string and boolean
@@ -656,7 +660,7 @@ class ManageCampaigns extends Controller
     {
         $allRules = [
             'campaign_name' => 'required|min:3|max:255',
-            'rel_type' => 'required|in:lead,customer',
+            'rel_type' => 'required|in:lead,customer,guest',
             'template_id' => 'required',
             // Add more rules as needed
         ];
@@ -790,6 +794,7 @@ class ManageCampaigns extends Controller
             'id' => $template->template_id,
             'name' => $template->template_name,
             'language' => $template->language,
+            'category' => $template->category ?? 'MARKETING',
             'header' => [
                 'format' => $template->header_data_format ?? 'TEXT',
                 'text' => $template->header_data_text ?? '',

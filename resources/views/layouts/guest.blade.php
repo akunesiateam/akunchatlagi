@@ -1,16 +1,15 @@
 <!DOCTYPE html>
 @php
     $isTenant = tenant_check();
-    if ($isTenant) {
-        $systemSettings = tenant_settings_by_group('system');
-    } else {
-        $themeSettings = get_batch_settings([
-            'system.active_language',
-            'theme.seo_meta_title',
-            'theme.seo_meta_description',
-            'theme.favicon',
-        ]);
-    }
+    $themeSettings = get_batch_settings([
+        'system.active_language',
+        'theme.seo_meta_title',
+        'theme.seo_meta_description',
+        'theme.favicon',
+    ]);
+
+    $systemSettings = tenant_settings_by_group('system');
+    
     // Always get global pusher settings (for both admin and tenant)
     $pusherSettings = get_settings_by_group('pusher');
 
@@ -25,13 +24,7 @@
 
     $metaDescription = $themeSettings['theme.seo_meta_description'] ?? t('app_description');
 
-    $favicon = $isTenant
-        ? (isset($systemSettings['favicon'])
-            ? Storage::url($systemSettings['favicon'])
-            : null)
-        : ($themeSettings['theme.favicon']
-            ? Storage::url($themeSettings['theme.favicon'])
-            : null);
+    $favicon = !empty($themeSettings['theme.favicon']) ? Storage::url($themeSettings['theme.favicon']) : null;
 
     $pageTitle = isset($title) ? " - $title" : '';
 
@@ -58,7 +51,7 @@
     @if ($favicon)
         <link rel="icon" type="image/png" href="{{ $favicon }}">
     @else
-        <link rel="icon" type="image/png" href="{{  url('./img/favicon-32x32.png'); }}">
+        <link rel="icon" type="image/png" href="{{ url('./img/favicon-32x32.png') }}">
     @endif
 
     <link id="theme-style-css" rel="stylesheet" href="{{ route('theme-style-css') }}">

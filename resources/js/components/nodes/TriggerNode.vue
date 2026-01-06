@@ -145,6 +145,7 @@ function validateForm() {
 const relationTypes = [
     { id: "lead", label: "Lead" },
     { id: "customer", label: "Customer" },
+    { id: "guest", label: "Guest" },
 ];
 
 function addKeyword() {

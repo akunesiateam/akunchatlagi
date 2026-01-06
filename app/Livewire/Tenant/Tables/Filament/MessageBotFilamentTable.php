@@ -95,6 +95,11 @@ class MessageBotFilamentTable extends BaseFilamentTable
                     {$label}
                 </span>
             HTML,
+                        'guest' => <<<HTML
+                <span class="bg-warning-100 text-warning-800 dark:text-warning-400 dark:bg-warning-900/20 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                    {$label}
+                </span>
+            HTML,
                         default => <<<HTML
                 <span class="bg-danger-100 ring-1 ring-danger-300 text-danger-800 dark:bg-danger-800 dark:ring-danger-600 dark:text-danger-100 px-3 py-1 rounded-full text-xs font-semibold">
                     {$label}

@@ -102,6 +102,7 @@ class ContactFilamentTable extends BaseFilamentTable
                 ->toggleable()
                 ->searchable()
                 ->sortable()
+                ->formatStateUsing(fn ($record) => "{$record->firstname} {$record->lastname}")
                 ->extraAttributes(['class' => 'w-[300px]']),
 
             TextColumn::make('type')
@@ -115,8 +116,7 @@ class ContactFilamentTable extends BaseFilamentTable
                 ->label(t('phone'))
                 ->toggleable()
                 ->searchable()
-                ->sortable()
-                ->formatStateUsing(fn ($state) => mask_phone_number($state)),
+                ->sortable(),
 
             TextColumn::make('assigned_id')
                 ->label(t('assigned'))
@@ -142,6 +142,11 @@ class ContactFilamentTable extends BaseFilamentTable
                             data-tippy-content="'.$fullName.'">
                     </a>
                 </div>';
+                })
+                ->tooltip(function ($record) {
+                    return $record->user
+                        ? $record->user->firstname.' '.$record->user->lastname
+                        : 'Not assigned';
                 })
                 ->html(),
 
@@ -199,12 +204,12 @@ class ContactFilamentTable extends BaseFilamentTable
             TextColumn::make('group_id')
                 ->label(t('group'))
                 ->toggleable()
-                ->default('Groups not found')
+                ->default('N/A')
                 ->formatStateUsing(function ($state, $record) {
                     $groupIds = $record->getGroupIds() ?: [];
 
                     if (empty($groupIds)) {
-                        return new HtmlString('<span class="text-orange-400 text-sm">Groups not found</span>');
+                        return new HtmlString('<span class="text-orange-400 text-sm">N/A</span>');
                     }
 
                     $displayLimit = 3;
@@ -357,6 +362,15 @@ class ContactFilamentTable extends BaseFilamentTable
                 ->action(fn (Collection $records) => $this->dispatch('bulkDelete', contactIds: $records->pluck('id')->toArray()))
                 ->hidden(fn () => ! checkPermission('tenant.contact.delete')),
 
+            BulkAction::make('bulk_actions')
+                ->label(t('bulk_actions'))
+                ->color('green')
+                ->extraAttributes([
+                    'class' => 'inline-flex items-center gap-2 px-3 py-1 text-sm font-medium text-white bg-green-600 rounded shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600 justify-center',
+                ])
+                ->action(fn (Collection $records) => $this->dispatch('bulkActions', contactIds: $records->pluck('id')->toArray()))
+                ->hidden(fn () => ! checkPermission('tenant.contact.create')),
+
             BulkAction::make('initiate_chat')
                 ->label(t('initiate_chat'))
                 ->icon('heroicon-o-chat-bubble-left-right')
@@ -384,6 +398,16 @@ class ContactFilamentTable extends BaseFilamentTable
     {
         if (! empty($contactIds) && count($contactIds) !== 0) {
             $this->dispatch('bulkInitiateChatSending', $contactIds);
+        } else {
+            $this->notify(['type' => 'danger', 'message' => t('no_contact_selected')]);
+        }
+    }
+
+    #[On('bulkActions')]
+    public function bulkActionsOnContacts(array $contactIds): void
+    {
+        if (! empty($contactIds) && count($contactIds) !== 0) {
+            $this->dispatch('bulkActionsOnContacts', $contactIds);
         } else {
             $this->notify(['type' => 'danger', 'message' => t('no_contact_selected')]);
         }
@@ -633,8 +657,7 @@ class ContactFilamentTable extends BaseFilamentTable
             $contact->id,
             $contact->firstname.' '.$contact->lastname,
             t($contact->type),
-            //$contact->phone,
-            mask_phone_number($contact->phone), // ✅ MASKING DI SINI
+            $contact->phone,
             $contact->user ? ($contact->user->firstname.' '.$contact->user->lastname) : t('not_assigned'),
             $contact->status->name ?? t('no_status'),
             $contact->source->name ?? t('no_source'),
