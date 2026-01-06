@@ -200,4 +200,151 @@ class BotFlowController extends Controller
             'message' => t('flow_deleted_successfully'),
         ]);
     }
+
+    /**
+     * Export flow as JSON file
+     *
+     * @param  string  $subdomain  Tenant subdomain
+     * @param  int  $id  Flow ID
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function export($subdomain, $id)
+    {
+        try {
+            $flow = BotFlow::where('tenant_id', tenant_id())->findOrFail($id);
+
+            // Prepare export data
+            $exportData = [
+                'name' => $flow->name,
+                'description' => $flow->description,
+                'flow_data' => json_decode($flow->flow_data, true),
+                'is_active' => $flow->is_active,
+                'exported_at' => now()->toIso8601String(),
+                'version' => '1.0',
+            ];
+
+            // Generate filename
+            $filename = Str::slug($flow->name).'-'.date('Y-m-d-His').'.json';
+
+            return response()->json($exportData)
+                ->header('Content-Type', 'application/json')
+                ->header('Content-Disposition', "attachment; filename=\"{$filename}\"");
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => t('flow_export_failed'),
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Import flow from JSON file
+     *
+     * @param  string  $subdomain  Tenant subdomain
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function import(Request $request, $subdomain)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'file' => 'required|file|mimes:json|max:2048',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first(),
+                ], 422);
+            }
+
+            // Read and decode JSON file
+            $jsonContent = file_get_contents($request->file('file')->getRealPath());
+            $flowData = json_decode($jsonContent, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return response()->json([
+                    'success' => false,
+                    'message' => t('invalid_json_file'),
+                ], 422);
+            }
+
+            // Validate required fields
+            if (! isset($flowData['name']) || ! isset($flowData['flow_data'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => t('invalid_flow_format'),
+                ], 422);
+            }
+
+            // Check if flow name already exists, if so, append timestamp
+            $name = $flowData['name'];
+            $existingFlow = BotFlow::where('tenant_id', tenant_id())
+                ->where('name', $name)
+                ->first();
+
+            if ($existingFlow) {
+                $name = $name.' ('.now()->format('Y-m-d H:i').')';
+            }
+
+            // Create new flow
+            $flow = BotFlow::create([
+                'tenant_id' => tenant_id(),
+                'name' => $name,
+                'description' => $flowData['description'] ?? '',
+                'flow_data' => json_encode($flowData['flow_data']),
+                'is_active' => $flowData['is_active'] ?? false,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => t('flow_imported_successfully'),
+                'flow_id' => $flow->id,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => t('flow_import_failed'),
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get statuses for dropdown in Update Contact node
+     */
+    public function getStatuses()
+    {
+        $statuses = \App\Models\Tenant\Status::where('tenant_id', tenant_id())
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json($statuses);
+    }
+
+    /**
+     * Get sources for dropdown in Update Contact node
+     */
+    public function getSources()
+    {
+        $sources = \App\Models\Tenant\Source::where('tenant_id', tenant_id())
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json($sources);
+    }
+
+    /**
+     * Get groups for dropdown in Update Contact node
+     */
+    public function getGroups()
+    {
+        $groups = \App\Models\Tenant\Group::where('tenant_id', tenant_id())
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json($groups);
+    }
 }

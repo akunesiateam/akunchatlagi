@@ -34,6 +34,7 @@ return [
     */
     'waits' => [
         'redis:whatsapp-messages' => 10,
+        'redis:ecommerce_webhook' => 30,
         'redis:default' => 60,
     ],
 
@@ -127,6 +128,22 @@ return [
             'balanceMaxShift' => 1, // Slow scaling (not urgent)
             'balanceCooldown' => 10, // Wait longer before scaling (background only)
         ],
+        'supervisor-ecommerce' => [
+            'connection' => 'redis',
+            'queue' => ['ecommerce_webhook'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'minProcesses' => 1,
+            'maxProcesses' => 2, // Limited for background tasks
+            'maxTime' => 3600, // 1 hour (can run longer, not critical)
+            'maxJobs' => 500, // More jobs per worker (less cycling overhead)
+            'memory' => 192, // Modest memory for background tasks
+            'tries' => 3, // More retries OK (not time-critical)
+            'timeout' => 180, // 3 min timeout (background can wait)
+            'nice' => 10, // LOWEST CPU priority (yields to WhatsApp)
+            'balanceMaxShift' => 1, // Slow scaling (not urgent)
+            'balanceCooldown' => 10, // Wait longer before scaling (background only)
+        ],
     ],
 
     /*
@@ -144,6 +161,10 @@ return [
                 'minProcesses' => 1, // Keep 1 background worker
                 'maxProcesses' => 2, // Max 2 for background tasks
             ],
+            'supervisor-ecommerce' => [
+                'minProcesses' => 1, // Keep 1 background worker
+                'maxProcesses' => 2, // Max 2 for background tasks
+            ],
         ],
 
         'local' => [
@@ -152,6 +173,10 @@ return [
                 'maxProcesses' => 2, // Limited for local development
             ],
             'supervisor-default' => [
+                'minProcesses' => 1,
+                'maxProcesses' => 1, // Single worker for local
+            ],
+            'supervisor-ecommerce' => [
                 'minProcesses' => 1,
                 'maxProcesses' => 1, // Single worker for local
             ],

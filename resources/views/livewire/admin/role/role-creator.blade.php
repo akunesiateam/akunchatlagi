@@ -95,9 +95,9 @@
                     <x-slot:header>
                         <div class="flex items-center">
                             <x-heroicon-o-users class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" />
-                            <h2 class="text-lg font-medium text-gray-900 dark:text-white">
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                                 {{ t('users_using_this_role') }}
-                            </h2>
+                            </h3>
                         </div>
                     </x-slot:header>
 

@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Whatsapp;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Tenant\ManageChat;
+use App\Jobs\ProcessDelayedFlowNodeJob;
 use App\Models\Tenant\BotFlow;
 use App\Models\Tenant\CampaignDetail;
 use App\Models\Tenant\Chat;
 use App\Models\Tenant\ChatMessage;
 use App\Models\Tenant\Contact;
 use App\Models\Tenant\MessageBot;
+use App\Models\Tenant\Source;
+use App\Models\Tenant\Status;
 use App\Models\Tenant\TemplateBot;
 use App\Models\Tenant\WhatsappTemplate;
 use App\Services\FeatureService;
@@ -17,10 +20,7 @@ use App\Services\pusher\PusherService;
 use App\Traits\WhatsApp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http; // ← TAMBAHKAN INI
 use Illuminate\Support\Str;
-use Netflie\WhatsAppCloudApi\WhatsAppCloudApi;
 use stdClass;
 
 class WhatsAppWebhookController extends Controller
@@ -33,7 +33,7 @@ class WhatsAppWebhookController extends Controller
 
     public $tenant_id = null;
 
-    public $tenant_subdomain = null;
+    public $tenant_subdoamin = null;
 
     public $pusher_settings;
 
@@ -45,10 +45,10 @@ class WhatsAppWebhookController extends Controller
     protected function isPusherConfigured(): bool
     {
         return $this->pusher_settings &&
-               ! empty($this->pusher_settings->app_key) &&
-               ! empty($this->pusher_settings->app_secret) &&
-               ! empty($this->pusher_settings->app_id) &&
-               ! empty($this->pusher_settings->cluster);
+            ! empty($this->pusher_settings->app_key) &&
+            ! empty($this->pusher_settings->app_secret) &&
+            ! empty($this->pusher_settings->app_id) &&
+            ! empty($this->pusher_settings->cluster);
     }
 
     /**
@@ -99,31 +99,8 @@ class WhatsAppWebhookController extends Controller
 
                 return;
             }
-            
-            // ✅ VALIDASI STRUKTUR PAYLOAD DULU
-            if (empty($payload['entry']) || !is_array($payload['entry'])) {
-                Log::warning('Invalid webhook payload: no entry', ['payload' => $payload]);
-                return;
-            }
 
             $entry = reset($payload['entry']);
-            
-            // ✅ VALIDASI CHANGES EXISTS
-            if (empty($entry['changes']) || !is_array($entry['changes'])) {
-                Log::warning('Invalid webhook payload: no changes', ['entry' => $entry]);
-                return;
-            }
-            
-            // ✅ VALIDASI VALUE EXISTS SEBELUM AKSES
-            $firstChange = $entry['changes'][0] ?? null;
-            if (empty($firstChange['value']) || !is_array($firstChange['value'])) {
-                Log::warning('Invalid webhook payload: no value in changes', [
-                    'entry_id' => $entry['id'] ?? null,
-                    'changes' => $entry['changes']
-                ]);
-                return;
-            }
-        
             $business_id = $entry['id'] ?? null;
 
             $this->isTemplateWebhook($payload);
@@ -131,32 +108,13 @@ class WhatsAppWebhookController extends Controller
             $phoneNumberId = $entry['changes'][0]['value']['metadata']['phone_number_id'] ?? null;
             $this->tenant_id = getTenantIdFromWhatsappDetails($business_id, $phoneNumberId);
 
-            // Early return if no valid tenant found - NO LOGGING for invalid tenants
             if (empty($this->tenant_id)) {
-                Log::info('Webhook received for invalid tenant', [
-                    'business_id' => $business_id,
-                    'phone_number_id' => $phoneNumberId
-                ]);
                 return;
             }
-            
+
             $this->pusher_settings = get_settings_by_group('pusher');
 
-            $this->tenant_subdomain = tenant_subdomain_by_tenant_id($this->tenant_id);
-            
-            // Additional check: ensure tenant has valid subdomain
-            if (empty($this->tenant_subdomain)) {
-                Log::warning('Tenant found but no subdomain configured', [
-                    'tenant_id' => $this->tenant_id,
-                    'business_id' => $business_id,
-                    'phone_number_id' => $phoneNumberId
-                ]);
-                return;
-            }
-            
-            // NOW we do detailed logging - only for valid tenants with subdomain
-            $payloadForLog = $this->sanitizePayloadForLogging($payload);
-            Log::info('=== WEBHOOK PAYLOAD RECEIVED (VALID TENANT) === ' . json_encode($payloadForLog, JSON_PRETTY_PRINT));
+            $this->tenant_subdoamin = tenant_subdomain_by_tenant_id($this->tenant_id);
 
             // Set the tenant ID in the trait for all subsequent API calls
             $this->setWaTenantId($this->tenant_id);
@@ -167,7 +125,6 @@ class WhatsAppWebhookController extends Controller
                 [
                     'payload' => $feedData,
                     'tenant_id' => $this->tenant_id,
-                    'tenant_subdomain' => $this->tenant_subdomain,
                 ],
                 null,
                 $this->tenant_id
@@ -198,31 +155,6 @@ class WhatsAppWebhookController extends Controller
             $this->forwardWebhookData($feedData, $payload);
         }
     }
-    
-    /**
-     * Sanitize payload for logging (remove sensitive data)
-     */
-    private function sanitizePayloadForLogging(array $payload): array
-    {
-        // Create deep copy
-        $sanitized = json_decode(json_encode($payload), true);
-        
-        // Remove or mask sensitive fields
-        array_walk_recursive($sanitized, function (&$value, $key) {
-            $sensitiveFields = ['token', 'password', 'secret', 'key'];
-            
-            if (in_array(strtolower($key), $sensitiveFields)) {
-                $value = '***REDACTED***';
-            }
-            
-            // Truncate very long text content for logs
-            if ($key === 'body' && is_string($value) && strlen($value) > 500) {
-                $value = substr($value, 0, 500) . '... [TRUNCATED]';
-            }
-        });
-        
-        return $sanitized;
-    }
 
     /**
      * Check if message has already been processed
@@ -230,7 +162,7 @@ class WhatsAppWebhookController extends Controller
     protected function checkMessageProcessed(string $messageId): bool
     {
         // Implement logic to check if message is already in database
-        return \DB::table($this->tenant_subdomain.'_chat_messages')
+        return \DB::table($this->tenant_subdoamin . '_chat_messages')
             ->where('message_id', $messageId)
             ->exists();
     }
@@ -267,119 +199,24 @@ class WhatsAppWebhookController extends Controller
         }
     }
 
-     private function processBotSending(array $message_data) {
-         
-    if (! empty($message_data['messages'])) {
-        $message = reset($message_data['messages']);
-
-        // ✅ Tambahan: paksa trigger jika pesan ORDER dari katalog
-        if (isset($message['type']) && $message['type'] === 'order') {
-            
-            // ✅ Paksa trigger FlowBot untuk pesan ORDER
-            if (method_exists($this, 'processBotFlow')) {
-                $fakeMessageData = [
-                    'messages' => [
-                        [
-                            'from' => $message['from'],
-                            'text' => ['body' => 'ORDER'], // biar cocok sama trigger keyword flow
-                            'type' => 'text',
-                        ],
-                    ],
-                    'contacts' => $message_data['contacts'] ?? [],
-                    'metadata' => $message_data['metadata'] ?? [],
-                ];
-            
-                $this->processBotFlow($fakeMessageData);
+    private function processBotSending(array $message_data)
+    {
+        if (! empty($message_data['messages'])) {
+            $message = reset($message_data['messages']);
+            $trigger_msg = isset($message['button']['text']) ? $message['button']['text'] : $message['text']['body'] ?? '';
+            if (! empty($message['interactive']) && $message['interactive']['type'] == 'button_reply') {
+                $trigger_msg = $message['interactive']['button_reply']['id'];
+            } elseif (! empty($message['interactive']) && $message['interactive']['type'] == 'list_reply') {
+                $trigger_msg = $message['interactive']['list_reply']['title'];
             }
 
-
-            // Hindari trigger dobel dari processIncomingMessages
-            if (defined('ORDER_BOT_TRIGGERED')) {
-                return;
-            }
-
-            $contact = reset($message_data['contacts']);
-            $metadata = $message_data['metadata'] ?? [
-                'display_phone_number' => null,
-                'phone_number_id' => null,
-            ];
-
-            // Definisikan trigger_msg manual agar bisa cocok dengan bot "On Exact Match ORDER"
-            $trigger_msg = 'ORDER';
-
-            // Jalankan seperti biasa tapi paksa keyword ORDER
-            do_action('before_process_bot_sending', [
-                'tenant_id' => $this->tenant_id,
-                'tenant_subdomain' => $this->tenant_subdomain,
-                'contact' => $contact,
-                'message' => $message,
-                'trigger_msg' => $trigger_msg,
-                'metadata' => $metadata,
-            ]);
-
-            try {
-                $contact_number = $message['from'];
-                $contact_data = $this->getContactData($contact_number, $contact['profile']['name']);
-                if ($contact_data instanceof stdClass && empty((array) $contact_data)) {
-                    return;
-                }
-
-                $query_trigger_msg = $trigger_msg;
-                $reply_type = null;
-
-                $current_interaction = Chat::fromTenant($this->tenant_subdomain)->where([
-                    'type' => $contact_data->type,
-                    'type_id' => $contact_data->id,
-                    'wa_no' => $metadata['display_phone_number'],
-                    'tenant_id' => $this->tenant_id,
-                ])->first();
-
-                if (! $this->is_bot_stop) {
-                    // Panggil bot seperti biasa, tapi dengan trigger ORDER
-                    $template_bots = TemplateBot::getTemplateBotsByRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, $reply_type);
-                    $message_bots = MessageBot::getMessageBotsbyRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, $reply_type);
-
-                    foreach ($template_bots as $template) {
-                        $template['rel_id'] = $contact_data->id;
-                        $response = $this->setWaTenantId($this->tenant_id)->sendTemplate($contact_number, $template, 'template_bot', $metadata['phone_number_id']);
-                        $chatId = $this->createOrUpdateInteraction($contact_number, $metadata['display_phone_number'], $metadata['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
-                        $this->storeBotMessages($template, $chatId, $contact_data, 'template_bot', $response);
-                    }
-
-                    foreach ($message_bots as $msg) {
-                        $msg['rel_id'] = $contact_data->id;
-                        $response = $this->setWaTenantId($this->tenant_id)->sendMessage($contact_number, $msg, $metadata['phone_number_id']);
-                        $chatId = $this->createOrUpdateInteraction($contact_number, $metadata['display_phone_number'], $metadata['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
-                        $this->storeBotMessages($msg, $chatId, $contact_data, '', $response);
-                    }
-                }
-            } catch (\Throwable $th) {
-                Log::error('Error process ORDER bot trigger: ' . $th->getMessage());
-            }
-
-            // Setelah trigger ORDER dieksekusi, keluar biar gak double-run
-            define('ORDER_BOT_TRIGGERED', true);
-            return;
-        }
-
-        // 👇 Lanjut ke logic existing
-        $trigger_msg = isset($message['button']['text'])
-            ? $message['button']['text']
-            : $message['text']['body'] ?? '';
-            //if (! empty($message['interactive']) && //$message['interactive']['type'] == 'button_reply') {
-                //$trigger_msg = $message['interactive']['button_reply']['id'];
-        //    }
-                if (! empty($message['interactive']) && $message['interactive']['type'] == 'button_reply') {
-                    // ✅ Gunakan title (text yang tampil) bukan ID untuk matching bot trigger
-                    $trigger_msg = $message['interactive']['button_reply']['title'] ?? $message['interactive']['button_reply']['id'];
-                }
             if (! empty($trigger_msg)) {
                 $contact = reset($message_data['contacts']);
                 $metadata = $message_data['metadata'];
 
                 do_action('before_process_bot_sending', [
                     'tenant_id' => $this->tenant_id,
-                    'tenant_subdomain' => $this->tenant_subdomain,
+                    'tenant_subdomain' => $this->tenant_subdoamin,
                     'contact' => $contact,
                     'message' => $message,
                     'trigger_msg' => $trigger_msg,
@@ -400,7 +237,7 @@ class WhatsAppWebhookController extends Controller
                         $reply_type = 3;
                     }
 
-                    $current_interaction = Chat::fromTenant($this->tenant_subdomain)->where([
+                    $current_interaction = Chat::fromTenant($this->tenant_subdoamin)->where([
                         'type' => $contact_data->type,
                         'type_id' => $contact_data->id,
                         'wa_no' => $message_data['metadata']['display_phone_number'],
@@ -408,14 +245,14 @@ class WhatsAppWebhookController extends Controller
                     ])->first();
 
                     if ($current_interaction->is_bots_stoped == 1 && (time() > strtotime($current_interaction->bot_stoped_time) + ((int) get_tenant_setting_by_tenant_id('whats-mark', 'restart_bots_after', null, $this->tenant_id) * 3600))) {
-                        Chat::fromTenant($this->tenant_subdomain)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => null, 'is_bots_stoped' => '0']);
+                        Chat::fromTenant($this->tenant_subdoamin)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => null, 'is_bots_stoped' => '0']);
                         $this->is_bot_stop = false;
                     } elseif ($current_interaction->is_bots_stoped == 1) {
                         $this->is_bot_stop = true;
                     }
 
-                    if (collect(get_tenant_setting_by_tenant_id('whats-mark', 'stop_bots_keyword', null, $this->tenant_id))->first(fn ($keyword) => str_contains($trigger_msg, $keyword))) {
-                        Chat::fromTenant($this->tenant_subdomain)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => date('Y-m-d H:i:s'), 'is_bots_stoped' => '1']);
+                    if (collect(get_tenant_setting_by_tenant_id('whats-mark', 'stop_bots_keyword', null, $this->tenant_id))->first(fn($keyword) => str_contains($trigger_msg, $keyword))) {
+                        Chat::fromTenant($this->tenant_subdoamin)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => date('Y-m-d H:i:s'), 'is_bots_stoped' => '1']);
                         $this->is_bot_stop = true;
                     }
 
@@ -447,11 +284,15 @@ class WhatsAppWebhookController extends Controller
                             }
 
                             // Send template on exact match, contains, or first time
-                            if (($template['reply_type'] == 1 && in_array(strtolower($trigger_msg), array_map('trim', array_map('strtolower', explode(',', $template['trigger']))))) || ($template['reply_type'] == 2 && ! empty(array_filter(explode(',', $template['trigger']), fn ($word) => mb_stripos($trigger_msg, trim($word)) !== false))) || ($template['reply_type'] == 3 && $this->is_first_time) || $template['reply_type'] == 4) {
+                            if (($template['reply_type'] == 1 && in_array(strtolower($trigger_msg), array_map('trim', array_map('strtolower', explode(',', $template['trigger']))))) || ($template['reply_type'] == 2 && ! empty(array_filter(explode(',', $template['trigger']), fn($word) => mb_stripos($trigger_msg, trim($word)) !== false))) || ($template['reply_type'] == 3 && $this->is_first_time) || $template['reply_type'] == 4) {
+                                // Ensure category and button params are passed for authentication templates
+                                if (! isset($template['category'])) {
+                                    $template['category'] = $template['category'] ?? null;
+                                }
                                 // Use the tenant ID when sending the template
                                 $response = $this->setWaTenantId($this->tenant_id)->sendTemplate($contact_number, $template, 'template_bot', $metadata['phone_number_id']);
 
-                                $chatId = $this->createOrUpdateInteraction($contact_number, $message_data['metadata']['display_phone_number'], $message_data['metadata']['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
+                                $chatId = $this->createOrUpdateInteraction($contact_number, $message_data['metadata']['display_phone_number'], $message_data['metadata']['phone_number_id'], $contact_data->firstname . ' ' . $contact_data->lastname, '', '', false);
                                 $chatMessage = $this->storeBotMessages($template, $chatId, $contact_data, 'template_bot', $response);
                             }
                         }
@@ -462,14 +303,14 @@ class WhatsAppWebhookController extends Controller
                             if (! empty($contact_data->userid)) {
                                 $message['userid'] = $contact_data->userid;
                             }
-                            if (($message['reply_type'] == 1 && in_array(strtolower($trigger_msg), array_map('trim', array_map('strtolower', explode(',', $message['trigger']))))) || ($message['reply_type'] == 2 && ! empty(array_filter(explode(',', $message['trigger']), fn ($word) => mb_stripos($trigger_msg, trim($word)) !== false))) || ($message['reply_type'] == 3 && $this->is_first_time) || $message['reply_type'] == 4) {
+                            if (($message['reply_type'] == 1 && in_array(strtolower($trigger_msg), array_map('trim', array_map('strtolower', explode(',', $message['trigger']))))) || ($message['reply_type'] == 2 && ! empty(array_filter(explode(',', $message['trigger']), fn($word) => mb_stripos($trigger_msg, trim($word)) !== false))) || ($message['reply_type'] == 3 && $this->is_first_time) || $message['reply_type'] == 4) {
 
-                                do_action('before_process_messagebot_sending_message', ['message' => $message, 'trigger_msg' => $trigger_msg, 'contact_number' => $contact_number, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdomain]);
+                                do_action('before_process_messagebot_sending_message', ['message' => $message, 'trigger_msg' => $trigger_msg, 'contact_number' => $contact_number, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdoamin]);
 
                                 // Use the tenant ID when sending the message
                                 $response = $this->setWaTenantId($this->tenant_id)->sendMessage($contact_number, $message, $metadata['phone_number_id']);
 
-                                $chatId = $this->createOrUpdateInteraction($contact_number, $message_data['metadata']['display_phone_number'], $message_data['metadata']['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
+                                $chatId = $this->createOrUpdateInteraction($contact_number, $message_data['metadata']['display_phone_number'], $message_data['metadata']['phone_number_id'], $contact_data->firstname . ' ' . $contact_data->lastname, '', '', false);
                                 $chatMessage = $this->storeBotMessages($message, $chatId, $contact_data, '', $response);
                             }
                         }
@@ -485,21 +326,12 @@ class WhatsAppWebhookController extends Controller
                         $th,
                         $this->tenant_id
                     );
-                    file_put_contents(base_path().'/errors.json', json_encode([$th->getMessage()]));
+                    file_put_contents(base_path() . '/errors.json', json_encode([$th->getMessage()]));
                 }
             }
         }
         $this->processBotFlow($message_data);
     }
-    
-    /**
-     * Check if this is a first-time interaction
-     */
-    protected function isFirstTimeInteraction(string $from): bool
-    {
-        return ! (bool) Chat::fromTenant($this->tenant_subdomain)->where('receiver_id', $from)->count();
-    }
-    
 
     /**
      * Process incoming messages
@@ -526,17 +358,8 @@ class WhatsAppWebhookController extends Controller
         $wa_no_id = $metadata['phone_number_id'] ?? '';
         $messageType = $messageEntry['type'];
         $message_id = $messageEntry['id'];
-        //$ref_message_id = isset($messageEntry['context']) ? $messageEntry['context']['id'] ?? '' : '';
+        $ref_message_id = isset($messageEntry['context']) ? $messageEntry['context']['id'] ?? '' : '';
 
-        // Penanganan reference message ID dengan cara lebih eksplisit
-        $ref_message_id = '';
-        if (isset($messageEntry['context']) && isset($messageEntry['context']['id'])) {
-            $ref_message_id = $messageEntry['context']['id'];
-        }
-        
-        // Deteksi forwarded message (fitur baru)
-        $isForwarded = isset($messageEntry['context']['forwarded']) && $messageEntry['context']['forwarded'] === true;
-        
         // Determine if this is a first-time interaction
         $this->is_first_time = $this->isFirstTimeInteraction($from);
 
@@ -565,7 +388,7 @@ class WhatsAppWebhookController extends Controller
             // OPT OUT
             if (in_array($msg, $optOutKeywords, true) && ! $contact_data->is_opted_out) {
 
-                Contact::fromTenant($this->tenant_subdomain)
+                Contact::fromTenant($this->tenant_subdoamin)
                     ->where('phone', $contact_data->phone)
                     ->update([
                         'is_opted_out' => 1,
@@ -587,13 +410,12 @@ class WhatsAppWebhookController extends Controller
 
                 $response = $this->sendMessage($contact_data->phone, $reply, $wa_no_id);
                 $replyText = $response['message'];
-
             }
 
             // OPT IN
             if (in_array($msg, $optInKeywords, true) && $contact_data->is_opted_out) {
 
-                Contact::fromTenant($this->tenant_subdomain)
+                Contact::fromTenant($this->tenant_subdoamin)
                     ->where('phone', $contact_data->phone)
                     ->update(['is_opted_out' => 0]);
 
@@ -611,13 +433,10 @@ class WhatsAppWebhookController extends Controller
 
                 $response = $this->sendMessage($contact_data->phone, $reply, $wa_no_id);
                 $replyText = $response['message'];
-
             }
         }
 
-        // Retrieve media URL for specific media types
-        $attachment = '';
-        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video' || $messageType == 'sticker') {
+        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video') {
             $media_id = $messageEntry[$messageType]['id'];
             // Make sure to use setWaTenantId when retrieving URL
             $attachment = $this->setWaTenantId($this->tenant_id)->retrieveUrl($media_id);
@@ -632,7 +451,6 @@ class WhatsAppWebhookController extends Controller
                 'message_type' => $messageType,
                 'is_first_time' => $this->is_first_time,
                 'tenant_id' => $this->tenant_id,
-                'is_forwarded' => $isForwarded, // Tambahkan status forward ke log
             ],
             null,
             $this->tenant_id
@@ -660,7 +478,7 @@ class WhatsAppWebhookController extends Controller
             $attachment ?? ''
         );
 
-        Chat::fromTenant($this->tenant_subdomain)->where('id', $interaction_id)->update([
+        Chat::fromTenant($this->tenant_subdoamin)->where('id', $interaction_id)->update([
             'last_message' => $message,
             'last_msg_time' => now(),
             'updated_at' => now(),
@@ -675,7 +493,7 @@ class WhatsAppWebhookController extends Controller
 
         if (! empty($replyText)) {
             // store message
-            $chatMessage = ChatMessage::fromTenant($this->tenant_subdomain)->create([
+            $chatMessage = ChatMessage::fromTenant($this->tenant_subdoamin)->create([
                 'tenant_id' => $this->tenant_id,
                 'interaction_id' => $interaction_id,
                 'sender_id' => $wa_no, // outgoing
@@ -689,7 +507,7 @@ class WhatsAppWebhookController extends Controller
             ]);
 
             // update chat last message
-            Chat::fromTenant($this->tenant_subdomain)->where('id', $interaction_id)->update([
+            Chat::fromTenant($this->tenant_subdoamin)->where('id', $interaction_id)->update([
                 'last_message' => $replyText,
                 'updated_at' => now(),
             ]);
@@ -699,7 +517,6 @@ class WhatsAppWebhookController extends Controller
                 self::triggerChatNotificationStatic($interaction_id, $chatMessage->id, $this->tenant_id, false);
             }
         }
-
     }
 
     /**
@@ -719,16 +536,16 @@ class WhatsAppWebhookController extends Controller
 
         // Extract message content based on type
         $message = $this->extractMessageContent($messageEntry, $messageType);
-        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video' || $messageType == 'sticker') {
+        if ($messageType == 'image' || $messageType == 'audio' || $messageType == 'document' || $messageType == 'video') {
             $media_id = $messageEntry[$messageType]['id'];
             // Make sure to use setWaTenantId when retrieving URL
             $attachment = $this->setWaTenantId($this->tenant_id)->retrieveUrl($media_id);
         }
 
-        $chat = Chat::fromTenant($this->tenant_subdomain)->where('receiver_id', $to)->where('wa_no', $wa_no)->where('wa_no_id', $wa_no_id)->where('tenant_id', $this->tenant_id)->first();
+        $chat = Chat::fromTenant($this->tenant_subdoamin)->where('receiver_id', $to)->where('wa_no', $wa_no)->where('wa_no_id', $wa_no_id)->where('tenant_id', $this->tenant_id)->first();
 
         if (! $chat) {
-            $chat = Chat::fromTenant($this->tenant_subdomain)->createOrUpdate([
+            $chat = Chat::fromTenant($this->tenant_subdoamin)->createOrUpdate([
                 'receiver_id' => $to,
                 'wa_no' => $wa_no,
                 'wa_no_id' => $wa_no_id,
@@ -748,10 +565,10 @@ class WhatsAppWebhookController extends Controller
             $chat->id,
             $message,
             $this->tenant_id,
-            $this->tenant_subdomain
+            $this->tenant_subdoamin
         );
 
-        $query = Chat::fromTenant($this->tenant_subdomain);
+        $query = Chat::fromTenant($this->tenant_subdoamin);
         if (! empty($type_id)) {
             $query->where('type', $chat->type)
                 ->where('type_id', $type_id);
@@ -762,7 +579,7 @@ class WhatsAppWebhookController extends Controller
         $interaction_id = $this->createOrUpdateInteraction($to, $existing_interaction->wa_no, $existing_interaction->wa_no_id, $existing_interaction->name, $message ?? 'Media message', '', false);
 
         // Save messages to database
-        $message_id = ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId([
+        $message_id = ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId([
             'interaction_id' => $interaction_id,
             'sender_id' => $existing_interaction->wa_no,
             'message' => $message,
@@ -787,232 +604,40 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
- * Extract message content based on type
- */
-protected function extractMessageContent(array $messageEntry, string $messageType): string
-{
-    // Cek forwarded message di semua tipe
-    $isForwarded = isset($messageEntry['context']['forwarded']) && $messageEntry['context']['forwarded'] === true;
-    $isFrequentlyForwarded = isset($messageEntry['context']['frequently_forwarded']) && $messageEntry['context']['frequently_forwarded'] === true;
+     * Check if this is a first-time interaction
+     */
+    protected function isFirstTimeInteraction(string $from): bool
+    {
+        return ! (bool) Chat::fromTenant($this->tenant_subdoamin)->where('receiver_id', $from)->count();
+    }
 
-    $content = '';
-
-    switch ($messageType) {
-        case 'text':
-            $content = $messageEntry['text']['body'] ?? '';
-            break;
-
-        case 'interactive':
-            $i = $messageEntry['interactive'] ?? [];
-        
-            switch ($i['type'] ?? null) {
-        
-                case 'button_reply':
-                    $content = $i['button_reply']['title'] ?? '';
-                    break;
-        
-                case 'list_reply':
-                    $content = $i['list_reply']['title'] ?? '';
-                    break;
-        
-                case 'flow_reply':
-                    $summary = json_decode($i['flow_reply']['response_json'] ?? '', true);
-                    $content = '[Flow Reply]';
-                    break;
-        
-                case 'native_flow_reply':
-                    $content = '[Flow Form Submitted]';
-                    break;
-        
-                case 'shop_order_reply':
-                    $content = '[Shop Order Reply]';
-                    break;
-        
-                default:
-                    $content = '[Interactive]';
-                    break;
-            }
-            break;
-
-
-        case 'button':
-            $content = $messageEntry['button']['text'] ?? '';
-            break;
-
-        case 'reaction':
-            $content = json_decode('"'.($messageEntry['reaction']['emoji'] ?? '').'"', false, 512, JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'image':
-            $content = $messageEntry['image']['caption'] ?? 'image';
-            break;
-
-        case 'audio':
-            $content = 'audio';
-            break;
-
-        case 'document':
-            $caption = $messageEntry['document']['caption'] ?? '';
-            $filename = $messageEntry['document']['filename'] ?? '';
-            if ($caption) {
-                $content = $caption;
-            } elseif ($filename) {
-                $content = $filename;
-            } else {
-                $content = 'document';
-            }
-            break;
-
-        case 'video':
-            $content = $messageEntry['video']['caption'] ?? 'video';
-            break;
-
-        case 'location':
-            $latitude = $messageEntry['location']['latitude'] ?? '';
-            $longitude = $messageEntry['location']['longitude'] ?? '';
-            $name = $messageEntry['location']['name'] ?? '';
-            $address = $messageEntry['location']['address'] ?? '';
-
-            $locationParts = [];
-            if ($name) $locationParts[] = $name;
-            if ($address) $locationParts[] = $address;
-            $locationParts[] = "$latitude,$longitude";
-
-            $content = implode(' - ', $locationParts);
-            break;
-
-        case 'contacts':
-            $contact = $messageEntry['contacts'][0] ?? [];
-            $name = $contact['name']['formatted_name'] ?? '';
-            $phone = $contact['phones'][0]['phone'] ?? '';
-            if ($name && $phone) {
-                $content = "$name - $phone";
-            } elseif ($name) {
-                $content = $name;
-            } elseif ($phone) {
-                $content = $phone;
-            } else {
-                $content = 'contact';
-            }
-            break;
-
-        case 'sticker':
-            $animated = $messageEntry['sticker']['animated'] ?? false;
-            $stickerId = $messageEntry['sticker']['id'] ?? '';
-            
-            if ($animated) {
-                $content = '🎬 Animated Sticker';
-            } else {
-                $content = '📎 Sticker';
-            }
-            
-            break;
-
-        // ✅ Tambahan baru: dukungan pesan ORDER via katalog + trigger "ORDER:"
-        case 'order':
-            try {
-                $order = $messageEntry['order'] ?? [];
-                $items = [];
-                $grandTotal = 0;
-                $catalogId = $order['catalog_id'] ?? null;
-        
-                if (!empty($order['product_items'])) {
-                    foreach ($order['product_items'] as $i => $item) {
-                        $retailerId = $item['product_retailer_id'] ?? null;
-        
-                        // 🔹 Ambil nama produk dari Meta Catalog API jika bisa
-                        $productName = $this->getCatalogProductName($catalogId, $retailerId)
-                            ?? ($item['product_name']
-                                ?? ($retailerId ? 'Produk ' . $retailerId : '-'));
-        
-                        $qty = $item['quantity'] ?? 1;
-                        $price = $item['item_price'] ?? 0;
-                        $currency = $item['currency'] ?? 'IDR';
-                        $subtotal = $price * $qty;
-                        $grandTotal += $subtotal;
-        
-                        $items[] = sprintf("%d. %s x%d = Rp%s",
-                            $i + 1,
-                            $productName,
-                            $qty,
-                            number_format($subtotal, 0, ',', '.')
-                        );
-                    }
-                }
-        
-                // 🔹 Tentukan mata uang & buat kode unik order
-                $currency = $order['product_items'][0]['currency'] ?? 'IDR';
-                $orderCode = 'ORD-' . date('ymd') . '-' . strtoupper(Str::random(4));
-        
-                // 🔹 Susun pesan final dengan format nota mini
-                $contentBody =
-                    "🛍️ Pesanan dari katalog\n\n" .
-                    implode("\n", $items) .
-                    "\n-------------------------\n" .
-                    "Total: Rp" . number_format($grandTotal, 0, ',', '.') . " {$currency}" .
-                    "\nOrder ID: {$orderCode}";
-        
-                // 🔹 Tambahkan kata pemicu agar bisa dipakai di On Exact Match
-                // Pemicu: "ORDER"
-                // 🔹 Tambahkan kata pemicu agar bisa dipakai di On Exact Match
-        $content = "ORDER\n" . $contentBody;
-        
-        // 🔹 Paksa tipe pesan jadi text supaya bisa diproses bot
-        $messageType = 'text';
-    
-        } catch (\Throwable $e) {
-            Log::error('Gagal memproses pesan order: ' . $e->getMessage());
-            $content = 'Pesanan dari katalog (tidak dapat diproses sepenuhnya).';
+    /**
+     * Extract message content based on type
+     */
+    protected function extractMessageContent(array $messageEntry, string $messageType): string
+    {
+        switch ($messageType) {
+            case 'text':
+                return $messageEntry['text']['body'] ?? '';
+            case 'interactive':
+                return $messageEntry['interactive']['button_reply']['title'] ?? $messageEntry['interactive']['list_reply']['title'] ?? '';
+            case 'button':
+                return $messageEntry['button']['text'] ?? '';
+            case 'reaction':
+                return json_decode('"' . ($messageEntry['reaction']['emoji'] ?? '') . '"', false, 512, JSON_UNESCAPED_UNICODE);
+            case 'image':
+            case 'audio':
+            case 'document':
+            case 'video':
+                return $messageEntry[$messageType]['caption'] ?? $messageType;
+            case 'contacts':
+                return json_encode($messageEntry['contacts']);
+            case 'location':
+                return json_encode($messageEntry['location']);
+            default:
+                return 'Unknown message type';
         }
-        break;
-
-        default:
-            $content = 'Unknown message type';
-            break;
     }
-
-    // Tambah prefix forwarded jika perlu
-    if ($isFrequentlyForwarded) {
-        return "[VIRAL] " . $content;
-    } elseif ($isForwarded) {
-        return "[FORWARDED] " . $content;
-    }
-
-    return $content;
-}
-
-
-protected function getCatalogProductName(string $catalogId, string $retailerId): ?string
-{
-    try {
-        $settings = get_batch_settings(['whatsapp.wm_access_token', 'wm_access_token']);
-        $accessToken = $settings['whatsapp.wm_access_token']
-    ?? $settings['wm_access_token']
-    ?? (function_exists('get_tenant_setting_by_group_and_key')
-        ? get_tenant_setting_by_group_and_key('whatsapp', 'wm_access_token', $this->tenant_id)
-        : null);
-
-        if (empty($accessToken)) {
-            Log::warning("Tenant {$this->tenant_id} belum punya access token Meta.");
-            return null;
-        }
-
-        $url = "https://graph.facebook.com/v24.0/{$catalogId}/products";
-        $response = Http::withToken($accessToken)
-            ->get($url, [
-                'fields' => 'name,retailer_id,price',
-                'limit'  => 50,
-            ])
-            ->json();
-
-        $found = collect($response['data'] ?? [])->firstWhere('retailer_id', $retailerId);
-
-        return $found['name'] ?? null;
-    } catch (\Throwable $e) {
-        Log::error("Gagal ambil nama produk dari Catalog API: {$e->getMessage()}");
-        return null;
-    }
-}
 
     /**
      * Create or update interaction
@@ -1030,11 +655,11 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
         $contact_data = $this->getContactData($from, $name);
 
         // Check if a record with the same receiver_id exists
-        $existingChat = Chat::fromTenant($this->tenant_subdomain)->where('tenant_id', $this->tenant_id)->where('receiver_id', $from)->first();
+        $existingChat = Chat::fromTenant($this->tenant_subdoamin)->where('tenant_id', $this->tenant_id)->where('receiver_id', $from)->first();
 
         if ($existingChat) {
 
-            Chat::fromTenant($this->tenant_subdomain)->where('id', $existingChat->id)->update([
+            Chat::fromTenant($this->tenant_subdoamin)->where('id', $existingChat->id)->update([
                 'wa_no' => $wa_no,
                 'wa_no_id' => $wa_no_id,
                 'name' => $name,
@@ -1054,7 +679,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             $featureService = app(\App\Services\FeatureService::class);
 
             // Create new chat first to get the chat ID for guest type
-            $newChatId = Chat::fromTenant($this->tenant_subdomain)->insertGetId([
+            $newChatId = Chat::fromTenant($this->tenant_subdoamin)->insertGetId([
                 'receiver_id' => $from,
                 'wa_no' => $wa_no,
                 'wa_no_id' => $wa_no_id,
@@ -1076,7 +701,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 $identifierForCheck = ($conversationType === 'guest') ? $newChatId : ($contact_data->id ?? '');
 
                 if (! empty($identifierForCheck)) {
-                    if ($featureService->checkConversationLimit($identifierForCheck, $this->tenant_id, $this->tenant_subdomain, $conversationType)) {
+                    if ($featureService->checkConversationLimit($identifierForCheck, $this->tenant_id, $this->tenant_subdoamin, $conversationType)) {
                         // Log the limit but don't block incoming messages (customer service)
                         whatsapp_log('Conversation limit reached for new interaction', 'warning', [
                             'tenant_id' => $this->tenant_id,
@@ -1086,7 +711,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                         ], null, $this->tenant_id);
                     } else {
                         // Track new conversation usage
-                        $featureService->trackNewConversation($identifierForCheck, $this->tenant_id, $this->tenant_subdomain, $conversationType);
+                        $featureService->trackNewConversation($identifierForCheck, $this->tenant_id, $this->tenant_subdoamin, $conversationType);
                     }
                 }
             }
@@ -1108,7 +733,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
         array $metadata,
         string $url = ''
     ) {
-        return ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId([
+        return ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId([
             'interaction_id' => $interaction_id,
             'sender_id' => $from,
             'message_id' => $message_id,
@@ -1155,7 +780,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                         ]);
 
                     // Find chat message with tenant filtering for accuracy
-                    $message = ChatMessage::fromTenant($this->tenant_subdomain)
+                    $message = ChatMessage::fromTenant($this->tenant_subdoamin)
                         ->where('message_id', $id)
                         ->where('tenant_id', $this->tenant_id)
                         ->first();
@@ -1174,7 +799,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                     }
                 });
 
-                do_action('whatsapp_webhook_status_updated', ['status' => $status, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdomain]);
+                do_action('whatsapp_webhook_status_updated', ['status' => $status, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdoamin]);
             } catch (\Exception $e) {
                 // Log any transaction failures that might cause count discrepancies
                 whatsapp_log(
@@ -1194,7 +819,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
     }
 
     /**
-     * Forward webhook data if enabled
+     * Forward webhook data if enabled (N8N format)
      */
     protected function forwardWebhookData(string $feedData, array $payload)
     {
@@ -1207,7 +832,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
         // Extract fields from changes using collections
         $fields = collect($data->get('entry', []))
-            ->flatMap(fn ($entry) => collect($entry['changes'] ?? []))
+            ->flatMap(fn($entry) => collect($entry['changes'] ?? []))
             ->pluck('field')
             ->filter()
             ->unique();
@@ -1226,17 +851,45 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
         if ($enabled && filter_var($url, FILTER_VALIDATE_URL)) {
             try {
+                // Transform to N8N format
+                $n8nPayload = \App\Transformers\WhatsAppWebhookN8NTransformer::transform($payload, $this->tenant_id);
+
+                // Generate signature
+                $secret = config('ApiWebhookManager.signing_secret', config('app.key'));
+                $signature = hash_hmac('sha256', json_encode($n8nPayload), $secret);
+
+                // Prepare headers
+                $headers = [
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                    'User-Agent' => 'whatsmark-Webhook/1.0',
+                    'X-Webhook-Signature' => $signature,
+                    'X-Webhook-Event' => $n8nPayload['event']['type'] ?? 'unknown',
+                    'X-Webhook-Timestamp' => now()->toIso8601String(),
+                    'X-Webhook-Format' => 'n8n',
+                ];
+
                 switch ($method) {
                     case 'POST':
-                        $response = \Http::post($url, $payload);
+                        $response = \Http::withHeaders($headers)->post($url, $n8nPayload);
                         break;
                     case 'GET':
-                        $response = \Http::get($url, $payload);
+                        $response = \Http::withHeaders($headers)->get($url, $n8nPayload);
                         break;
                     default:
-                        $response = \Http::withBody($feedData, 'application/json')->send($method, $url);
+                        $response = \Http::withHeaders($headers)
+                            ->withBody(json_encode($n8nPayload), 'application/json')
+                            ->send($method, $url);
                         break;
                 }
+
+                whatsapp_log('Webhook Forwarded (N8N Format)', 'info', [
+                    'url' => $url,
+                    'method' => $method,
+                    'event_type' => $n8nPayload['event']['type'] ?? 'unknown',
+                    'status_code' => $response->status(),
+                    'success' => $response->successful(),
+                ]);
             } catch (\Exception $e) {
                 whatsapp_log('Webhook Forward Error', 'error', [
                     'message' => $e->getMessage(),
@@ -1250,31 +903,52 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
      */
     protected function getContactData(string $from, string $name): object
     {
-        $contact = Contact::fromTenant($this->tenant_subdomain)->where('tenant_id', $this->tenant_id)
+        $contact = Contact::fromTenant($this->tenant_subdoamin)->where('tenant_id', $this->tenant_id)
             ->where(function ($query) use ($from) {
                 $query->where('phone', $from)
-                    ->orWhere('phone', '+'.$from);
+                    ->orWhere('phone', '+' . $from);
             })
             ->first();
         if ($contact) {
             return $contact;
         }
-        if (get_tenant_setting_by_tenant_id('whats-mark', 'auto_lead_enabled', null, $this->tenant_id) && ! $this->featureLimitChecker->hasReachedLimit('contacts', Contact::class, [], true, $this->tenant_id)) {
-            $name = explode(' ', $name);
-            $contact = Contact::fromTenant($this->tenant_subdomain)->create([
-                'firstname' => $name[0],
-                'lastname' => count($name) > 1 ? implode(' ', array_slice($name, 1)) : '',
-                'type' => 'lead',
-                'phone' => $from[0] === '+' ? $from : '+'.$from,
-                'assigned_id' => get_tenant_setting_by_tenant_id('whats-mark', 'lead_assigned_to', null, $this->tenant_id),
-                'status_id' => get_tenant_setting_by_tenant_id('whats-mark', 'lead_status', null, $this->tenant_id),
-                'source_id' => get_tenant_setting_by_tenant_id('whats-mark', 'lead_source', null, $this->tenant_id),
-                'addedfrom' => '0',
-                'tenant_id' => $this->tenant_id,
-            ]);
-            $this->featureLimitChecker->trackUsage('contacts', 1, $this->tenant_id);
 
-            return $contact;
+        if (! $this->featureLimitChecker->hasReachedLimit('contacts', Contact::class, [], true, $this->tenant_id)) {
+            $name = explode(' ', $name);
+            if (get_tenant_setting_by_tenant_id('whats-mark', 'auto_lead_enabled', null, $this->tenant_id)) {
+
+                $contact = Contact::fromTenant($this->tenant_subdoamin)->create([
+                    'firstname' => $name[0],
+                    'lastname' => count($name) > 1 ? implode(' ', array_slice($name, 1)) : '',
+                    'type' => 'lead',
+                    'phone' => $from[0] === '+' ? $from : '+' . $from,
+                    'assigned_id' => get_tenant_setting_by_tenant_id('whats-mark', 'lead_assigned_to', null, $this->tenant_id),
+                    'status_id' => get_tenant_setting_by_tenant_id('whats-mark', 'lead_status', null, $this->tenant_id),
+                    'source_id' => get_tenant_setting_by_tenant_id('whats-mark', 'lead_source', null, $this->tenant_id),
+                    'addedfrom' => '0',
+                    'tenant_id' => $this->tenant_id,
+                ]);
+                $this->featureLimitChecker->trackUsage('contacts', 1, $this->tenant_id);
+
+                return $contact;
+            } else {
+
+                $contact = Contact::fromTenant($this->tenant_subdoamin)->create([
+                    'firstname' => $name[0],
+                    'lastname' => count($name) > 1 ? implode(' ', array_slice($name, 1)) : '',
+                    'type' => 'guest',
+                    'phone' => $from[0] === '+' ? $from : '+' . $from,
+                    'assigned_id' => null,
+                    'status_id' => Status::where('tenant_id', $this->tenant_id)->pluck('id')->first(),
+                    'source_id' => Source::where('tenant_id', $this->tenant_id)->pluck('id')->first(),
+                    'addedfrom' => '0',
+                    'tenant_id' => $this->tenant_id,
+                ]);
+
+                $this->featureLimitChecker->trackUsage('contacts', 1, $this->tenant_id);
+
+                return $contact;
+            }
         }
 
         return (object) [];
@@ -1285,59 +959,90 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
         $data['sending_count'] = (int) $data['sending_count'] + 1;
 
         if ($type == 'template_bot') {
-            $header = parseText($data['rel_type'], 'header', $data);
-            $body = parseText($data['rel_type'], 'body', $data);
-            $footer = parseText($data['rel_type'], 'footer', $data);
+            // Check if this is a carousel template
+            $isCarouselTemplate = ! empty($data['cards_params']) &&
+                (is_array($data['cards_params']) || json_decode($data['cards_params'], true));
 
-            $buttonHtml = '';
-            if (! empty(json_decode($data['buttons_data']))) {
-                $buttons = json_decode($data['buttons_data']);
-                $buttonHtml = "<div class='flex flex-col mt-2 space-y-2'>";
-                foreach ($buttons as $button) {
-                    $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full
-                        dark:bg-gray-800 dark:text-success-400'>".e($button->text).'</button>';
+            if ($isCarouselTemplate) {
+                // Handle carousel template rendering
+                $carouselHtml = $this->renderCarouselTemplate($data);
+
+                TemplateBot::where(['id' => $data['id'], 'tenant_id' => $this->tenant_id])->update(['sending_count' => $data['sending_count'] + 1]);
+
+                $chat_message = [
+                    'interaction_id' => $interactionId,
+                    'sender_id' => get_tenant_setting_by_tenant_id('whatsapp', 'wm_default_phone_number', null, $this->tenant_id),
+                    'url' => null,
+                    'message' => $carouselHtml,
+                    'status' => 'sent',
+                    'time_sent' => now()->toDateTimeString(),
+                    'message_id' => $response['data']->messages[0]->id ?? null,
+                    'staff_id' => 0,
+                    'type' => 'text',
+                    'tenant_id' => $this->tenant_id,
+                    'is_read' => '1',
+                ];
+            } else {
+                // Handle regular template rendering
+                // If OTP was generated during sending, reuse it to avoid mismatch
+                if (!empty($response['generated_otp'])) {
+                    $data['generated_otp'] = $response['generated_otp'];
                 }
-                $buttonHtml .= '</div>';
+
+                $header = parseText($data['rel_type'], 'header', $data);
+                $body = parseText($data['rel_type'], 'body', $data);
+                $footer = parseText($data['rel_type'], 'footer', $data);
+
+                $buttonHtml = '';
+                if (! empty(json_decode($data['buttons_data']))) {
+                    $buttons = json_decode($data['buttons_data']);
+                    $buttonHtml = "<div class='flex flex-col mt-2 space-y-2'>";
+                    foreach ($buttons as $button) {
+                        $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full
+                            dark:bg-gray-800 dark:text-success-400'>" . e($button->text) . '</button>';
+                    }
+                    $buttonHtml .= '</div>';
+                }
+
+                $headerData = '';
+                $fileExtensions = get_meta_allowed_extension();
+                $extension = strtolower(pathinfo($data['filename'], PATHINFO_EXTENSION));
+                $fileType = array_key_first(array_filter($fileExtensions, fn($data) => in_array('.' . $extension, explode(', ', $data['extension']))));
+                if ($data['header_data_format'] === 'IMAGE' && $fileType == 'image') {
+                    $headerData = "<a href='" . asset('storage/' . $data['filename']) . "' data-lightbox='image-group'>
+                    <img src='" . asset('storage/' . $data['filename']) . "' class='rounded-lg w-full mb-2'>
+                </a>";
+                } elseif ($data['header_data_format'] === 'TEXT' || $data['header_data_format'] === '') {
+                    $headerData = "<span class='font-bold mb-3'>" . nl2br(decodeWhatsAppSigns(e($header ?? ''))) . '</span>';
+                } elseif ($data['header_data_format'] === 'DOCUMENT') {
+                    $headerData = "<a href='" . asset('storage/' . $data['filename']) . "' target='_blank' class='btn btn-secondary w-full'>" . t('document') . '</a>';
+                } elseif ($data['header_data_format'] === 'VIDEO') {
+                    $headerData = "<video src='" . asset('storage/' . $data['filename']) . "' controls class='rounded-lg w-full'></video>";
+                }
+
+                TemplateBot::where(['id' => $data['id'], 'tenant_id' => $this->tenant_id])->update(['sending_count' => $data['sending_count'] + 1]);
+
+                $chat_message = [
+                    'interaction_id' => $interactionId,
+                    'sender_id' => get_tenant_setting_by_tenant_id('whatsapp', 'wm_default_phone_number', null, $this->tenant_id),
+                    'url' => null,
+                    'message' => "
+                    $headerData
+                    <p>" . nl2br(decodeWhatsAppSigns(e($body))) . "</p>
+                    <span class='text-gray-500 text-sm'>" . nl2br(decodeWhatsAppSigns(e($footer ?? ''))) . "</span>
+                    $buttonHtml
+                ",
+                    'status' => 'sent',
+                    'time_sent' => now()->toDateTimeString(),
+                    'message_id' => $response['data']->messages[0]->id ?? null,
+                    'staff_id' => 0,
+                    'type' => 'text',
+                    'tenant_id' => $this->tenant_id,
+                    'is_read' => '1',
+                ];
             }
 
-            $headerData = '';
-            $fileExtensions = get_meta_allowed_extension();
-            $extension = strtolower(pathinfo($data['filename'], PATHINFO_EXTENSION));
-            $fileType = array_key_first(array_filter($fileExtensions, fn ($data) => in_array('.'.$extension, explode(', ', $data['extension']))));
-            if ($data['header_data_format'] === 'IMAGE' && $fileType == 'image') {
-                $headerData = "<a href='".asset('storage/'.$data['filename'])."' data-lightbox='image-group'>
-                <img src='".asset('storage/'.$data['filename'])."' class='rounded-lg w-full mb-2'>
-            </a>";
-            } elseif ($data['header_data_format'] === 'TEXT' || $data['header_data_format'] === '') {
-                $headerData = "<span class='font-bold mb-3'>".nl2br(decodeWhatsAppSigns(e($header ?? ''))).'</span>';
-            } elseif ($data['header_data_format'] === 'DOCUMENT') {
-                $headerData = "<a href='".asset('storage/'.$data['filename'])."' target='_blank' class='btn btn-secondary w-full'>".t('document').'</a>';
-            } elseif ($data['header_data_format'] === 'VIDEO') {
-                $headerData = "<video src='".asset('storage/'.$data['filename'])."' controls class='rounded-lg w-full'></video>";
-            }
-
-            TemplateBot::where(['id' => $data['id'], 'tenant_id' => $this->tenant_id])->update(['sending_count' => $data['sending_count'] + 1]);
-
-            $chat_message = [
-                'interaction_id' => $interactionId,
-                'sender_id' => get_tenant_setting_by_tenant_id('whatsapp', 'wm_default_phone_number', null, $this->tenant_id),
-                'url' => null,
-                'message' => "
-                $headerData
-                <p>".nl2br(decodeWhatsAppSigns(e($body)))."</p>
-                <span class='text-gray-500 text-sm'>".nl2br(decodeWhatsAppSigns(e($footer ?? '')))."</span>
-                $buttonHtml
-            ",
-                'status' => 'sent',
-                'time_sent' => now()->toDateTimeString(),
-                'message_id' => $response['data']->messages[0]->id ?? null,
-                'staff_id' => 0,
-                'type' => 'text',
-                'tenant_id' => $this->tenant_id,
-                'is_read' => '1',
-            ];
-
-            $message_id = ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId($chat_message);
+            $message_id = ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId($chat_message);
 
             if ($this->isPusherConfigured()) {
                 // Use centralized notification method with enhanced metadata
@@ -1361,41 +1066,41 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
         if (! empty($data['button1_id'])) {
             $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full
-               dark:bg-gray-800 dark:text-success-400'>".e($data['button1']).'</button>';
+               dark:bg-gray-800 dark:text-success-400'>" . e($data['button1']) . '</button>';
             $option = true;
         }
         if (! empty($data['button2_id'])) {
             $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full
-               dark:bg-gray-800 dark:text-success-400'>".e($data['button2']).'</button>';
+               dark:bg-gray-800 dark:text-success-400'>" . e($data['button2']) . '</button>';
             $option = true;
         }
         if (! empty($data['button3_id'])) {
             $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full
-               dark:bg-gray-800 dark:text-success-400'>".e($data['button3']).'</button>';
+               dark:bg-gray-800 dark:text-success-400'>" . e($data['button3']) . '</button>';
             $option = true;
         }
         if (! $option && ! empty($data['button_name']) && ! empty($data['button_url']) && filter_var($data['button_url'], FILTER_VALIDATE_URL)) {
-            $buttonHtml .= "<a href='".e($data['button_url'])."' class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full
-               dark:bg-gray-800 dark:text-success-400 mt-2'> <svg class='w-4 h-4 text-success-500' aria-hidden='true' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'> <path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M18 14v4.833A1.166 1.166 0 0 1 16.833 20H5.167A1.167 1.167 0 0 1 4 18.833V7.167A1.166 1.166 0 0 1 5.167 6h4.618m4.447-2H20v5.768m-7.889 2.121 7.778-7.778'/> </svg><span class='whitespace-nowrap'>".e($data['button_name']).'</a>';
+            $buttonHtml .= "<a href='" . e($data['button_url']) . "' class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full
+               dark:bg-gray-800 dark:text-success-400 mt-2'> <svg class='w-4 h-4 text-success-500' aria-hidden='true' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'> <path stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M18 14v4.833A1.166 1.166 0 0 1 16.833 20H5.167A1.167 1.167 0 0 1 4 18.833V7.167A1.166 1.166 0 0 1 5.167 6h4.618m4.447-2H20v5.768m-7.889 2.121 7.778-7.778'/> </svg><span class='whitespace-nowrap'>" . e($data['button_name']) . '</a>';
             $option = true;
         }
 
         $extension = strtolower(pathinfo($data['filename'], PATHINFO_EXTENSION));
-        $fileType = array_key_first(array_filter($allowedExtensions, fn ($data) => in_array('.'.$extension, explode(', ', $data['extension']))));
+        $fileType = array_key_first(array_filter($allowedExtensions, fn($data) => in_array('.' . $extension, explode(', ', $data['extension']))));
         if (! $option && ! empty($data['filename']) && $fileType == 'image') {
-            $headerImage = "<a href='".asset('storage/'.$data['filename'])."' data-lightbox='image-group'>
-            <img src='".asset('storage/'.$data['filename'])."' class='rounded-lg w-full mb-2'>
+            $headerImage = "<a href='" . asset('storage/' . $data['filename']) . "' data-lightbox='image-group'>
+            <img src='" . asset('storage/' . $data['filename']) . "' class='rounded-lg w-full mb-2'>
         </a>";
         }
         if (! $option && ! empty($data['filename']) && $fileType == 'document') {
-            $headerImage = "<a href='".asset('storage/'.$data['filename'])."' target='_blank' class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full
-               dark:bg-gray-800 dark:text-success-400'>".t('document').'</a>';
+            $headerImage = "<a href='" . asset('storage/' . $data['filename']) . "' target='_blank' class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full
+               dark:bg-gray-800 dark:text-success-400'>" . t('document') . '</a>';
         }
         if (! $option && ! empty($data['filename']) && $fileType == 'video') {
-            $headerImage = "<video src='".asset('storage/'.$data['filename'])."' controls class='rounded-lg w-full'></video>";
+            $headerImage = "<video src='" . asset('storage/' . $data['filename']) . "' controls class='rounded-lg w-full'></video>";
         }
         if (! $option && ! empty($data['filename']) && $fileType == 'audio') {
-            $headerImage = "<audio controls class='w-64'><source src='".asset('storage/'.$data['filename'])."' type='audio/mpeg'></audio>";
+            $headerImage = "<audio controls class='w-64'><source src='" . asset('storage/' . $data['filename']) . "' type='audio/mpeg'></audio>";
         }
         $buttonHtml .= '</div>';
 
@@ -1407,10 +1112,10 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             'interaction_id' => $interactionId,
             'sender_id' => get_tenant_setting_by_tenant_id('whatsapp', 'wm_default_phone_number', null, $this->tenant_id),
             'url' => null,
-            'message' => $headerImage."
-            <span class='font-bold mb-3'>".nl2br(e($header ?? '')).'</span>
-            <p>'.nl2br(decodeWhatsAppSigns(e($body)))."</p>
-            <span class='text-gray-500 text-sm'>".nl2br(e($footer ?? ''))."</span>
+            'message' => $headerImage . "
+            <span class='font-bold mb-3'>" . nl2br(e($header ?? '')) . '</span>
+            <p>' . nl2br(decodeWhatsAppSigns(e($body))) . "</p>
+            <span class='text-gray-500 text-sm'>" . nl2br(e($footer ?? '')) . "</span>
             $buttondata
         ",
             'status' => 'sent',
@@ -1422,7 +1127,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             'is_read' => '1',
         ];
 
-        $message_id = ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId($chat_message);
+        $message_id = ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId($chat_message);
 
         if ($this->isPusherConfigured()) {
             // Use centralized notification method with enhanced metadata
@@ -1433,13 +1138,191 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
     }
 
     /**
+     * Render carousel template for chat display
+     */
+    protected function renderCarouselTemplate(array $data): string
+    {
+        $cards_params = is_string($data['cards_params'])
+            ? json_decode($data['cards_params'], true)
+            : $data['cards_params'];
+
+        if (empty($cards_params) || ! is_array($cards_params)) {
+            return '<div class="text-gray-500 italic p-3 bg-gray-100 rounded-lg dark:bg-gray-700">🎠 Carousel template (no cards data available)</div>';
+        }
+
+        // Start carousel container with better styling
+        $carouselHtml = '<div class="carousel-template bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 p-4 mb-2">';
+
+        // Add carousel header with icon
+        $cardCount = count($cards_params);
+        $carouselHtml .= '<div class="flex items-center mb-3 pb-2 border-b border-gray-200 dark:border-gray-600">
+            <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mr-3">
+                <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+                </svg>
+            </div>
+            <div>
+                <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-200">🎠 Carousel Template</h4>
+                <p class="text-xs text-gray-500 dark:text-gray-400">' . $cardCount . ' card' . ($cardCount !== 1 ? 's' : '') . '</p>
+            </div>
+        </div>';
+
+        // Parse and display main body text if present
+        if (! empty($data['body_params'])) {
+            $bodyParams = is_string($data['body_params']) ? json_decode($data['body_params'], true) : $data['body_params'];
+            if (is_array($bodyParams) && ! empty($bodyParams)) {
+                $body = implode(' ', $bodyParams);
+                $carouselHtml .= '<div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <p class="text-sm text-gray-800 dark:text-gray-200">' . nl2br(e($body)) . '</p>
+                </div>';
+            }
+        }
+
+        // Render carousel cards in horizontal layout
+        $carouselHtml .= '<div class="carousel-cards overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-700" style="scroll-behavior: smooth;">
+            <div class="flex space-x-4 pb-3" style="min-width: fit-content; scroll-snap-type: x mandatory;">';
+
+        foreach ($cards_params as $cardIndex => $cardData) {
+            $carouselHtml .= '<div class="carousel-card flex-shrink-0 w-72 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200" style="scroll-snap-align: start;">';
+
+            // Extract components data with validation
+            $components = $cardData['components'] ?? [];
+            $headerComponent = null;
+            $bodyComponent = null;
+            $buttonsComponent = null;
+
+            // Parse components
+            if (is_array($components)) {
+                foreach ($components as $component) {
+                    if (! is_array($component) || ! isset($component['type'])) {
+                        continue;
+                    }
+
+                    switch (strtoupper($component['type'])) {
+                        case 'HEADER':
+                            $headerComponent = $component;
+                            break;
+                        case 'BODY':
+                            $bodyComponent = $component;
+                            break;
+                        case 'BUTTONS':
+                            $buttonsComponent = $component;
+                            break;
+                    }
+                }
+            }
+
+            // Card header (image/video from header component)
+            if ($headerComponent && isset($headerComponent['example']['header_handle'][0])) {
+                $mediaUrl = $headerComponent['example']['header_handle'][0];
+                $format = strtolower($headerComponent['format'] ?? 'image');
+
+                if ($format === 'image') {
+                    $carouselHtml .= '<div class="card-media relative">
+                        <img src="' . $mediaUrl . '" class="w-full h-48 object-cover" alt="Card ' . ($cardIndex + 1) . '" loading="lazy">
+                        <div class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                            ' . ($cardIndex + 1) . '/' . count($cards_params) . '
+                        </div>
+                    </div>';
+                } elseif ($format === 'video') {
+                    $carouselHtml .= '<div class="card-media">
+                        <video class="w-full h-48 object-cover" controls>
+                            <source src="' . $mediaUrl . '" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>';
+                }
+            } else {
+                // Placeholder for cards without media
+                $carouselHtml .= '<div class="card-media h-48 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center">
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-gray-300 dark:bg-gray-500 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <svg class="w-6 h-6 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Card ' . ($cardIndex + 1) . '</p>
+                    </div>
+                </div>';
+            }
+
+            // Card content
+            $carouselHtml .= '<div class="card-content p-4">';
+
+            // Card body text from body component
+            if ($bodyComponent && ! empty($bodyComponent['text'])) {
+                $bodyText = $bodyComponent['text'];
+
+                // Replace {{1}}, {{2}}, etc. with actual values from body_text examples
+                if (isset($bodyComponent['example']['body_text'][0]) && is_array($bodyComponent['example']['body_text'][0])) {
+                    $bodyValues = $bodyComponent['example']['body_text'][0];
+
+                    // Replace each variable placeholder with its value
+                    foreach ($bodyValues as $index => $value) {
+                        $placeholder = '{{' . (($index) + 1) . '}}';
+                        $bodyText = str_replace($placeholder, $value, $bodyText);
+                    }
+                }
+
+                $carouselHtml .= '<p class="text-sm text-gray-700 dark:text-gray-300 mb-3 leading-relaxed">' . nl2br(e($bodyText)) . '</p>';
+            }
+
+            // Card buttons from buttons component
+            if ($buttonsComponent && ! empty($buttonsComponent['buttons'])) {
+                $carouselHtml .= '<div class="card-buttons space-y-2">';
+
+                foreach ($buttonsComponent['buttons'] as $button) {
+                    $buttonType = strtoupper($button['type'] ?? '');
+                    $buttonText = $button['text'] ?? 'Button';
+
+                    if ($buttonType === 'URL' && ! empty($button['url'])) {
+                        $carouselHtml .= '<a href="' . $button['url'] . '" target="_blank" class="inline-flex items-center justify-center w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors duration-200">
+                            <svg class="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                            </svg>
+                            ' . e($buttonText) . '
+                        </a>';
+                    } else {
+                        $carouselHtml .= '<button class="inline-flex items-center justify-center w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors duration-200 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-gray-200">
+                            ' . e($buttonText) . '
+                        </button>';
+                    }
+                }
+
+                $carouselHtml .= '</div>';
+            }
+
+            $carouselHtml .= '</div>'; // Close card content
+            $carouselHtml .= '</div>'; // Close card
+        }
+
+        $carouselHtml .= '</div>'; // Close cards flex container
+        $carouselHtml .= '</div>'; // Close carousel-cards
+
+        // Add footer if present
+        if (! empty($data['footer_params'])) {
+            $footerParams = is_string($data['footer_params']) ? json_decode($data['footer_params'], true) : $data['footer_params'];
+            if (is_array($footerParams) && ! empty($footerParams)) {
+                $footer = implode(' ', $footerParams);
+                $carouselHtml .= '<div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">' . nl2br(e($footer)) . '</p>
+                </div>';
+            }
+        }
+
+        $carouselHtml .= '</div>'; // Close carousel template
+
+        return $carouselHtml;
+    }
+
+    /**
      * Send a message via WhatsApp
      *
      * @return \Illuminate\Http\JsonResponse
      */
     public function send_message(Request $request, $subdomain)
     {
-        $this->tenant_subdomain = $subdomain;
+        $this->tenant_subdoamin = $subdomain;
 
         try {
             // Get request data
@@ -1448,7 +1331,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             $type_id = $request->input('type_id');
 
             // Find existing chat/interaction
-            $query = Chat::fromTenant($this->tenant_subdomain);
+            $query = Chat::fromTenant($this->tenant_subdoamin);
             if (! empty($type_id)) {
                 $query->where('type', $type)
                     ->where('type_id', $type_id);
@@ -1480,14 +1363,14 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                     $identifierForCheck,
                     $type,
                     $this->tenant_id,
-                    $this->tenant_subdomain
+                    $this->tenant_subdoamin
                 );
 
                 if ($conversationTrackingNeeded) {
                     $identifierForTracking = $identifierForCheck;
 
                     // Check conversation limit before sending
-                    if ($featureService->checkConversationLimit($identifierForCheck, $this->tenant_id, $this->tenant_subdomain, $type)) {
+                    if ($featureService->checkConversationLimit($identifierForCheck, $this->tenant_id, $this->tenant_subdoamin, $type)) {
                         whatsapp_log('DEBUG: Conversation limit reached - BLOCKING MESSAGE', 'warning', [
                             'identifier' => $identifierForCheck,
                             'type' => $type,
@@ -1506,22 +1389,11 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
             $to = $existing_interaction->receiver_id;
             $message = strip_tags($request->input('message', ''));
-            
-            // --- CUSTOM @AkunChat MODUL SIGNMODULES --- //
-            $filter_data = [
-                'message' => $message,
-                'user_id' => auth()->id(),
-                'tenant_id' => $this->tenant_id
-            ];
-            $filtered_data = apply_filters('whatsapp.message.before_send', $filter_data);
-            $message = $filtered_data['message']; // Ambil kembali pesan yang sudah dimodifikasi
-            
-            // --- END CUSTOM MODUL SIGNMODULES --- //
 
             // Parse message text for contacts or leads
             $user_id = null;
             if ($type == 'customer' || $type == 'lead') {
-                $contact = Contact::fromTenant($this->tenant_subdomain)->find($type_id);
+                $contact = Contact::fromTenant($this->tenant_subdoamin)->find($type_id);
                 $user_id = $contact->user_id ?? null;
             }
 
@@ -1563,7 +1435,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                     $message_data[] = [
                         'type' => $type,
                         $type => [
-                            'url' => url('storage/whatsapp-attachments/'.$file_url),
+                            'url' => url('storage/whatsapp-attachments/' . $file_url),
                         ],
                     ];
                 }
@@ -1586,90 +1458,31 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             try {
                 foreach ($message_data as $data) {
                     $response = null;
-                
-                    // kalau ada ref_message_id → bypass ke payload manual
-                    if (!empty($ref_message_id)) {
-                        $payload = [
-                            'messaging_product' => 'whatsapp',
-                            'to' => $to,
-                            'type' => $data['type'],
-                        ];
-                
-                        switch ($data['type']) {
-                            case 'text':
-                                $payload['text'] = [
-                                    'body' => $data['text']['body'],
-                                    'preview_url' => true,
-                                ];
-                                break;
-                
-                            case 'audio':
-                                $payload['audio'] = [
-                                    'link' => $data['audio']['url'],
-                                ];
-                                break;
-                
-                            case 'image':
-                                $payload['image'] = [
-                                    'link' => $data['image']['url'],
-                                ];
-                                break;
-                
-                            case 'video':
-                                $payload['video'] = [
-                                    'link' => $data['video']['url'],
-                                ];
-                                break;
-                
-                            case 'document':
-                                $payload['document'] = [
-                                    'link' => $data['document']['url'],
-                                    'filename' => basename($data['document']['url']),
-                                ];
-                                break;
-                
-                            default:
-                                continue 2;
-                        }
-                
-                        // inject context untuk reply
-                        $payload['context'] = ['message_id' => $ref_message_id];
-                
-                        $url = self::getBaseUrl() . $this->getPhoneID() . '/messages';
-                        $response = Http::withToken($this->getToken())->post($url, $payload);
-                        $response_data = $response->json();
-                
-                    } else {
-                        // === MODE NORMAL, tanpa reply === //
-                        switch ($data['type']) {
-                            case 'text':
-                                $response = $whatsapp_cloud_api->sendTextMessage($to, $data['text']['body']);
-                                break;
-                            case 'audio':
-                                $response = $whatsapp_cloud_api->sendAudio($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['audio']['url']));
-                                break;
-                            case 'image':
-                                $response = $whatsapp_cloud_api->sendImage($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['image']['url']));
-                                break;
-                            case 'video':
-                                $response = $whatsapp_cloud_api->sendVideo($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['video']['url']));
-                                break;
-                            case 'document':
-                                $fileName = basename($data['document']['url']);
-                                $response = $whatsapp_cloud_api->sendDocument(
-                                    $to,
-                                    new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['document']['url']),
-                                    $fileName,
-                                    ''
-                                );
-                                break;
-                            default:
-                                continue 2;
-                        }
-                
-                        $response_data = $response->decodedBody();
+
+                    switch ($data['type']) {
+                        case 'text':
+                            $response = $whatsapp_cloud_api->sendTextMessage($to, $data['text']['body']);
+                            break;
+                        case 'audio':
+                            $response = $whatsapp_cloud_api->sendAudio($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['audio']['url']));
+                            break;
+                        case 'image':
+                            $response = $whatsapp_cloud_api->sendImage($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['image']['url']));
+                            break;
+                        case 'video':
+                            $response = $whatsapp_cloud_api->sendVideo($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['video']['url']));
+                            break;
+                        case 'document':
+                            $fileName = basename($data['document']['url']);
+                            $response = $whatsapp_cloud_api->sendDocument($to, new \Netflie\WhatsAppCloudApi\Message\Media\LinkID($data['document']['url']), $fileName, '');
+                            break;
+                        default:
+                            continue 2;
                     }
-                
+
+                    // Decode the response JSON
+                    $response_data = $response->decodedBody();
+
                     // Store the message ID if available
                     if (isset($response_data['messages'][0]['id'])) {
                         $messageIds[] = $response_data['messages'][0]['id'];
@@ -1691,7 +1504,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                     $id,
                     $message,
                     $this->tenant_id,
-                    $this->tenant_subdomain
+                    $this->tenant_subdoamin
                 );
 
                 // 2. Track conversation if needed (NEW CONVERSATION)
@@ -1700,7 +1513,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                         $identifierForTracking,
                         $type,
                         $this->tenant_id,
-                        $this->tenant_subdomain
+                        $this->tenant_subdoamin
                     );
                 }
 
@@ -1709,7 +1522,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
                 // Save messages to database
                 foreach ($message_data as $index => $data) {
-                    $message_id = ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId([
+                    $message_id = ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId([
                         'interaction_id' => $interaction_id,
                         'sender_id' => $existing_interaction->wa_no,
                         'message' => $message,
@@ -1755,7 +1568,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
             return response()->json([
                 'success' => false,
-                'message' => 'Internal server error: '.$e->getMessage(),
+                'message' => 'Internal server error: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -1779,7 +1592,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
         $cleanName = Str::slug($originalName, '_'); // e.g., "WhatsApp_Video_2025_02_20_at_13_06_57_08d1199a"
 
         // Append timestamp to ensure uniqueness
-        $fileName = time().'_'.$cleanName.'.'.$extension;
+        $fileName = time() . '_' . $cleanName . '.' . $extension;
 
         // Store the file
         $file->storeAs('whatsapp-attachments', $fileName, 'public');
@@ -1910,7 +1723,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             $contact_data = $this->getContactData($contact_number, $contact['profile']['name'] ?? '');
 
             // Get current interaction/chat
-            $current_interaction = Chat::fromTenant($this->tenant_subdomain)->where([
+            $current_interaction = Chat::fromTenant($this->tenant_subdoamin)->where([
                 'receiver_id' => $contact_number,
                 'wa_no' => $metadata['display_phone_number'],
             ])->first();
@@ -1924,7 +1737,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                     $trigger_msg,
                     ''
                 );
-                $current_interaction = Chat::fromTenant($this->tenant_subdomain)->find($interaction_id);
+                $current_interaction = Chat::fromTenant($this->tenant_subdoamin)->find($interaction_id);
             }
 
             // Check if bot is stopped
@@ -2028,7 +1841,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             $restart_after = (int) get_setting('whats-mark.restart_bots_after');
             if ($restart_after > 0 && time() > strtotime($interaction->bot_stoped_time) + ($restart_after * 3600)) {
                 // Restart the bot
-                Chat::fromTenant($this->tenant_subdomain)->where('id', $interaction->id)->update([
+                Chat::fromTenant($this->tenant_subdoamin)->where('id', $interaction->id)->update([
                     'bot_stoped_time' => null,
                     'is_bots_stoped' => '0',
                 ]);
@@ -2041,8 +1854,8 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
         // Check if this message should stop the bot
         $stopKeywords = collect(get_setting('whats-mark.stop_bots_keyword'));
-        if ($stopKeywords->first(fn ($keyword) => str_contains(strtolower($trigger_msg), strtolower($keyword)))) {
-            Chat::fromTenant($this->tenant_subdomain)->where('id', $interaction->id)->update([
+        if ($stopKeywords->first(fn($keyword) => str_contains(strtolower($trigger_msg), strtolower($keyword)))) {
+            Chat::fromTenant($this->tenant_subdoamin)->where('id', $interaction->id)->update([
                 'bot_stoped_time' => date('Y-m-d H:i:s'),
                 'is_bots_stoped' => '1',
             ]);
@@ -2105,7 +1918,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             ]);
 
             $flows = BotFlow::where(['is_active' => 1, 'tenant_id' => $this->tenant_id])->get();
-
+            $executedCount = 0;
             foreach ($flows as $flow) {
                 $flowData = json_decode($flow->flow_data, true);
                 if (empty($flowData) || empty($flowData['nodes'])) {
@@ -2118,14 +1931,42 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                         if ($this->isFlowMatch($node, $contactData->type, $triggerMsg)) {
                             whatsapp_log('Found matching trigger, executing flow', 'info', [
                                 'flow_id' => $flow->id,
+                                'flow_name' => $flow->name ?? 'Unnamed',
                                 'trigger_node_id' => $node['id'],
                             ]);
 
-                            return $this->executeFlowFromStart($flow, $contactData, $triggerMsg, $chatId, $contactNumber, $phoneNumberId);
+                            $executed = $this->executeFlowFromStart($flow, $contactData, $triggerMsg, $chatId, $contactNumber, $phoneNumberId);
+
+                            if ($executed) {
+                                $executedCount++;
+                                whatsapp_log('Successfully executed matching flow', 'info', [
+                                    'flow_id' => $flow->id,
+                                    'trigger_message' => $triggerMsg,
+                                    'executed_count' => $executedCount,
+                                ]);
+
+                                // Continue to check other flows instead of returning immediately
+                                // This allows multiple flows with the same trigger to execute
+                            }
                         }
                     }
                 }
             }
+
+            if ($executedCount > 0) {
+                whatsapp_log('All matching flows executed', 'info', [
+                    'trigger_message' => $triggerMsg,
+                    'total_executed' => $executedCount,
+                ]);
+
+                return true;
+            }
+
+            whatsapp_log('No matching flow executed successfully', 'info', [
+                'trigger_message' => $triggerMsg,
+            ]);
+
+            return false;
         }
 
         whatsapp_log('No flow execution determined', 'info');
@@ -2370,6 +2211,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             'is_button_response' => true,
         ];
 
+        $processedNodeIds = [];
         return $this->processConnectedNodesSequentially(
             $targetNodes,
             $flowData,
@@ -2378,7 +2220,8 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             $chatId,
             $contactNumber,
             $phoneNumberId,
-            $context
+            $context,
+            $processedNodeIds
         );
     }
 
@@ -2500,13 +2343,13 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
                 if ($interactionType === 'button') {
                     // Match button handles: "button-0", "button-1", etc.
-                    $expectedHandle = 'button-'.$buttonIndex;
+                    $expectedHandle = 'button-' . $buttonIndex;
                     if ($sourceHandle === $expectedHandle) {
                         $isMatch = true;
                     }
                 } elseif ($interactionType === 'list') {
                     // Match list item handles: "item-0-0", "item-1-2", etc.
-                    $expectedHandle = 'item-'.$sectionIndex.'-'.$itemIndex;
+                    $expectedHandle = 'item-' . $sectionIndex . '-' . $itemIndex;
                     if ($sourceHandle === $expectedHandle) {
                         $isMatch = true;
                     }
@@ -2567,7 +2410,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
         return $targetNodes;
     }
 
-    private function processConnectedNodesSequentially($nodes, $flowData, $contactData, $triggerMsg, $chatId, $contactNumber, $phoneNumberId, $context)
+    private function processConnectedNodesSequentially($nodes, $flowData, $contactData, $triggerMsg, $chatId, $contactNumber, $phoneNumberId, $context, &$processedNodeIds = [])
     {
         if (empty($nodes)) {
             return false;
@@ -2579,6 +2422,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 return $node['type'];
             }, $nodes),
             'chat_id' => $chatId,
+            'already_processed' => count($processedNodeIds),
         ]);
 
         // Sort nodes by their position for logical execution order
@@ -2594,6 +2438,11 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
         $stoppedAtInteractiveNode = false;
 
         foreach ($nodes as $index => $node) {
+            // Skip if already processed
+            if (in_array($node['id'], $processedNodeIds)) {
+                continue;
+            }
+
             try {
                 $nodeType = $node['type'];
 
@@ -2644,8 +2493,83 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
                 if ($result) {
                     $successCount++;
+                    $processedNodeIds[] = $node['id'];
 
-                    if ($isInteractiveNode) {
+                    // Check if this is a delay node that should queue next nodes
+                    if ($nodeType === 'delay' && is_array($result) && isset($result['data']['shouldQueueNextNodes']) && $result['data']['shouldQueueNextNodes']) {
+                        $delaySeconds = $result['data']['delaySeconds'] ?? 1;
+
+                        // Find the next connected nodes
+                        $nextNodes = $this->findDirectlyConnectedNodes($node['id'], $flowData);
+
+                        if (! empty($nextNodes)) {
+                            whatsapp_log('Delay node: Queueing next nodes for delayed execution', 'info', [
+                                'current_node' => $node['id'],
+                                'delay_seconds' => $delaySeconds,
+                                'next_nodes_count' => count($nextNodes),
+                                'will_execute_at' => now()->addSeconds($delaySeconds)->toDateTimeString(),
+                            ]);
+
+                            try {
+                                // CRITICAL: Make tenant current AND store in Context before dispatching
+                                // This ensures Spatie's multitenancy stores the tenant ID in Context
+                                // so it can be restored when the job executes
+                                $tenant = \App\Models\Tenant::find($this->tenant_id);
+                                if ($tenant) {
+                                    $tenant->makeCurrent();
+
+                                    // Also explicitly set in Context for queue jobs
+                                    \Illuminate\Support\Facades\Context::add(
+                                        config('multitenancy.current_tenant_context_key', 'tenantId'),
+                                        $this->tenant_id
+                                    );
+                                }
+
+                                // Dispatch job to process next nodes after delay
+                                ProcessDelayedFlowNodeJob::dispatch(
+                                    $nextNodes,
+                                    $flowData,
+                                    $contactData,
+                                    $triggerMsg,
+                                    $chatId,
+                                    $contactNumber,
+                                    $phoneNumberId,
+                                    $nodeContext,
+                                    $processedNodeIds,
+                                    $this->tenant_id,
+                                    $this->tenant_subdoamin
+                                )
+                                    ->delay(now()->addSeconds($delaySeconds))
+                                    ->onQueue('default');
+
+                                whatsapp_log('Delay node: Job dispatched successfully - ending this flow sequence', 'info', [
+                                    'node_id' => $node['id'],
+                                    'delay_seconds' => $delaySeconds,
+                                    'stopping_this_flow_sequence' => true,
+                                    'allows_other_flows' => true,
+                                    'tenant_id' => $this->tenant_id,
+                                ]);
+                            } catch (\Throwable $e) {
+                                whatsapp_log('Delay node: Job dispatch failed', 'error', [
+                                    'error' => $e->getMessage(),
+                                    'file' => $e->getFile(),
+                                    'line' => $e->getLine(),
+                                ]);
+
+                                // Don't break - continue with other nodes if dispatch fails
+                                continue;
+                            }
+
+                            // Break from this flow's sequence (but allows other flows to continue)
+                            // This is intentional - delay nodes should stop the current sequence
+                            // and resume execution after the delay period via the queued job
+                            break;
+                        } else {
+                            whatsapp_log('Delay node: No next nodes found to queue', 'warning', [
+                                'node_id' => $node['id'],
+                            ]);
+                        }
+                    } elseif ($isInteractiveNode) {
                         whatsapp_log('Interactive node processed successfully - STOPPING SEQUENCE', 'info', [
                             'node_id' => $node['id'],
                             'node_type' => $nodeType,
@@ -2654,11 +2578,54 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                         ]);
 
                         $stoppedAtInteractiveNode = true;
+                        break;
                     } else {
                         whatsapp_log('Non-interactive node processed successfully', 'info', [
                             'node_id' => $node['id'],
                             'node_type' => $nodeType,
                         ]);
+
+                        // For non-interactive nodes, find and process connected nodes
+                        $nextNodes = $this->findDirectlyConnectedNodes($node['id'], $flowData);
+
+                        if (! empty($nextNodes)) {
+                            whatsapp_log('Found next nodes after non-interactive node', 'info', [
+                                'current_node' => $node['id'],
+                                'next_nodes_count' => count($nextNodes),
+                                'next_node_types' => array_map(function ($n) {
+                                    return $n['type'];
+                                }, $nextNodes),
+                            ]);
+
+                            // Recursively process the next connected nodes
+                            $nextResult = $this->processConnectedNodesSequentially(
+                                $nextNodes,
+                                $flowData,
+                                $contactData,
+                                $triggerMsg,
+                                $chatId,
+                                $contactNumber,
+                                $phoneNumberId,
+                                $nodeContext,
+                                $processedNodeIds
+                            );
+
+                            if ($nextResult) {
+                                $successCount++;
+                            }
+
+                            // Check if any next node was interactive (would stop the sequence)
+                            foreach ($nextNodes as $nextNode) {
+                                if (in_array($nextNode['type'], ['buttonMessage', 'listMessage'])) {
+                                    $stoppedAtInteractiveNode = true;
+                                    break;
+                                }
+                            }
+
+                            if ($stoppedAtInteractiveNode) {
+                                break;
+                            }
+                        }
                     }
                 } else {
                     whatsapp_log('Node processing failed', 'warning', [
@@ -2669,7 +2636,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 }
 
                 // Add delay between non-interactive messages only
-                if (! $isInteractiveNode && $index < count($nodes) - 1) {
+                if (! $isInteractiveNode && $nodeType !== 'delay' && $index < count($nodes) - 1) {
                     usleep(500000); // 500ms delay
                 }
             } catch (\Exception $e) {
@@ -2692,6 +2659,50 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
         return $successCount > 0;
     }
 
+    /**
+     * Set tenant context for multi-tenancy support (used by queue jobs)
+     */
+    public function setTenantContext(int $tenantId, string $tenantSubdomain): void
+    {
+        $this->tenant_id = $tenantId;
+        $this->wa_tenant_id = $tenantId;
+        $this->tenant_subdoamin = $tenantSubdomain;
+    }
+
+    /**
+     * Process delayed nodes (called from queue job after delay expires)
+     */
+    public function processDelayedNodes(
+        array $nodes,
+        array $flowData,
+        array $contactData,
+        string $triggerMsg,
+        int $chatId,
+        string $contactNumber,
+        string $phoneNumberId,
+        array $context,
+        array $processedNodeIds = []
+    ): bool {
+        whatsapp_log('Processing delayed nodes from queue job', 'info', [
+            'nodes_count' => count($nodes),
+            'chat_id' => $chatId,
+            'contact_number' => $contactNumber,
+            'already_processed' => count($processedNodeIds),
+        ]);
+
+        return $this->processConnectedNodesSequentially(
+            $nodes,
+            $flowData,
+            $contactData,
+            $triggerMsg,
+            $chatId,
+            $contactNumber,
+            $phoneNumberId,
+            $context,
+            $processedNodeIds
+        );
+    }
+
     private function executeFlowWithMultipleTriggers($flow, $triggerNodes, $contactData, $triggerMsg, $chatId, $contactNumber, $phoneNumberId)
     {
         $flowData = json_decode($flow->flow_data, true);
@@ -2705,13 +2716,22 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             'trigger_message' => $triggerMsg,
         ];
 
-        $totalSuccessCount = 0;
+        whatsapp_log('Multiple triggers matched - processing ONLY the first one', 'info', [
+            'total_matched_triggers' => count($triggerNodes),
+            'flow_id' => $flow->id,
+            'flow_name' => $flow->name ?? 'Unnamed',
+            'trigger_message' => $triggerMsg,
+        ]);
 
-        // Process each matching trigger
-        foreach ($triggerNodes as $triggerNode) {
+        // Process ONLY the first matching trigger to avoid duplicate messages
+        // If multiple triggers match the same condition, we execute only the first one
+        foreach ($triggerNodes as $triggerIndex => $triggerNode) {
             whatsapp_log('Processing trigger node', 'debug', [
+                'trigger_index' => $triggerIndex + 1,
+                'total_triggers' => count($triggerNodes),
                 'trigger_id' => $triggerNode['id'],
                 'flow_id' => $flow->id,
+                'flow_name' => $flow->name ?? 'Unnamed',
                 'trigger_message' => $triggerMsg,
             ]);
 
@@ -2728,6 +2748,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 ]);
 
                 // Process connected nodes for this trigger
+                $processedNodes = []; // Start with empty processed nodes list
                 $result = $this->processConnectedNodesSequentially(
                     $connectedNodes,
                     $flowData,
@@ -2736,16 +2757,20 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                     $chatId,
                     $contactNumber,
                     $phoneNumberId,
-                    $context
+                    $context,
+                    $processedNodes
                 );
 
                 if ($result) {
-                    $totalSuccessCount++;
-                }
+                    whatsapp_log('Successfully processed first matching trigger - stopping execution', 'info', [
+                        'trigger_id' => $triggerNode['id'],
+                        'trigger_index' => $triggerIndex + 1,
+                        'skipped_triggers' => count($triggerNodes) - ($triggerIndex + 1),
+                    ]);
 
-                // Add delay between different trigger executions
-                if (count($triggerNodes) > 1) {
-                    usleep(800000); // 800ms delay between different triggers
+                    // Return immediately after first successful execution
+                    // This prevents duplicate messages when multiple triggers match
+                    return true;
                 }
             } else {
                 whatsapp_log('No connected nodes found for trigger', 'warning', [
@@ -2755,13 +2780,13 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             }
         }
 
-        whatsapp_log('Completed processing all matching triggers', 'info', [
+        whatsapp_log('No triggers executed successfully', 'warning', [
             'total_triggers' => count($triggerNodes),
-            'successful_triggers' => $totalSuccessCount,
             'flow_id' => $flow->id,
+            'flow_name' => $flow->name ?? 'Unnamed',
         ]);
 
-        return $totalSuccessCount > 0;
+        return false;
     }
 
     private function buildButtonTargetMappings($sourceNodeId, $flowData)
@@ -2792,8 +2817,8 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                         $buttonIndex = $matches[1];
 
                         // Create multiple mapping formats for compatibility
-                        $uniqueButtonId = $sourceNodeId.'_btn_'.$buttonIndex;
-                        $genericButtonId = 'button'.($buttonIndex + 1);
+                        $uniqueButtonId = $sourceNodeId . '_btn_' . $buttonIndex;
+                        $genericButtonId = 'button' . ($buttonIndex + 1);
 
                         $mappings[$uniqueButtonId] = $targetNodeId;
                         $mappings[$genericButtonId] = $targetNodeId;
@@ -2851,7 +2876,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                         $itemIndex = $matches[2];
 
                         // Create mapping format for list items
-                        $listItemId = $sourceNodeId.'_item_'.$sectionIndex.'_'.$itemIndex;
+                        $listItemId = $sourceNodeId . '_item_' . $sectionIndex . '_' . $itemIndex;
                         $mappings[$listItemId] = $targetNodeId;
 
                         whatsapp_log('Added list item mapping', 'debug', [
@@ -2898,7 +2923,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
         ]);
 
         try {
-            do_action('before_send_flow_message', ['contact_number' => $contactNumber, 'node_data' => $nodeData, 'node_type' => $nodeType, 'phone_number_id' => $phoneNumberId, 'contact_data' => $contactData, 'context' => $context, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdomain]);
+            do_action('before_send_flow_message', ['contact_number' => $contactNumber, 'node_data' => $nodeData, 'node_type' => $nodeType, 'phone_number_id' => $phoneNumberId, 'contact_data' => $contactData, 'context' => $context, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdoamin]);
             // Use the WhatsApp trait methods directly
             $result = $this->sendFlowMessage(
                 $contactNumber,
@@ -2909,17 +2934,53 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 $context
             );
 
+            // Helper to get shouldQueueNextNodes from result data (handles both array and object)
+            $shouldQueue = false;
+            if (isset($result['data'])) {
+                if (is_array($result['data'])) {
+                    $shouldQueue = $result['data']['shouldQueueNextNodes'] ?? false;
+                } elseif (is_object($result['data'])) {
+                    $shouldQueue = $result['data']->shouldQueueNextNodes ?? false;
+                }
+            }
+
             whatsapp_log('sendFlowMessage result', 'debug', [
                 'node_id' => $node['id'],
                 'node_type' => $nodeType,
                 'result_status' => $result['status'] ?? 'unknown',
                 'has_data' => isset($result['data']),
                 'response_code' => $result['responseCode'] ?? 'unknown',
+                'should_queue' => $shouldQueue,
             ]);
 
             // Check if sending was successful
             if ($result && isset($result['status']) && $result['status']) {
-                // Store the message
+                // For delay nodes, return the result with queueing flag
+                if ($nodeType === 'delay') {
+                    whatsapp_log('Delay node processed successfully - will be handled by processConnectedNodesSequentially', 'info', [
+                        'node_id' => $node['id'],
+                        'node_type' => $nodeType,
+                        'chat_id' => $chatId,
+                        'should_queue_next' => $shouldQueue,
+                    ]);
+
+                    return $result;
+                }
+
+                // For updateContact nodes, don't store as a message - just return success
+                if ($nodeType === 'updateContact') {
+                    whatsapp_log('Update Contact node processed successfully', 'info', [
+                        'node_id' => $node['id'],
+                        'node_type' => $nodeType,
+                        'chat_id' => $chatId,
+                        'update_summary' => $result['data']['update_summary'] ?? 'N/A',
+                        'updated_fields' => $result['data']['updated_fields'] ?? [],
+                    ]);
+
+                    return true;
+                }
+
+                // Store the message for all other node types
                 $storeResult = $this->storeFlowMessage($result, $chatId, $contactNumber, $contactData, $nodeType, $nodeData, $context);
 
                 whatsapp_log('Node processed and stored successfully', 'info', [
@@ -3000,7 +3061,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             $messageId = $this->extractMessageIdFromResult($result);
 
             if (! $messageId) {
-                $messageId = uniqid('flow_msg_'.$nodeType.'_');
+                $messageId = uniqid('flow_msg_' . $nodeType . '_');
             }
 
             // Build the HTML content for chat display using existing pattern
@@ -3025,7 +3086,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 'tenant_id' => $this->tenant_id,
             ];
 
-            $message_db_id = ChatMessage::fromTenant($this->tenant_subdomain)->insertGetId($chat_message);
+            $message_db_id = ChatMessage::fromTenant($this->tenant_subdoamin)->insertGetId($chat_message);
 
             // Trigger Pusher notification (same as existing pattern)
             // Flow messages are outgoing system messages, so should not trigger desktop notifications
@@ -3119,7 +3180,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             case 'textMessage':
                 $text = $this->replaceFlowVariables($output['reply_text'] ?? '', $contactData);
 
-                return '<p>'.nl2br(decodeWhatsAppSigns(e($text))).'</p>';
+                return '<p>' . nl2br(decodeWhatsAppSigns(e($text))) . '</p>';
 
             case 'buttonMessage':
                 $text = $this->replaceFlowVariables($output['reply_text'] ?? '', $contactData);
@@ -3130,36 +3191,36 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 $buttonHtml = "<div class='flex flex-col mt-2 space-y-2'>";
 
                 if ($button1) {
-                    $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400'>".e($button1).'</button>';
+                    $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400'>" . e($button1) . '</button>';
                 }
                 if ($button2) {
-                    $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400'>".e($button2).'</button>';
+                    $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400'>" . e($button2) . '</button>';
                 }
                 if ($button3) {
-                    $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400'>".e($button3).'</button>';
+                    $buttonHtml .= "<button class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400'>" . e($button3) . '</button>';
                 }
 
                 $buttonHtml .= '</div>';
 
-                return '<p>'.nl2br(decodeWhatsAppSigns(e($text))).'</p>'.$buttonHtml;
+                return '<p>' . nl2br(decodeWhatsAppSigns(e($text))) . '</p>' . $buttonHtml;
 
             case 'listMessage':
                 $text = $this->replaceFlowVariables($output['reply_text'] ?? '', $contactData);
                 $sections = $output['sections'] ?? [];
 
-                $listHtml = '<p>'.nl2br(decodeWhatsAppSigns(e($text))).'</p>';
+                $listHtml = '<p>' . nl2br(decodeWhatsAppSigns(e($text))) . '</p>';
                 $listHtml .= "<div class='bg-gray-50 rounded-lg p-3 mt-2 dark:bg-gray-800'>";
-                $listHtml .= "<div class='text-sm text-gray-600 dark:text-gray-400 mb-2'>📋 ".($output['buttonText'] ?? 'Select Option').'</div>';
+                $listHtml .= "<div class='text-sm text-gray-600 dark:text-gray-400 mb-2'>📋 " . ($output['buttonText'] ?? 'Select Option') . '</div>';
 
                 foreach ($sections as $section) {
                     $listHtml .= "<div class='mb-2'>";
-                    $listHtml .= "<div class='font-semibold text-xs text-gray-700 dark:text-gray-300'>".e($section['title'] ?? '').'</div>';
+                    $listHtml .= "<div class='font-semibold text-xs text-gray-700 dark:text-gray-300'>" . e($section['title'] ?? '') . '</div>';
 
                     foreach ($section['items'] as $item) {
                         $listHtml .= "<div class='bg-white rounded p-2 mt-1 border-l-2 border-success-500 dark:bg-gray-700'>";
-                        $listHtml .= "<div class='font-medium text-sm'>".e($item['title'] ?? '').'</div>';
+                        $listHtml .= "<div class='font-medium text-sm'>" . e($item['title'] ?? '') . '</div>';
                         if (! empty($item['description'])) {
-                            $listHtml .= "<div class='text-xs text-gray-500 dark:text-gray-400'>".e($item['description']).'</div>';
+                            $listHtml .= "<div class='text-xs text-gray-500 dark:text-gray-400'>" . e($item['description']) . '</div>';
                         }
                         $listHtml .= '</div>';
                     }
@@ -3179,15 +3240,15 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
                 $ctaHtml = '';
                 if ($header) {
-                    $ctaHtml .= "<span class='font-semibold mb-1'>".nl2br(decodeWhatsAppSigns(e($header))).'</span><br>';
+                    $ctaHtml .= "<span class='font-semibold mb-1'>" . nl2br(decodeWhatsAppSigns(e($header))) . '</span><br>';
                 }
-                $ctaHtml .= '<p>'.nl2br(decodeWhatsAppSigns(e($text))).'</p>';
+                $ctaHtml .= '<p>' . nl2br(decodeWhatsAppSigns(e($text))) . '</p>';
                 if ($footer) {
-                    $ctaHtml .= "<span class='text-gray-500 dark:text-gray-400 text-xs mb-2'>".nl2br(e($footer)).'</span><br>';
+                    $ctaHtml .= "<span class='text-gray-500 dark:text-gray-400 text-xs mb-2'>" . nl2br(e($footer)) . '</span><br>';
                 }
 
                 $ctaHtml .= "<div class='mt-2'>";
-                $ctaHtml .= "<a href='".e($buttonLink)."' target='_blank' class='bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-md inline-block text-xs font-medium transition'>".e($buttonText).'</a>';
+                $ctaHtml .= "<a href='" . e($buttonLink) . "' target='_blank' class='bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-md inline-block text-xs font-medium transition'>" . e($buttonText) . '</a>';
                 $ctaHtml .= '</div>';
 
                 return $ctaHtml;
@@ -3201,24 +3262,24 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
 
                 switch ($mediaType) {
                     case 'image':
-                        $mediaHtml = "<a href='".e($mediaUrl)."' data-lightbox='image-group'>";
-                        $mediaHtml .= "<img src='".e($mediaUrl)."' class='rounded-lg w-full mb-2 max-w-sm'>";
+                        $mediaHtml = "<a href='" . e($mediaUrl) . "' data-lightbox='image-group'>";
+                        $mediaHtml .= "<img src='" . e($mediaUrl) . "' class='rounded-lg w-full mb-2 max-w-sm'>";
                         $mediaHtml .= '</a>';
                         break;
                     case 'video':
-                        $mediaHtml = "<video src='".e($mediaUrl)."' controls class='rounded-lg w-full max-w-sm'></video>";
+                        $mediaHtml = "<video src='" . e($mediaUrl) . "' controls class='rounded-lg w-full max-w-sm'></video>";
                         break;
                     case 'audio':
-                        $mediaHtml = "<audio controls class='w-64'><source src='".e($mediaUrl)."' type='audio/mpeg'></audio>";
+                        $mediaHtml = "<audio controls class='w-64'><source src='" . e($mediaUrl) . "' type='audio/mpeg'></audio>";
                         break;
                     case 'document':
                         $filename = $output['media_filename'] ?? basename($mediaUrl);
-                        $mediaHtml = "<a href='".e($mediaUrl)."' target='_blank' class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400'>📄 ".e($filename).'</a>';
+                        $mediaHtml = "<a href='" . e($mediaUrl) . "' target='_blank' class='bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400'>📄 " . e($filename) . '</a>';
                         break;
                 }
 
                 if ($caption) {
-                    $mediaHtml .= "<p class='mt-2'>".nl2br(decodeWhatsAppSigns(e($caption))).'</p>';
+                    $mediaHtml .= "<p class='mt-2'>" . nl2br(decodeWhatsAppSigns(e($caption))) . '</p>';
                 }
 
                 return $mediaHtml;
@@ -3233,16 +3294,16 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 $locationHtml .= "<div class='flex items-center mb-2'>";
                 $locationHtml .= "<span class='text-lg mr-2'>📍</span>";
                 $locationHtml .= '<div>';
-                $locationHtml .= "<div class='font-semibold'>".e($name).'</div>';
+                $locationHtml .= "<div class='font-semibold'>" . e($name) . '</div>';
                 if ($address) {
-                    $locationHtml .= "<div class='text-sm text-gray-600 dark:text-gray-400'>".e($address).'</div>';
+                    $locationHtml .= "<div class='text-sm text-gray-600 dark:text-gray-400'>" . e($address) . '</div>';
                 }
                 $locationHtml .= '</div>';
                 $locationHtml .= '</div>';
 
                 if ($latitude && $longitude) {
-                    $mapUrl = 'https://www.google.com/maps?q='.urlencode($latitude.','.$longitude);
-                    $locationHtml .= "<a href='".$mapUrl."' target='_blank' class='text-info-500 text-sm hover:underline'>View on Map</a>";
+                    $mapUrl = 'https://www.google.com/maps?q=' . urlencode($latitude . ',' . $longitude);
+                    $locationHtml .= "<a href='" . $mapUrl . "' target='_blank' class='text-info-500 text-sm hover:underline'>View on Map</a>";
                 }
 
                 $locationHtml .= '</div>';
@@ -3253,19 +3314,19 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 $contacts = $output['contacts'] ?? [];
 
                 $contactHtml = "<div class='bg-gray-50 rounded-lg p-3 dark:bg-gray-800'>";
-                $contactHtml .= "<div class='text-sm text-gray-600 dark:text-gray-400 mb-3 font-medium flex items-center gap-1'>👤 Contact".(count($contacts) > 1 ? 's' : '').'</div>';
+                $contactHtml .= "<div class='text-sm text-gray-600 dark:text-gray-400 mb-3 font-medium flex items-center gap-1'>👤 Contact" . (count($contacts) > 1 ? 's' : '') . '</div>';
 
                 foreach ($contacts as $contact) {
                     $contactHtml .= "<div class='bg-white dark:bg-gray-700 rounded-lg p-3 space-y-1.5'>";
-                    $contactHtml .= "<div class='text-base font-semibold text-gray-800 dark:text-gray-100'>".e(($contact['firstName'] ?? '').' '.($contact['lastName'] ?? '')).'</div>';
+                    $contactHtml .= "<div class='text-base font-semibold text-gray-800 dark:text-gray-100'>" . e(($contact['firstName'] ?? '') . ' ' . ($contact['lastName'] ?? '')) . '</div>';
                     if (! empty($contact['phone'])) {
-                        $contactHtml .= "<div class='text-sm text-gray-600 dark:text-gray-300'>📞 ".e($contact['phone']).'</div>';
+                        $contactHtml .= "<div class='text-sm text-gray-600 dark:text-gray-300'>📞 " . e($contact['phone']) . '</div>';
                     }
                     if (! empty($contact['email'])) {
-                        $contactHtml .= "<div class='text-sm text-gray-600 dark:text-gray-300'>✉️ ".e($contact['email']).'</div>';
+                        $contactHtml .= "<div class='text-sm text-gray-600 dark:text-gray-300'>✉️ " . e($contact['email']) . '</div>';
                     }
                     if (! empty($contact['company'])) {
-                        $contactHtml .= "<div class='text-sm text-gray-600 dark:text-gray-300'>🏢 ".e($contact['company']).'</div>';
+                        $contactHtml .= "<div class='text-sm text-gray-600 dark:text-gray-300'>🏢 " . e($contact['company']) . '</div>';
                     }
                     $contactHtml .= '</div>';
                 }
@@ -3275,7 +3336,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 return $contactHtml;
 
             default:
-                return '<p>Flow message: '.e($nodeType).'</p>';
+                return '<p>Flow message: ' . e($nodeType) . '</p>';
         }
     }
 
@@ -3291,7 +3352,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 $text = $this->replaceFlowVariables($output['reply_text'] ?? '', $contactData);
                 $buttons = array_filter([$output['button1'] ?? '', $output['button2'] ?? '', $output['button3'] ?? '']);
 
-                return $text.(count($buttons) > 0 ? ' ['.count($buttons).' buttons]' : '');
+                return $text . (count($buttons) > 0 ? ' [' . count($buttons) . ' buttons]' : '');
 
             case 'listMessage':
                 $text = $this->replaceFlowVariables($output['reply_text'] ?? '', $contactData);
@@ -3300,16 +3361,16 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                     return count($section['items'] ?? []);
                 }, $sections));
 
-                return $text.' [List with '.$totalItems.' options]';
+                return $text . ' [List with ' . $totalItems . ' options]';
 
             case 'callToAction':
-                return $this->replaceFlowVariables($output['reply_text'] ?? '', $contactData).' [CTA Button]';
+                return $this->replaceFlowVariables($output['reply_text'] ?? '', $contactData) . ' [CTA Button]';
 
             case 'mediaMessage':
                 $caption = $this->replaceFlowVariables($output['media_caption'] ?? '', $contactData);
                 $mediaType = $output['media_type'] ?? 'media';
 
-                return $caption ?: '['.ucfirst($mediaType).' message]';
+                return $caption ?: '[' . ucfirst($mediaType) . ' message]';
 
             case 'locationMessage':
                 return $output['location_name'] ?? 'Location shared';
@@ -3317,7 +3378,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
             case 'contactMessage':
                 $contacts = $output['contacts'] ?? [];
 
-                return 'Contact'.(count($contacts) > 1 ? 's' : '').' shared ('.count($contacts).')';
+                return 'Contact' . (count($contacts) > 1 ? 's' : '') . ' shared (' . count($contacts) . ')';
 
             default:
                 return 'Flow message';
@@ -3357,7 +3418,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
     private function updateChatLastMessage($chatId, $plainTextMessage)
     {
         try {
-            Chat::fromTenant($this->tenant_subdomain)->where('id', $chatId)->update([
+            Chat::fromTenant($this->tenant_subdoamin)->where('id', $chatId)->update([
                 'last_message' => $plainTextMessage,
                 'last_msg_time' => now(),
                 'updated_at' => now(),
@@ -3486,7 +3547,7 @@ protected function getCatalogProductName(string $catalogId, string $retailerId):
                 return true;
             }
 
-            $this->tenant_subdomain = tenant_subdomain_by_tenant_id($this->tenant_id);
+            $this->tenant_subdoamin = tenant_subdomain_by_tenant_id($this->tenant_id);
 
             try {
                 $value = $change['value'];

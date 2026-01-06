@@ -355,7 +355,7 @@ class ContactController extends Controller
                             return $query->where('tenant_id', $tenant_id);
                         }),
                 ],
-                'type' => 'required|in:lead,customer',
+                'type' => 'required|in:lead,customer,guest',
                 'source_id' => [
                     'required',
                     'integer',
@@ -668,7 +668,7 @@ class ContactController extends Controller
                             return $query->where('tenant_id', $tenant_id);
                         }),
                 ],
-                'type' => 'required|in:lead,customer',
+                'type' => 'required|in:lead,customer,guest',
                 'source_id' => 'nullable|integer',
                 'status_id' => 'nullable|integer|max:50',
                 'description' => 'nullable|string',

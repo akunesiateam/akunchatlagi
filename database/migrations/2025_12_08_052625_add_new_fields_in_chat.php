@@ -18,7 +18,7 @@ return new class extends Migration
         $subdomains = DB::table('tenants')->pluck('subdomain');
 
         foreach ($subdomains as $subdomain) {
-            $tableName = $subdomain . '_chats';
+            $tableName = $subdomain.'_chats';
 
             if (Schema::hasTable($tableName)) {
                 // Add session_reset_sent
@@ -52,7 +52,7 @@ return new class extends Migration
         $subdomains = DB::table('tenants')->pluck('subdomain');
 
         foreach ($subdomains as $subdomain) {
-            $tableName = $subdomain . '_chats';
+            $tableName = $subdomain.'_chats';
 
             if (Schema::hasTable($tableName)) {
 

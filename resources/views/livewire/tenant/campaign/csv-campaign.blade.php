@@ -283,9 +283,9 @@
                 <x-slot:header>
                     <div class="flex items-center">
                         <x-heroicon-o-megaphone class="w-6 h-6 mr-2 text-primary-600 dark:text-primary-400" />
-                        <h1 class="text-xl font-semibold text-slate-700 dark:text-slate-300 ">
+                        <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300 ">
                             {{ t('campaign') }}
-                        </h1>
+                        </h3>
                     </div>
                 </x-slot:header>
                 <x-slot:content>

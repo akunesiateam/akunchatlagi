@@ -60,9 +60,9 @@
                 {{-- Left Side --}}
                 <x-card class="rounded-lg">
                     <x-slot:header>
-                        <h1 class="text-xl font-semibold text-slate-700 dark:text-slate-300 ">
+                        <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300 ">
                             {{ t('message_bot') }}
-                        </h1>
+                        </h3>
                     </x-slot:header>
                     <x-slot:content>
                         <div class="col-span-3">
@@ -247,9 +247,9 @@
                 {{-- Right Side --}}
                 <x-card class="rounded-lg">
                     <x-slot:header>
-                        <h1 class="text-xl font-semibold text-slate-700 dark:text-slate-300 ">
+                        <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300">
                             {{ t('message_bot_options') }}
-                        </h1>
+                        </h3>
                     </x-slot:header>
                     <x-slot:content>
                         <div x-data="{ activeTab: 'option1' }" class="space-y-6" x-cloak>

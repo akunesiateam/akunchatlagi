@@ -258,7 +258,7 @@ class TenantCacheManager
                 $table->string('firstname', 191);
                 $table->string('lastname', 191);
                 $table->string('company', 191)->nullable();
-                $table->enum('type', ['lead', 'customer'])->default('lead');
+                $table->enum('type', ['lead', 'customer', 'guest'])->default('lead');
                 $table->text('description')->nullable();
                 $table->integer('country_id')->nullable();
                 $table->string('zip', 15)->nullable();

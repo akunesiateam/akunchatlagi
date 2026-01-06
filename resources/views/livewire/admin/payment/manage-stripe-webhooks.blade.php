@@ -7,10 +7,10 @@
                 <div x-data="{ selectedEvents: @entangle('selectedEvents') }">
 
                     <x-slot:header>
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                        <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                             {{ t('configure_stripe_webhooks') }}
                         </h3>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             {{ t('setup_webhook_receive_real_time_notification') }}
                         </p>
                     </x-slot:header>
@@ -64,8 +64,8 @@
         <!-- Local Webhooks Card -->
         <x-card class="mt-6">
             <x-slot:header>
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ t('local_webhook_records') }}</h3>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{{ t('local_webhook_records') }}</h3>
+                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                     {{ t('webhook_configurations_stored_in_your_application_database') }}
                 </p>
             </x-slot:header>
@@ -180,11 +180,11 @@
             <x-slot:header>
                 <div class="flex flex-col sm:flex-row gap-4 sm:gap-0 sm:items-center justify-between">
                     <div>
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+                        <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                             <x-heroicon-o-exclamation-circle class="w-5 h-5 mr-2 text-primary-500" />
                             {{ t('stripe_webhook_details') }}
                         </h3>
-                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             {{ t('information_about_your_configured_stripe_webhooks') }}
                         </p>
                     </div>

@@ -2,6 +2,7 @@
 
 namespace App\Traits;
 
+use App\Models\Tenant\Contact;
 use App\Models\Tenant\WhatsappTemplate;
 use App\Models\Tenant\WmActivityLog;
 use Endroid\QrCode\Color\Color;
@@ -14,6 +15,7 @@ use Endroid\QrCode\RoundBlockSizeMode;
 use Endroid\QrCode\Writer\PngWriter;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Netflie\WhatsAppCloudApi\Message\ButtonReply\Button;
@@ -97,12 +99,12 @@ trait WhatsApp
         // For static context, use regular get_setting
         $settings = get_batch_settings(['whatsapp.api_version']);
 
-        return $settings['whatsapp.api_version'] ?? 'v21.0';
+        return 'v23.0';
     }
 
     protected static function getBaseUrl(): string
     {
-        return self::$facebookAPI.self::getApiVersion().'/';
+        return self::$facebookAPI . self::getApiVersion() . '/';
     }
 
     protected function handleApiError(Throwable $e, string $operation, array $context = []): array
@@ -119,9 +121,9 @@ trait WhatsApp
         // Get user-friendly message based on debug mode
         $userMessage = config('app.debug')
             ? $e->getMessage()
-            : __($operation, ['default' => 'An error occurred during '.$operation]);
+            : __($operation, ['default' => 'An error occurred during ' . $operation]);
 
-        whatsapp_log("[WhatsApp {$operation} Error] ".$e->getMessage(), 'error', $errorContext, $e, $tenant_id);
+        whatsapp_log("[WhatsApp {$operation} Error] " . $e->getMessage(), 'error', $errorContext, $e, $tenant_id);
 
         return [
             'status' => false,
@@ -193,7 +195,7 @@ trait WhatsApp
     public function getPhoneNumbers(): array
     {
         try {
-            $response = Http::get(self::getBaseUrl()."{$this->getAccountID()}/phone_numbers", [
+            $response = Http::get(self::getBaseUrl() . "{$this->getAccountID()}/phone_numbers", [
                 'access_token' => $this->getToken(),
             ]);
 
@@ -221,7 +223,7 @@ trait WhatsApp
             $tenant_id = $this->getWaTenantId();
 
             $templates = [];
-            $url = self::getBaseUrl()."{$accountId}/message_templates?limit=100&access_token={$accessToken}";
+            $url = self::getBaseUrl() . "{$accountId}/message_templates?limit=100&access_token={$accessToken}";
 
             // Fetch all templates using pagination
             do {
@@ -272,6 +274,14 @@ trait WhatsApp
                 $headerVariableValue = null;
                 $headerFileUrl = null;
                 $bodyVariableValue = null;
+                $templateType = 'header'; // Default template type
+                $cardsJson = null;
+
+                // NEW: Initialize authentication-specific fields
+                $messageTTL = $templateData['message_send_ttl_seconds'] ?? null;
+                $addSecurityRec = false;
+                $codeExpiryMinutes = null;
+                $otpButtonConfig = null;
 
                 // Loop through components
                 foreach ($templateData['components'] as $component) {
@@ -306,16 +316,80 @@ trait WhatsApp
                         if (isset($component['example']['body_text'])) {
                             $bodyVariableValue = $component['example']['body_text'];
                         }
+
+                        // NEW: Extract add_security_recommendation from BODY
+                        if (isset($component['add_security_recommendation'])) {
+                            $addSecurityRec = (bool) $component['add_security_recommendation'];
+                        }
                     }
 
                     if ($type === 'FOOTER' && isset($component['text'])) {
                         $footerText = $component['text'];
                         $footerParamsCount = preg_match_all('/{{(.*?)}}/i', $footerText, $matches);
                         $components['FOOTER'] = $footerText;
+
+                        // NEW: Extract code_expiration_minutes from FOOTER
+                        if (isset($component['code_expiration_minutes'])) {
+                            $codeExpiryMinutes = (int) $component['code_expiration_minutes'];
+                        }
                     }
 
                     if ($type === 'BUTTONS') {
+                        $buttons = $component['buttons'] ?? [];
+
+                        // NEW: Handle OTP button type
+                        foreach ($buttons as $button) {
+                            if (isset($button['type']) && $button['type'] === 'OTP') {
+                                $otpButtonConfig = [
+                                    'type' => 'OTP',
+                                    'otp_type' => $button['otp_type'] ?? 'COPY_CODE',
+                                    'text' => $button['text'] ?? 'Copy Code',
+                                    'autofill_text' => $button['autofill_text'] ?? null,
+                                    'package_name' => $button['package_name'] ?? null,
+                                    'signature_hash' => $button['signature_hash'] ?? null,
+                                ];
+                                break; // Only process first OTP button
+                            }
+                        }
+
                         $components['BUTTONS'] = isset($component['buttons']) ? json_encode($component['buttons']) : null;
+                    }
+
+                    // Handle CAROUSEL components for media card carousel templates
+                    if ($type === 'CAROUSEL') {
+                        $templateType = 'carousel';
+                        $cardsJson = json_encode($component['cards'] ?? []);
+
+                        // Process carousel cards for additional information
+                        if (isset($component['cards']) && is_array($component['cards'])) {
+                            foreach ($component['cards'] as $cardIndex => $card) {
+                                if (isset($card['components']) && is_array($card['components'])) {
+                                    foreach ($card['components'] as $cardComponent) {
+                                        $cardComponentType = $cardComponent['type'] ?? null;
+
+                                        // Extract card header information for the first card (as reference)
+                                        if ($cardIndex === 0 && $cardComponentType === 'HEADER') {
+                                            $cardFormat = $cardComponent['format'] ?? null;
+                                            if ($cardFormat && ! isset($components['TYPE'])) {
+                                                $components['TYPE'] = $cardFormat;
+                                            }
+
+                                            // Get card header example for file URL
+                                            if (isset($cardComponent['example']['header_handle'][0])) {
+                                                $headerFileUrl = $cardComponent['example']['header_handle'][0];
+                                            }
+                                        }
+
+                                        // Extract button information from the first card (as reference)
+                                        if ($cardIndex === 0 && $cardComponentType === 'BUTTONS') {
+                                            if (! isset($components['BUTTONS']) && isset($cardComponent['buttons'])) {
+                                                $components['BUTTONS'] = json_encode($cardComponent['buttons']);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -329,7 +403,7 @@ trait WhatsApp
                 $template['body_params_count'] = $bodyParamsCount;
                 $template['footer_params_count'] = $footerParamsCount;
 
-                // New fields
+                // Existing fields
                 $template['header_file_url'] = $headerFileUrl;
 
                 // Always save as JSON string
@@ -340,6 +414,15 @@ trait WhatsApp
                 $template['body_variable_value'] = $bodyVariableValue
                     ? json_encode($bodyVariableValue)
                     : null;
+
+                // NEW: Authentication template specific fields
+                $template['message_send_ttl_seconds'] = $messageTTL;
+                $template['add_security_recommendation'] = $addSecurityRec;
+                $template['code_expiration_minutes'] = $codeExpiryMinutes;
+                $template['otp_button_config'] = $otpButtonConfig;
+                // New fields for template type and carousel cards
+                $template['template_type'] = $templateType;
+                $template['cards_json'] = $cardsJson;
 
                 // Save or update
                 WhatsappTemplate::updateOrCreate(
@@ -384,7 +467,7 @@ trait WhatsApp
         $accessToken = $this->getToken();
         $accountId = $this->getAccountID();
         $tenant_id = $this->getWaTenantId();
-        $url = self::$facebookAPI."/$accountId/subscribed_apps?access_token=".$accessToken;
+        $url = self::$facebookAPI . "/$accountId/subscribed_apps?access_token=" . $accessToken;
 
         try {
             $response = Http::post($url);
@@ -403,7 +486,7 @@ trait WhatsApp
                 'data' => $data,
             ];
         } catch (\Throwable $th) {
-            whatsapp_log('Failed to subscribe webhook: '.$th->getMessage(), 'error', [
+            whatsapp_log('Failed to subscribe webhook: ' . $th->getMessage(), 'error', [
                 'url' => $url,
                 'account_id' => $accountId,
                 'tenant_id' => $tenant_id,
@@ -411,7 +494,7 @@ trait WhatsApp
 
             return [
                 'status' => false,
-                'message' => 'Something went wrong: '.$th->getMessage(),
+                'message' => 'Something went wrong: ' . $th->getMessage(),
             ];
         }
     }
@@ -421,7 +504,7 @@ trait WhatsApp
         $accessToken = $this->getToken();
         $tenantId = $this->getWaTenantId();
 
-        $url = self::$facebookAPI.self::getApiVersion()."/{$phoneNumberId}/register";
+        $url = self::$facebookAPI . self::getApiVersion() . "/{$phoneNumberId}/register";
 
         try {
             $response = Http::withToken($accessToken)
@@ -444,7 +527,7 @@ trait WhatsApp
                 'data' => $data,
             ];
         } catch (\Throwable $th) {
-            whatsapp_log('Failed to register phone number: '.$th->getMessage(), 'error', [
+            whatsapp_log('Failed to register phone number: ' . $th->getMessage(), 'error', [
                 'url' => $url,
                 'phone_number_id' => $phoneNumberId,
                 'tenant_id' => $tenantId,
@@ -452,7 +535,7 @@ trait WhatsApp
 
             return [
                 'status' => false,
-                'message' => 'Something went wrong: '.$th->getMessage(),
+                'message' => 'Something went wrong: ' . $th->getMessage(),
             ];
         }
     }
@@ -462,13 +545,14 @@ trait WhatsApp
         $accessToken = $this->getToken();
         $phoneNumberId = $this->getPhoneID();
         $tenantId = $this->getWaTenantId();
+        @date_default_timezone_set(get_tenant_setting_by_tenant_id('system', 'timezone', config('app.timezone', 'UTC'), $tenantId));
 
         $startTime = strtotime(date('Y-m-d 00:00:00'));
         $endTime = strtotime(date('Y-m-d 23:59:59'));
 
         try {
             // ---- Request 1: get messaging_limit_tier ----
-            $url = rtrim(self::$facebookAPI, '/').'/'.ltrim(self::getApiVersion(), '/')."/{$phoneNumberId}?fields=messaging_limit_tier";
+            $url = rtrim(self::$facebookAPI, '/') . '/' . ltrim(self::getApiVersion(), '/') . "/{$phoneNumberId}?fields=messaging_limit_tier";
             $response = Http::withToken($accessToken)->get($url);
 
             $data = $response->json();
@@ -493,7 +577,7 @@ trait WhatsApp
             $data['limit_value'] = $tier !== null && isset($limits[$tier]) ? $limits[$tier] : 0;
 
             // ---- Request 2: get analytics ----
-            $response2 = Http::get(self::getBaseUrl().$this->getAccountID(), [
+            $response2 = Http::get(self::getBaseUrl() . $this->getAccountID(), [
                 'fields' => "id,name,analytics.start({$startTime}).end({$endTime}).granularity(DAY)",
                 'access_token' => $accessToken,
             ]);
@@ -503,10 +587,10 @@ trait WhatsApp
                 $errMsg = $response2->json('error.message') ?? $response2->body();
                 // log it and return combined response with analytics error
                 whatsapp_log(
-                    'Analytics request failed: '.$errMsg,
+                    'Analytics request failed: ' . $errMsg,
                     'warning',
                     [
-                        'analytics_url' => self::getBaseUrl().$this->getAccountID(),
+                        'analytics_url' => self::getBaseUrl() . $this->getAccountID(),
                         'phone_number_id' => $phoneNumberId,
                         'tenant_id' => $tenantId,
                     ],
@@ -517,7 +601,7 @@ trait WhatsApp
                 // return tier data but include analytics error so caller knows
                 $data['analytics'] = [
                     'status' => false,
-                    'message' => 'Analytics fetch failed: '.$errMsg,
+                    'message' => 'Analytics fetch failed: ' . $errMsg,
                 ];
 
                 return [
@@ -538,7 +622,7 @@ trait WhatsApp
             ];
         } catch (\Throwable $th) {
             whatsapp_log(
-                'Failed to get phone number limit & analytics: '.$th->getMessage(),
+                'Failed to get phone number limit & analytics: ' . $th->getMessage(),
                 'error',
                 [
                     'phone_number_id' => $phoneNumberId,
@@ -550,18 +634,27 @@ trait WhatsApp
 
             return [
                 'status' => false,
-                'message' => 'Something went wrong: '.$th->getMessage(),
+                'message' => 'Something went wrong: ' . $th->getMessage(),
             ];
         }
     }
 
     public function debugToken($fb_app_id, $fb_app_secret): array
     {
+        if (empty($fb_app_id) || empty($fb_app_secret)) {
+            $adminWhatsappSettings = get_batch_settings([
+                'whatsapp.wm_fb_app_id',
+                'whatsapp.wm_fb_app_secret',
+            ]);
+
+            $fb_app_id = $adminWhatsappSettings['whatsapp.wm_fb_app_id'];
+            $fb_app_secret = $adminWhatsappSettings['whatsapp.wm_fb_app_secret'];
+        }
         try {
             $accessToken = $this->getToken();
-            $appAccessToken = $fb_app_id.'|'.$fb_app_secret;
+            $appAccessToken = $fb_app_id . '|' . $fb_app_secret;
 
-            $response = Http::get(self::getBaseUrl().'debug_token', [
+            $response = Http::get(self::getBaseUrl() . 'debug_token', [
                 'input_token' => $accessToken,
                 'access_token' => $appAccessToken,
             ]);
@@ -585,7 +678,7 @@ trait WhatsApp
     public function getProfile(): array
     {
         try {
-            $response = Http::get(self::getBaseUrl().$this->getPhoneID().'/whatsapp_business_profile', [
+            $response = Http::get(self::getBaseUrl() . $this->getPhoneID() . '/whatsapp_business_profile', [
                 'fields' => 'profile_picture_url',
                 'access_token' => $this->getToken(),
             ]);
@@ -612,7 +705,7 @@ trait WhatsApp
     public function getHealthStatus(): array
     {
         try {
-            $response = Http::get(self::getBaseUrl().$this->getAccountID(), [
+            $response = Http::get(self::getBaseUrl() . $this->getAccountID(), [
                 'fields' => 'health_status',
                 'access_token' => $this->getToken(),
             ]);
@@ -639,7 +732,7 @@ trait WhatsApp
         $endTime = strtotime(date('Y-m-d 23:59:59'));
         try {
 
-            $response = Http::get(self::getBaseUrl().$this->getAccountID(), [
+            $response = Http::get(self::getBaseUrl() . $this->getAccountID(), [
                 'fields' => "id,name,analytics.start({$startTime}).end({$endTime}).granularity(DAY)",
                 'access_token' => $this->getToken(),
             ]);
@@ -713,7 +806,7 @@ trait WhatsApp
             return true;
         } catch (Throwable $e) {
             $tenant_id = $this->getWaTenantId();
-            whatsapp_log('Error generating QR code: '.$e->getMessage(), 'error', [
+            whatsapp_log('Error generating QR code: ' . $e->getMessage(), 'error', [
                 'url' => $url,
                 'logo' => $logo,
                 'tenant_id' => $tenant_id,
@@ -730,7 +823,7 @@ trait WhatsApp
         $tenant_id = $this->getWaTenantId();
 
         try {
-            $url = self::$facebookAPI.$appId.'/subscriptions?access_token='.$appId.'|'.$appSecret;
+            $url = self::$facebookAPI . $appId . '/subscriptions?access_token=' . $appId . '|' . $appSecret;
 
             $response = Http::post($url, [
                 'object' => 'whatsapp_business_account',
@@ -753,13 +846,13 @@ trait WhatsApp
                 'data' => $data,
             ];
         } catch (\Throwable $th) {
-            whatsapp_log('Error connecting webhook: '.$th->getMessage(), 'error', [
+            whatsapp_log('Error connecting webhook: ' . $th->getMessage(), 'error', [
                 'tenant_id' => $tenant_id,
             ], $th, $tenant_id);
 
             return [
                 'status' => false,
-                'message' => 'Something went wrong: '.$th->getMessage(),
+                'message' => 'Something went wrong: ' . $th->getMessage(),
             ];
         }
     }
@@ -770,7 +863,7 @@ trait WhatsApp
         $appSecret = $this->getFBAppSecret();
         $tenant_id = $this->getWaTenantId();
 
-        $url = self::$facebookAPI.$appId.'/subscriptions?access_token='.$appId.'|'.$appSecret;
+        $url = self::$facebookAPI . $appId . '/subscriptions?access_token=' . $appId . '|' . $appSecret;
 
         try {
             $response = Http::delete($url, [], [
@@ -792,13 +885,13 @@ trait WhatsApp
                 'data' => $data,
             ];
         } catch (\Throwable $th) {
-            whatsapp_log('Error disconnecting webhook: '.$th->getMessage(), 'error', [
+            whatsapp_log('Error disconnecting webhook: ' . $th->getMessage(), 'error', [
                 'tenant_id' => $tenant_id,
             ], $th, $tenant_id);
 
             return [
                 'status' => false,
-                'message' => 'Something went wrong: '.$th->getMessage(),
+                'message' => 'Something went wrong: ' . $th->getMessage(),
             ];
         }
     }
@@ -821,7 +914,7 @@ trait WhatsApp
             $message = $errorData['error_user_msg'] ?? $errorData['message'] ?? $th->rawResponse() ?? $th->getMessage() ?? 'Failed to send test message.';
             $responseCode = $th->httpStatusCode();
 
-            whatsapp_log('Error sending test message: '.$message, 'error', [
+            whatsapp_log('Error sending test message: ' . $message, 'error', [
                 'number' => $number,
                 'response_code' => $responseCode,
                 'tenant_id' => $tenant_id,
@@ -843,7 +936,7 @@ trait WhatsApp
             $healthData = [
                 'api_status' => $this->getHealthStatus(),
                 'queue_size' => Queue::size($queueSettings['name']),
-                'daily_api_calls' => Cache::get('whatsapp_api_calls_'.now()->format('Y-m-d')),
+                'daily_api_calls' => Cache::get('whatsapp_api_calls_' . now()->format('Y-m-d')),
                 'token_status' => $this->debugToken($this->getFBAppID(), $this->getFBAppSecret()),
                 'profile_status' => $this->getProfile(),
                 'tenant_id' => $tenant_id,
@@ -966,94 +1059,151 @@ trait WhatsApp
 
         // BUILD TEMPLATE COMPONENTS
         $rel_type = $template_data['rel_type'];
-        $header_data = [];
+        // Check if this is a carousel template (multiple detection methods for safety)
+        $is_carousel = (! empty($template_data['template_type']) && strtoupper($template_data['template_type']) === 'CAROUSEL') ||
+            (! empty($template_data['cards_params'])) ||
+            (! empty($template_data['cards_json']));
 
-        if ($template_data['header_data_format'] == 'TEXT') {
-            $header_data = parseText($rel_type, 'header', $template_data, 'array');
-        }
-        $body_data = parseText($rel_type, 'body', $template_data, 'array');
-        $buttons_data = parseText($rel_type, 'footer', $template_data, 'array');
+        if ($is_carousel) {
+            // Handle carousel template sending
+            try {
+                $result = $this->sendCarouselTemplate($to, $template_data, $fromNumber);
 
-        $component_header = $component_body = $component_buttons = [];
-        $file_link = asset('storage/'.$template_data['filename']);
+                // Set response variables for logging (similar to regular templates)
+                $status = true;
+                $data = json_decode($result->body());
+                $responseCode = $result->httpStatusCode();
+                $responseData = json_encode($result->decodedBody());
+                $rawData = json_encode($result->request()->body());
+            } catch (\Exception $e) {
+                $status = false;
+                $message = $e->getMessage() ?? 'Failed to send carousel template message.';
+                $responseCode = 500; // Default to 500 for carousel template errors
+                $responseData = json_encode($message);
+                $rawData = json_encode([]);
 
-        $template_buttons_data = json_decode($template_data['buttons_data']);
-        $is_flow = false;
-        if (! empty($template_buttons_data)) {
-            $button_types = array_column($template_buttons_data, 'type');
-            $is_flow = in_array('FLOW', $button_types);
-        }
+                whatsapp_log('Error sending carousel template: ' . $message, 'error', [
+                    'to' => $to,
+                    'template_name' => $template_data['template_name'],
+                    'language' => $template_data['language'],
+                    'response_code' => $responseCode,
+                    'response_data' => $responseData,
+                    'raw_data' => $rawData,
+                    'tenant_id' => $tenant_id,
+                ], $e, $tenant_id);
+            }
+        } else {
+            $header_data = [];
 
-        $component_header = $this->buildHeaderComponent($template_data, $file_link, $header_data);
-        $component_body = $this->buildTextComponent($body_data);
-        $component_buttons = $this->buildTextComponent($buttons_data);
+            if ($template_data['header_data_format'] == 'TEXT') {
+                $header_data = parseText($rel_type, 'header', $template_data, 'array');
+            }
+            $body_data = parseText($rel_type, 'body', $template_data, 'array');
+            $buttons_data = parseText($rel_type, 'footer', $template_data, 'array');
 
-        if ($is_flow) {
-            $buttons = json_decode($template_data['buttons_data']);
-            $flow_id = reset($buttons)->flow_id;
-            $component_buttons[] = [
-                'type' => 'button',
-                'sub_type' => 'FLOW',
-                'index' => 0,
-                'parameters' => [
-                    [
-                        'type' => 'action',
-                        'action' => [
-                            'flow_token' => json_encode(['flow_id' => $flow_id, 'rel_data' => $template_data['flow_action_data'] ?? []]),
+            // Store generated OTP for authentication templates (to avoid regenerating different OTP for chat display)
+            $generatedOtp = $template_data['generated_otp'] ?? null;
+
+            $component_header = $component_body = $component_buttons = [];
+            $file_link = asset('storage/' . $template_data['filename']);
+
+            $template_buttons_data = json_decode($template_data['buttons_data']);
+            $is_flow = false;
+            if (! empty($template_buttons_data)) {
+                $button_types = array_column($template_buttons_data, 'type');
+                $is_flow = in_array('FLOW', $button_types);
+            }
+
+            $component_header = $this->buildHeaderComponent($template_data, $file_link, $header_data);
+            $component_body = $this->buildTextComponent($body_data);
+            $component_buttons = $this->buildTextComponent($buttons_data);
+
+            // Handle authentication templates - requires button component with OTP
+            $isAuthTemplate = isset($template_data['category']) && $template_data['category'] === 'AUTHENTICATION';
+            if ($isAuthTemplate && ! empty($body_data)) {
+                // For authentication templates, the OTP code is in body_data[0]
+                $otpCode = $body_data[0] ?? '';
+                if (! empty($otpCode)) {
+                    // Add button component with OTP for copy code functionality
+                    $component_buttons[] = [
+                        'type' => 'button',
+                        'sub_type' => 'url',
+                        'index' => '0',
+                        'parameters' => [
+                            [
+                                'type' => 'text',
+                                'text' => $otpCode,
+                            ],
+                        ],
+                    ];
+                }
+            } elseif ($is_flow) {
+                $buttons = json_decode($template_data['buttons_data']);
+                $flow_id = reset($buttons)->flow_id;
+                $component_buttons[] = [
+                    'type' => 'button',
+                    'sub_type' => 'FLOW',
+                    'index' => 0,
+                    'parameters' => [
+                        [
+                            'type' => 'action',
+                            'action' => [
+                                'flow_token' => json_encode(['flow_id' => $flow_id, 'rel_data' => $template_data['flow_action_data'] ?? []]),
+                            ],
                         ],
                     ],
-                ],
-            ];
-        }
-
-        $whatsapp_cloud_api = $this->loadConfig($fromNumber);
-
-        try {
-            $components = new Component($component_header, $component_body, $component_buttons);
-            $result = $whatsapp_cloud_api->sendTemplate($to, $template_data['template_name'], $template_data['language'], $components);
-            $status = true;
-            $data = json_decode($result->body());
-            $responseCode = $result->httpStatusCode();
-            $responseData = json_encode($result->decodedBody());
-            $rawData = json_encode($result->request()->body());
-
-            // TRACK CONVERSATION AFTER SUCCESSFUL SEND
-            if ($status && $conversationTrackingNeeded && $identifierForTracking) {
-                try {
-                    $featureService = app(\App\Services\FeatureService::class);
-                    $tenant_subdomain = tenant_subdomain_by_tenant_id($tenant_id);
-
-                    $tracked = $featureService->trackNewConversation(
-                        $identifierForTracking,
-                        $tenant_id,
-                        $tenant_subdomain,
-                        $template_data['rel_type'] ?? 'guest'
-                    );
-                } catch (\Exception $e) {
-                    whatsapp_log('Campaign: Failed to track conversation after send', 'error', [
-                        'to' => $to,
-                        'identifier' => $identifierForTracking,
-                        'error' => $e->getMessage(),
-                    ], $e, $tenant_id);
-                }
+                ];
             }
-        } catch (\Netflie\WhatsAppCloudApi\Response\ResponseException $th) {
-            $status = false;
-            $errorData = $th->responseData()['error'] ?? [];
-            $message = $errorData['error_user_msg'] ?? $errorData['message'] ?? $th->rawResponse() ?? $th->getMessage() ?? 'Failed to send template message.';
-            $responseCode = $th->httpStatusCode();
-            $responseData = json_encode($message);
-            $rawData = json_encode([]);
 
-            whatsapp_log('Error sending template: '.$message, 'error', [
-                'to' => $to,
-                'template_name' => $template_data['template_name'],
-                'language' => $template_data['language'],
-                'response_code' => $responseCode,
-                'response_data' => $responseData,
-                'raw_data' => $rawData,
-                'tenant_id' => $tenant_id,
-            ], $th, $tenant_id);
+            $whatsapp_cloud_api = $this->loadConfig($fromNumber);
+
+            try {
+                $components = new Component($component_header, $component_body, $component_buttons);
+                $result = $whatsapp_cloud_api->sendTemplate($to, $template_data['template_name'], $template_data['language'], $components);
+                $status = true;
+                $data = json_decode($result->body());
+                $responseCode = $result->httpStatusCode();
+                $responseData = json_encode($result->decodedBody());
+                $rawData = json_encode($result->request()->body());
+
+                // TRACK CONVERSATION AFTER SUCCESSFUL SEND
+                if ($status && $conversationTrackingNeeded && $identifierForTracking) {
+                    try {
+                        $featureService = app(\App\Services\FeatureService::class);
+                        $tenant_subdomain = tenant_subdomain_by_tenant_id($tenant_id);
+
+                        $tracked = $featureService->trackNewConversation(
+                            $identifierForTracking,
+                            $tenant_id,
+                            $tenant_subdomain,
+                            $template_data['rel_type'] ?? 'guest'
+                        );
+                    } catch (\Exception $e) {
+                        whatsapp_log('Campaign: Failed to track conversation after send', 'error', [
+                            'to' => $to,
+                            'identifier' => $identifierForTracking,
+                            'error' => $e->getMessage(),
+                        ], $e, $tenant_id);
+                    }
+                }
+            } catch (\Netflie\WhatsAppCloudApi\Response\ResponseException $th) {
+                $status = false;
+                $errorData = $th->responseData()['error'] ?? [];
+                $message = $errorData['error_user_msg'] ?? $errorData['message'] ?? $th->rawResponse() ?? $th->getMessage() ?? 'Failed to send template message.';
+                $responseCode = $th->httpStatusCode();
+                $responseData = json_encode($message);
+                $rawData = json_encode([]);
+
+                whatsapp_log('Error sending template: ' . $message, 'error', [
+                    'to' => $to,
+                    'template_name' => $template_data['template_name'],
+                    'language' => $template_data['language'],
+                    'response_code' => $responseCode,
+                    'response_data' => $responseData,
+                    'raw_data' => $rawData,
+                    'tenant_id' => $tenant_id,
+                ], $th, $tenant_id);
+            }
         }
 
         $log_data = [
@@ -1076,7 +1226,475 @@ trait WhatsApp
             WmActivityLog::create($log_data);
         }
 
-        return ['status' => $status, 'log_data' => $log_data, 'data' => $data ?? [], 'message' => $message ?? ''];
+        return [
+            'status' => $status,
+            'log_data' => $log_data,
+            'data' => $data ?? [],
+            'message' => $message ?? '',
+            'generated_otp' => $generatedOtp ?? null,
+        ];
+    }
+
+    /**
+     * Send a carousel template message using the WhatsApp Cloud API
+     *
+     * @param  string  $to  Recipient phone number
+     * @param  array  $template_data  Template data including carousel cards
+     * @param  string|null  $fromNumber  Optional sender phone number
+     * @return object WhatsApp Cloud API response
+     */
+    protected function sendCarouselTemplate($to, $template_data, $fromNumber = null)
+    {
+        $tenant_id = $this->getWaTenantId();
+
+        // Build body parameters
+        $rel_type = $template_data['rel_type'];
+        $body_data = parseText($rel_type, 'body', $template_data, 'array');
+
+        // Build carousel components
+        $carousel_cards = $this->buildCarouselCards($template_data, $rel_type);
+
+        // Prepare template payload for direct API call
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'recipient_type' => 'individual',
+            'to' => $to,
+            'type' => 'template',
+            'template' => [
+                'name' => $template_data['template_name'],
+                'language' => [
+                    'code' => $template_data['language'],
+                ],
+                'components' => [],
+            ],
+        ];
+
+        // Add body component if there are body parameters
+        if (! empty($body_data)) {
+            $bodyParameters = [];
+            foreach ($body_data as $param) {
+                $bodyParameters[] = [
+                    'type' => 'text',
+                    'text' => $param,
+                ];
+            }
+
+            $payload['template']['components'][] = [
+                'type' => 'body',
+                'parameters' => $bodyParameters,
+            ];
+        }
+
+        // Add carousel component
+        if (! empty($carousel_cards)) {
+            $payload['template']['components'][] = [
+                'type' => 'carousel',
+                'cards' => $carousel_cards,
+            ];
+        }
+
+        // Final validation: Check for empty header parameters before sending
+        foreach ($carousel_cards as $cardIndex => $card) {
+            foreach ($card['components'] as $compIndex => $component) {
+                if ($component['type'] === 'header') {
+                    if (
+                        empty($component['parameters']) ||
+                        ! isset($component['parameters'][0]) ||
+                        empty($component['parameters'][0]['image']['id'] ?? $component['parameters'][0]['video']['id'] ?? '')
+                    ) {
+
+                        whatsapp_log('CRITICAL: Empty header parameter detected before API send', 'error', [
+                            'template_name' => $template_data['template_name'],
+                            'card_index' => $cardIndex,
+                            'component_index' => $compIndex,
+                            'component' => $component,
+                        ], null, $tenant_id);
+
+                        // Throw exception to prevent sending bad payload
+                        throw new \Exception("Header component has empty parameters for card {$cardIndex}. This would cause Meta API error 132012.");
+                    }
+                }
+            }
+        }
+
+        // Debug log carousel cards structure
+        whatsapp_log('Carousel template payload structure', 'debug', [
+            'template_name' => $template_data['template_name'],
+            'cards_count' => count($carousel_cards),
+            'body_params' => $template_data['body_params'] ?? null,
+            'cards_structure' => array_map(function ($card) {
+                return [
+                    'card_index' => $card['card_index'],
+                    'components_types' => array_column($card['components'], 'type'),
+                    'has_body_params' => isset($card['components']) &&
+                        array_search('body', array_column($card['components'], 'type')) !== false,
+                ];
+            }, $carousel_cards),
+        ], null, $tenant_id);
+
+        // Log carousel template send attempt
+        whatsapp_log('Sending carousel template', 'info', [
+            'template_name' => $template_data['template_name'],
+            'cards_count' => count($carousel_cards),
+            'recipient' => $to,
+        ], null, $tenant_id);
+
+        // Make direct HTTP request to WhatsApp Cloud API
+        $baseUrl = self::getBaseUrl();
+        $phoneId = $this->getPhoneID();
+        $token = $this->getToken();
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+            'Content-Type' => 'application/json',
+        ])->post("{$baseUrl}/{$phoneId}/messages", $payload);
+
+        // Create a mock response object similar to WhatsApp Cloud API library
+        return new class($response)
+        {
+            private $response;
+
+            public function __construct($httpResponse)
+            {
+                $this->response = $httpResponse;
+            }
+
+            public function body()
+            {
+                return $this->response->body();
+            }
+
+            public function httpStatusCode()
+            {
+                return $this->response->status();
+            }
+
+            public function decodedBody()
+            {
+                return $this->response->json();
+            }
+
+            public function request()
+            {
+                return new class
+                {
+                    public function body()
+                    {
+                        return json_encode([]);
+                    }
+                };
+            }
+        };
+    }
+
+    /**
+     * Build carousel cards from template data and Template Bot cards_params
+     *
+     * @param  array  $template_data  Template data
+     * @param  string  $rel_type  Relation type for parsing
+     * @return array Carousel cards array
+     */
+    protected function buildCarouselCards($template_data, $rel_type)
+    {
+        $cards = [];
+
+        // Get carousel cards data - prefer cards_params from template bots, fallback to cards_json from templates
+        $cards_params = [];
+
+        // Priority 1: Template Bot cards_params (our preferred structure)
+        if (isset($template_data['cards_params']) && ! empty($template_data['cards_params'])) {
+            $cards_params = is_string($template_data['cards_params'])
+                ? json_decode($template_data['cards_params'], true)
+                : $template_data['cards_params'];
+
+            // Using template bot cards_params (preferred method)
+        }
+
+        // Priority 2: WhatsApp Template cards_json (fallback for direct template sends)
+        if ((empty($cards_params) || ! is_array($cards_params)) && isset($template_data['cards_json']) && ! empty($template_data['cards_json'])) {
+            $cards_json = is_string($template_data['cards_json'])
+                ? json_decode($template_data['cards_json'], true)
+                : $template_data['cards_json'];
+
+            if (is_array($cards_json) && ! empty($cards_json)) {
+                $cards_params = $cards_json;
+
+                // Using WhatsApp template cards_json as fallback
+            }
+        }
+
+        if (empty($cards_params) || ! is_array($cards_params)) {
+            whatsapp_log('No carousel cards data found', 'warning', [
+                'has_cards_params' => isset($template_data['cards_params']),
+                'has_cards_json' => isset($template_data['cards_json']),
+                'template_type' => $template_data['template_type'] ?? 'unknown',
+            ], null, $template_data['tenant_id'] ?? null);
+
+            return $cards;
+        }
+
+        // Process each card from the template bot cards_params
+        foreach ($cards_params as $cardIndex => $cardData) {
+            $card = [
+                'card_index' => $cardIndex,
+                'components' => [],
+            ];
+
+            // Process components from template bot structure
+            if (isset($cardData['components']) && is_array($cardData['components'])) {
+                foreach ($cardData['components'] as $component) {
+                    switch (strtoupper($component['type'])) {
+                        case 'HEADER':
+                            $format = strtoupper($component['format'] ?? '');
+
+                            if (in_array($format, ['IMAGE', 'VIDEO']) && isset($component['example']['header_handle'][0])) {
+
+                                $mediaUrl = $component['example']['header_handle'][0];
+
+                                whatsapp_log('Processing carousel card header', 'debug', [
+                                    'card_index' => $cardIndex,
+                                    'format' => $format,
+                                    'media_url' => $mediaUrl,
+                                ], null, $template_data['tenant_id'] ?? null);
+
+                                try {
+                                    // Upload media for carousel template sending (get media ID, not handle)
+                                    $mediaId = $this->uploadMediaForCarousel($mediaUrl);
+
+                                    if ($mediaId) {
+                                        $headerComponent = [
+                                            'type' => 'header',
+                                            'parameters' => [
+                                                [
+                                                    'type' => strtolower($format),
+                                                    strtolower($format) => [
+                                                        'id' => $mediaId,
+                                                    ],
+                                                ],
+                                            ],
+                                        ];
+
+                                        $card['components'][] = $headerComponent;
+
+                                        whatsapp_log('Carousel header component added successfully', 'debug', [
+                                            'card_index' => $cardIndex,
+                                            'media_id' => $mediaId,
+                                            'format' => $format,
+                                        ], null, $template_data['tenant_id'] ?? null);
+                                    } else {
+                                        whatsapp_log('Media upload returned null - skipping card', 'error', [
+                                            'media_url' => $mediaUrl,
+                                            'card_index' => $cardIndex,
+                                            'format' => $format,
+                                        ], null, $template_data['tenant_id'] ?? null);
+
+                                        continue 3; // Skip to next card (3 levels deep)
+                                    }
+                                } catch (\Exception $e) {
+                                    whatsapp_log('Exception during carousel card media upload', 'error', [
+                                        'media_url' => $mediaUrl,
+                                        'card_index' => $cardIndex,
+                                        'format' => $format,
+                                        'error' => $e->getMessage(),
+                                        'trace' => $e->getTraceAsString(),
+                                    ], $e, $template_data['tenant_id'] ?? null);
+
+                                    // Skip this card if media upload fails
+                                    continue 3; // Skip to next card (3 levels deep)
+                                }
+                            } else {
+                                whatsapp_log('Header component missing required data', 'warning', [
+                                    'card_index' => $cardIndex,
+                                    'has_format' => isset($component['format']),
+                                    'format' => $component['format'] ?? null,
+                                    'has_header_handle' => isset($component['example']['header_handle'][0]),
+                                    'component_structure' => $component,
+                                ], null, $template_data['tenant_id'] ?? null);
+                            }
+                            break;
+
+                        case 'BODY':
+                            // For carousel cards, use body_text examples from the card component
+                            $bodyText = $component['text'] ?? '';
+                            $bodyParameters = [];
+
+                            // Priority 1: Use body_text example from the component (WhatsApp template structure)
+                            // Structure: body_text = [["33", "44"]] where inner array contains values for {{1}}, {{2}}, etc.
+                            if (isset($component['example']['body_text'][0]) && is_array($component['example']['body_text'][0])) {
+                                $bodyTextExamples = $component['example']['body_text'][0];
+
+                                // Each example is a parameter value for {{1}}, {{2}}, etc.
+                                foreach ($bodyTextExamples as $example) {
+                                    // Parse merge fields in the example values
+                                    $parsedParam = parseCarouselCardText($rel_type, 'card_body', $template_data, $example);
+                                    $bodyParameters[] = [
+                                        'type' => 'text',
+                                        'text' => $parsedParam,
+                                    ];
+                                }
+                            }
+                            // Priority 2: Check if the card has individual body_params (template bot structure)
+                            elseif (isset($cardData['body_params']) && ! empty($cardData['body_params'])) {
+                                $cardBodyParams = is_string($cardData['body_params'])
+                                    ? json_decode($cardData['body_params'], true)
+                                    : $cardData['body_params'];
+
+                                if (is_array($cardBodyParams)) {
+                                    foreach ($cardBodyParams as $param) {
+                                        $parsedParam = parseCarouselCardText($rel_type, 'card_body', $template_data, $param);
+                                        $bodyParameters[] = [
+                                            'type' => 'text',
+                                            'text' => $parsedParam,
+                                        ];
+                                    }
+                                }
+                            }
+                            // Priority 3: Fallback to main template body_params
+                            elseif (! empty($template_data['body_params'])) {
+                                $templateBodyParams = is_string($template_data['body_params'])
+                                    ? json_decode($template_data['body_params'], true)
+                                    : $template_data['body_params'];
+
+                                if (is_array($templateBodyParams)) {
+                                    foreach ($templateBodyParams as $param) {
+                                        $parsedParam = parseCarouselCardText($rel_type, 'card_body', $template_data, $param);
+                                        $bodyParameters[] = [
+                                            'type' => 'text',
+                                            'text' => $parsedParam,
+                                        ];
+                                    }
+                                }
+                            }
+                            // Last resort: check if body text has placeholders
+                            elseif (! empty($bodyText) && strpos($bodyText, '{{') !== false) {
+                                $parsedBodyText = parseCarouselCardText($rel_type, 'card_body', $template_data, $bodyText);
+                                $bodyParameters[] = [
+                                    'type' => 'text',
+                                    'text' => $parsedBodyText,
+                                ];
+                            }
+
+                            // Log body parameter processing for debugging
+                            whatsapp_log('Processing carousel card body parameters', 'debug', [
+                                'card_index' => $cardIndex,
+                                'body_text' => $bodyText,
+                                'has_body_text_example' => isset($component['example']['body_text'][0]),
+                                'body_text_example' => $component['example']['body_text'][0] ?? null,
+                                'card_has_body_params' => isset($cardData['body_params']),
+                                'template_has_body_params' => ! empty($template_data['body_params']),
+                                'processed_params_count' => count($bodyParameters),
+                                'processed_params' => $bodyParameters,
+                            ], null, $template_data['tenant_id'] ?? null);
+
+                            // Always add body component if we have parameters
+                            if (! empty($bodyParameters)) {
+                                $card['components'][] = [
+                                    'type' => 'body',
+                                    'parameters' => $bodyParameters,
+                                ];
+                            }
+                            break;
+                        case 'BUTTONS':
+                            // Process button parameters
+                            $buttonComponents = [];
+
+                            foreach ($component['buttons'] as $buttonIndex => $button) {
+                                switch (strtoupper($button['type'])) {
+                                    case 'QUICK_REPLY':
+                                        // Generate default payload for quick reply
+                                        $payload = "card_{$cardIndex}_button_{$buttonIndex}";
+
+                                        $buttonComponents[] = [
+                                            'type' => 'button',
+                                            'sub_type' => 'quick_reply',
+                                            'index' => (string) $buttonIndex,
+                                            'parameters' => [
+                                                [
+                                                    'type' => 'payload',
+                                                    'payload' => $payload,
+                                                ],
+                                            ],
+                                        ];
+                                        break;
+
+                                    case 'URL':
+                                        // Check if button URL has parameters
+                                        $buttonUrl = $button['url'] ?? '';
+                                        if (! empty($buttonUrl) && strpos($buttonUrl, '{{') !== false) {
+                                            // Parse URL with merge fields
+                                            $parsedUrl = parseCarouselCardText($rel_type, 'card_url', $template_data, $buttonUrl);
+
+                                            $buttonComponents[] = [
+                                                'type' => 'button',
+                                                'sub_type' => 'url',
+                                                'index' => (string) $buttonIndex,
+                                                'parameters' => [
+                                                    [
+                                                        'type' => 'text',
+                                                        'text' => $parsedUrl,
+                                                    ],
+                                                ],
+                                            ];
+                                        } else {
+                                            // Static URL, no parameters needed
+                                            $buttonComponents[] = [
+                                                'type' => 'button',
+                                                'sub_type' => 'url',
+                                                'index' => (string) $buttonIndex,
+                                                'parameters' => [],
+                                            ];
+                                        }
+                                        break;
+                                }
+                            }
+
+                            if (! empty($buttonComponents)) {
+                                $card['components'] = array_merge($card['components'], $buttonComponents);
+                            }
+                            break;
+                    }
+                }
+            }
+
+            // Only add card if it has valid components
+            if (! empty($card['components'])) {
+                // Validate that header components have proper media IDs
+                $hasValidHeader = true;
+                foreach ($card['components'] as $component) {
+                    if ($component['type'] === 'header') {
+                        if (
+                            empty($component['parameters']) ||
+                            empty($component['parameters'][0]) ||
+                            empty($component['parameters'][0]['image']['id'] ?? $component['parameters'][0]['video']['id'] ?? '')
+                        ) {
+
+                            whatsapp_log('Invalid header component detected - skipping card', 'warning', [
+                                'card_index' => $cardIndex,
+                                'header_component' => $component,
+                            ], null, $template_data['tenant_id'] ?? null);
+
+                            $hasValidHeader = false;
+                            break;
+                        }
+                    }
+                }
+
+                if ($hasValidHeader) {
+                    $cards[] = $card;
+                } else {
+                    whatsapp_log('Skipped card due to invalid header', 'warning', [
+                        'card_index' => $cardIndex,
+                    ], null, $template_data['tenant_id'] ?? null);
+                }
+            }
+        }
+
+        // Log final result
+        whatsapp_log('Carousel cards built successfully', 'info', [
+            'total_cards' => count($cards),
+        ], null, $template_data['tenant_id'] ?? null);
+
+        return $cards;
     }
 
     /**
@@ -1090,7 +1708,17 @@ trait WhatsApp
     public function sendMessage($to, $message_data, $fromNumber = null, $folder = 'bot_files')
     {
         $tenant_id = $this->getWaTenantId();
-        $message_data = parseMessageText($message_data);
+
+        try {
+            $message_data = parseMessageText($message_data);
+        } catch (\Throwable $e) {
+            whatsapp_log('Error parsing message text with merge fields, using original text', 'warning', [
+                'error_class' => get_class($e),
+                'error_message' => $e->getMessage(),
+            ], $e);
+            // Continue with original message_data without merge field replacement
+        }
+
         $whatsapp_cloud_api = $this->loadConfig($fromNumber);
 
         try {
@@ -1128,13 +1756,13 @@ trait WhatsApp
                     $message_data['bot_footer'],
                 );
             } else {
-                $message = $message_data['bot_header']."\n".$message_data['reply_text']."\n".$message_data['bot_footer'];
+                $message = $message_data['bot_header'] . "\n" . $message_data['reply_text'] . "\n" . $message_data['bot_footer'];
                 if (! empty($message_data['filename'])) {
-                    $url = asset('storage/'.$message_data['filename']);
+                    $url = asset('storage/' . $message_data['filename']);
                     $link_id = new LinkID($url);
                     $fileExtensions = get_meta_allowed_extension();
                     $extension = strtolower(pathinfo($message_data['filename'], PATHINFO_EXTENSION));
-                    $fileType = array_key_first(array_filter($fileExtensions, fn ($data) => in_array('.'.$extension, explode(', ', $data['extension']))));
+                    $fileType = array_key_first(array_filter($fileExtensions, fn($data) => in_array('.' . $extension, explode(', ', $data['extension']))));
                     if ($fileType == 'image') {
                         $result = $whatsapp_cloud_api->sendImage($to, $link_id, $message);
                     } elseif ($fileType == 'video') {
@@ -1160,7 +1788,7 @@ trait WhatsApp
             $responseData = $message;
             $rawData = json_encode([]);
 
-            whatsapp_log('Error sending message: '.$message, 'error', [
+            whatsapp_log('Error sending message: ' . $message, 'error', [
                 'to' => $to,
                 'message_type' => $folder,
                 'response_code' => $responseCode,
@@ -1213,7 +1841,7 @@ trait WhatsApp
             $buttonsData = parseCsvText('footer', $templateData, $campaign);
 
             // Get file link if available
-            $fileLink = ($templateData['filename']) ? asset('storage/'.$templateData['filelink']) : '';
+            $fileLink = ($templateData['filename']) ? asset('storage/' . $templateData['filelink']) : '';
 
             // Build components for WhatsApp message
             $componentHeader = $this->buildHeaderComponent($templateData, $fileLink, $headerData);
@@ -1242,7 +1870,7 @@ trait WhatsApp
             ];
         } catch (ResponseException $e) {
 
-            whatsapp_log('WhatsApp API Error: '.$e->getMessage(), 'error', [
+            whatsapp_log('WhatsApp API Error: ' . $e->getMessage(), 'error', [
                 'phone' => $to,
                 'template' => $templateData['template_name'],
                 'response_code' => $e->httpStatusCode(),
@@ -1260,7 +1888,7 @@ trait WhatsApp
             ];
         } catch (\Exception $e) {
 
-            whatsapp_log('WhatsApp Campaign Error: '.$e->getMessage(), 'error', [
+            whatsapp_log('WhatsApp Campaign Error: ' . $e->getMessage(), 'error', [
                 'phone' => $to,
                 'template' => $templateData['template_name'] ?? 'unknown',
                 'response_code' => 500,
@@ -1357,15 +1985,15 @@ trait WhatsApp
     {
         return match ($templateData['header_data_format']) {
             'IMAGE' => [['type' => 'image', 'image' => ['link' => $fileLink]]],
-            'DOCUMENT' => [['type' => 'document', 'document' => ['link' => $fileLink, 'filename' => 'file_'.uniqid().'.'.pathinfo($templateData['filename'], PATHINFO_EXTENSION)]]],
+            'DOCUMENT' => [['type' => 'document', 'document' => ['link' => $fileLink, 'filename' => 'file_' . uniqid() . '.' . pathinfo($templateData['filename'], PATHINFO_EXTENSION)]]],
             'VIDEO' => [['type' => 'video', 'video' => ['link' => $fileLink]]],
-            default => collect($headerData)->map(fn ($header) => ['type' => 'text', 'text' => $header])->toArray(),
+            default => collect($headerData)->map(fn($header) => ['type' => 'text', 'text' => $header])->toArray(),
         };
     }
 
     private function buildTextComponent($data)
     {
-        return collect($data)->map(fn ($text) => ['type' => 'text', 'text' => $text])->toArray();
+        return collect($data)->map(fn($text) => ['type' => 'text', 'text' => $text])->toArray();
     }
 
     /**
@@ -1377,7 +2005,7 @@ trait WhatsApp
     public function retrieveUrl($media_id)
     {
         $tenant_id = $this->getWaTenantId();
-        $url = self::$facebookAPI.$media_id;
+        $url = self::$facebookAPI . $media_id;
         $accessToken = $this->getToken();
 
         $response = Http::withToken($accessToken)->get($url);
@@ -1395,8 +2023,8 @@ trait WhatsApp
 
                     $extensionMap = self::$extensionMap;
                     $extension = $extensionMap[$contentType] ?? 'unknown';
-                    $filename = 'media_'.uniqid().'.'.$extension;
-                    $storagePath = 'whatsapp-attachments/'.$filename;
+                    $filename = 'media_' . uniqid() . '.' . $extension;
+                    $storagePath = 'whatsapp-attachments/' . $filename;
 
                     Storage::disk('public')->put($storagePath, $imageContent);
 
@@ -1457,8 +2085,14 @@ trait WhatsApp
             case 'webhookApi':
                 return $this->sendFlowWebhookApi($nodeData, $phoneNumberId, $contactData, $context);
 
+            case 'delay':
+                return $this->sendFlowDelayNode($nodeData, $contactData, $context);
+
+            case 'updateContact':
+                return $this->sendFlowUpdateContact($nodeData, $contactData, $context);
+
             default:
-                return ['status' => false, 'message' => 'Unsupported node type: '.$nodeType];
+                return ['status' => false, 'message' => 'Unsupported node type: ' . $nodeType];
         }
     }
 
@@ -1467,6 +2101,11 @@ trait WhatsApp
      */
     protected function sendFlowTextMessage($to, $nodeData, $phoneNumberId, $contactData, $context)
     {
+        // Convert contactData to object if it's an array (happens when coming from queued jobs)
+        if (is_array($contactData)) {
+            $contactData = (object) $contactData;
+        }
+
         // Use array functions to get reply_text from output if present
         $replyText = '';
         if (! empty($nodeData['output']) && is_array($nodeData['output'])) {
@@ -1511,15 +2150,15 @@ trait WhatsApp
         $currentNodeId = $context['current_node'] ?? uniqid();
 
         if ($button1) {
-            $uniqueButtonId = $currentNodeId.'_btn_0';
+            $uniqueButtonId = $currentNodeId . '_btn_0';
             $buttons[] = new Button($uniqueButtonId, $button1);
         }
         if ($button2) {
-            $uniqueButtonId = $currentNodeId.'_btn_1';
+            $uniqueButtonId = $currentNodeId . '_btn_1';
             $buttons[] = new Button($uniqueButtonId, $button2);
         }
         if ($button3) {
-            $uniqueButtonId = $currentNodeId.'_btn_2';
+            $uniqueButtonId = $currentNodeId . '_btn_2';
             $buttons[] = new Button($uniqueButtonId, $button3);
         }
 
@@ -1781,17 +2420,17 @@ trait WhatsApp
             $formattedSections = [];
             foreach ($sections as $sectionIndex => $section) {
                 $formattedSection = [
-                    'title' => $section['title'] ?? 'Section '.($sectionIndex + 1),
+                    'title' => $section['title'] ?? 'Section ' . ($sectionIndex + 1),
                     'rows' => [],
                 ];
 
                 foreach ($section['items'] as $itemIndex => $item) {
                     // Create unique list item ID for flow navigation
-                    $uniqueItemId = $currentNodeId.'_item_'.$sectionIndex.'_'.$itemIndex;
+                    $uniqueItemId = $currentNodeId . '_item_' . $sectionIndex . '_' . $itemIndex;
 
                     $formattedSection['rows'][] = [
                         'id' => $uniqueItemId, // Use unique ID instead of original item ID
-                        'title' => $item['title'] ?? 'Item '.($itemIndex + 1),
+                        'title' => $item['title'] ?? 'Item ' . ($itemIndex + 1),
                         'description' => $item['description'] ?? '',
                     ];
                 }
@@ -1842,7 +2481,7 @@ trait WhatsApp
 
             // Send using raw API call
             $response = Http::withToken($this->getToken())
-                ->post(self::getBaseUrl().$this->getPhoneID().'/messages', $interactivePayload);
+                ->post(self::getBaseUrl() . $this->getPhoneID() . '/messages', $interactivePayload);
 
             $responseData = $response->json();
 
@@ -1906,7 +2545,7 @@ trait WhatsApp
         try {
             // Send using raw API call since the library might not support location directly
             $response = Http::withToken($this->getToken())
-                ->post(self::getBaseUrl().$this->getPhoneID().'/messages', [
+                ->post(self::getBaseUrl() . $this->getPhoneID() . '/messages', [
                     'messaging_product' => 'whatsapp',
                     'recipient_type' => 'individual',
                     'to' => $to,
@@ -1966,7 +2605,7 @@ trait WhatsApp
         foreach ($contacts as $contact) {
             $firstName = $this->replaceFlowVariables($contact['firstName'] ?? '', $contactData);
             $lastName = $this->replaceFlowVariables($contact['lastName'] ?? '', $contactData);
-            $formattedName = trim($firstName.' '.$lastName);
+            $formattedName = trim($firstName . ' ' . $lastName);
             $processed = [
                 'name' => [
                     'formatted_name' => $formattedName,
@@ -2009,7 +2648,7 @@ trait WhatsApp
         try {
             // Send using raw API call
             $response = Http::withToken($this->getToken())
-                ->post(self::getBaseUrl().$this->getPhoneID().'/messages', [
+                ->post(self::getBaseUrl() . $this->getPhoneID() . '/messages', [
                     'messaging_product' => 'whatsapp',
                     'recipient_type' => 'individual',
                     'to' => $to,
@@ -2075,6 +2714,132 @@ trait WhatsApp
     }
 
     /**
+     * Handle delay node - dispatches next nodes to queue with configured delay
+     * Instead of blocking execution, this queues the next nodes for later processing
+     */
+    protected function sendFlowDelayNode($nodeData, $contactData, $context)
+    {
+        // Support both old delayMilliseconds and new delaySeconds format
+        $delaySeconds = $nodeData['delaySeconds'] ??
+            ($nodeData['delayMilliseconds'] ? $nodeData['delayMilliseconds'] / 1000 : 1);
+
+        // Validate delay value (1 second to 23 hours = 82800 seconds)
+        if ($delaySeconds < 1 || $delaySeconds > 82800) {
+            return [
+                'status' => false,
+                'message' => 'Invalid delay value. Must be between 1 second and 23 hours (82800 seconds)',
+            ];
+        }
+
+        // Mark this as a delay node that will trigger queued execution
+        // The actual queueing will be handled in the controller
+        return [
+            'status' => true,
+            'message' => 'Delay node ready - next nodes will be queued',
+            'data' => [
+                'type' => 'delay',
+                'delaySeconds' => $delaySeconds,
+                'shouldQueueNextNodes' => true,
+            ],
+        ];
+    }
+
+    /**
+     * Update contact data from flow
+     */
+    protected function sendFlowUpdateContact($nodeData, $contactData, $context)
+    {
+        // Get the output data
+        $output = collect($nodeData['output'] ?? [])->first() ?? [];
+
+        // Validate that at least one field is being updated
+        $hasRelationType = ! empty($output['relation_type']);
+        $hasStatus = ! empty($output['status_id']);
+        $hasSource = ! empty($output['source_id']);
+        $hasGroups = ! empty($output['group_ids']) && is_array($output['group_ids']);
+
+        if (! $hasRelationType && ! $hasStatus && ! $hasSource && ! $hasGroups) {
+            return [
+                'status' => false,
+                'message' => 'No contact fields selected for update',
+            ];
+        }
+
+        // Get the contact ID
+        $contactId = $contactData['id'] ?? null;
+        if (! $contactId) {
+            return [
+                'status' => false,
+                'message' => 'Contact ID not found',
+            ];
+        }
+        try {
+            // Load the contact model
+            $contact = Contact::fromTenant(tenant_subdomain_by_tenant_id($this->wa_tenant_id))->where('tenant_id', $this->wa_tenant_id)->find($contactId);
+            if (! $contact) {
+                return [
+                    'status' => false,
+                    'message' => 'Contact not found',
+                ];
+            }
+
+            // Prepare update data
+            $updateData = [];
+
+            if ($hasRelationType) {
+                $updateData['type'] = $output['relation_type'];
+            }
+
+            if ($hasStatus) {
+                $updateData['status_id'] = $output['status_id'];
+                $updateData['last_status_change'] = now();
+            }
+
+            if ($hasSource) {
+                $updateData['source_id'] = $output['source_id'];
+            }
+
+            if ($hasGroups) {
+                // Merge existing groups with new groups (keep all existing + add new ones)
+                $existingGroups = $contact->getGroupIds();
+                $newGroups = is_array($output['group_ids']) ? $output['group_ids'] : [];
+                $mergedGroups = array_unique(array_merge($existingGroups, $newGroups));
+                $updateData['group_id'] = array_values($mergedGroups);
+            }
+
+            // Update the contact
+            $contact->update($updateData);
+
+            whatsapp_log('Contact updated via flow', 'info', [
+                'contact_id' => $contactId,
+                'updated_fields' => array_keys($updateData),
+                'tenant_id' => $this->wa_tenant_id,
+            ]);
+
+            return [
+                'status' => true,
+                'message' => 'Contact updated successfully',
+                'data' => [
+                    'type' => 'updateContact',
+                    'contact_id' => $contactId,
+                    'updated_fields' => array_keys($updateData),
+                ],
+            ];
+        } catch (\Exception $e) {
+            whatsapp_log('Error updating contact via flow', 'error', [
+                'contact_id' => $contactId,
+                'error' => $e->getMessage(),
+                'tenant_id' => $this->wa_tenant_id,
+            ], $e);
+
+            return [
+                'status' => false,
+                'message' => 'Error updating contact: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Replace flow variables in text with contact data
      */
     public function replaceFlowVariables($text, $contactData)
@@ -2082,12 +2847,27 @@ trait WhatsApp
         if (empty($text)) {
             return $text;
         }
+
+        // Convert contactData to array if it's an object (happens when coming from queued jobs)
+        if (is_object($contactData)) {
+            $contactData = (array) $contactData;
+        }
+
         $data['rel_type'] = $contactData['type'] ?? 'lead';
         $data['rel_id'] = $contactData['id'] ?? '';
         $data['reply_text'] = $text;
         $data['tenant_id'] = $this->wa_tenant_id;
 
-        $data = parseMessageText($data);
+        try {
+            $data = parseMessageText($data);
+        } catch (\Throwable $e) {
+            whatsapp_log('Error parsing flow variable text, using original text', 'warning', [
+                'error_class' => get_class($e),
+                'error_message' => $e->getMessage(),
+                'original_text' => $text,
+            ], $e);
+            // Continue with original text without merge field replacement
+        }
 
         return $data['reply_text'] ?? '';
     }
@@ -2103,7 +2883,7 @@ trait WhatsApp
 
         try {
             // First, delete from Meta WhatsApp Business API
-            $url = self::getBaseUrl()."{$accountId}/message_templates";
+            $url = self::getBaseUrl() . "{$accountId}/message_templates";
 
             $response = Http::withToken($accessToken)
                 ->delete($url, [
@@ -2186,7 +2966,7 @@ trait WhatsApp
 
                 return [
                     'status' => false,
-                    'message' => 'Template deleted from Meta but database deletion failed: '.$dbException->getMessage(),
+                    'message' => 'Template deleted from Meta but database deletion failed: ' . $dbException->getMessage(),
                     'meta_deleted' => true,
                     'db_deleted' => false,
                     'meta_response' => $metaResponse,
@@ -2202,7 +2982,7 @@ trait WhatsApp
 
             return [
                 'status' => false,
-                'message' => 'Template deletion failed: '.$e->getMessage(),
+                'message' => 'Template deletion failed: ' . $e->getMessage(),
                 'meta_deleted' => false,
                 'db_deleted' => false,
                 'error_details' => $e->getMessage(),
@@ -2281,7 +3061,7 @@ trait WhatsApp
 
             return [
                 'status' => false,
-                'message' => 'Bulk deletion failed: '.$e->getMessage(),
+                'message' => 'Bulk deletion failed: ' . $e->getMessage(),
                 'total_processed' => count($results),
                 'successful' => $successCount,
                 'failed' => $failureCount,
@@ -2332,7 +3112,7 @@ trait WhatsApp
         // Step 1: Download the media file
         $fileResponse = Http::timeout(30)->get($mediaUrl);
         if ($fileResponse->failed()) {
-            throw new \Exception('Failed to download media file from: '.$mediaUrl);
+            throw new \Exception('Failed to download media file from: ' . $mediaUrl);
         }
 
         $fileContents = $fileResponse->body();
@@ -2360,14 +3140,14 @@ trait WhatsApp
 
         // Step 2: Create upload session
         $uploadSessionResponse = Http::withToken($accessToken)
-            ->post(self::getBaseUrl()."{$facebookAppId}/uploads", [
+            ->post(self::getBaseUrl() . "{$facebookAppId}/uploads", [
                 'file_length' => $fileLength,
                 'file_type' => $mimeType,
             ]);
 
         if ($uploadSessionResponse->failed()) {
             $errorData = $uploadSessionResponse->json();
-            throw new \Exception('Failed to create upload session: '.($errorData['error']['message'] ?? $uploadSessionResponse->body()));
+            throw new \Exception('Failed to create upload session: ' . ($errorData['error']['message'] ?? $uploadSessionResponse->body()));
         }
 
         $uploadSessionData = $uploadSessionResponse->json();
@@ -2378,7 +3158,7 @@ trait WhatsApp
         ], null, $tenant_id);
 
         // Step 3: Upload the file using cURL (like WhatsJet)
-        $uploadUrl = self::getBaseUrl().$uploadSessionId;
+        $uploadUrl = self::getBaseUrl() . $uploadSessionId;
 
         $ch = curl_init();
 
@@ -2392,7 +3172,7 @@ trait WhatsApp
         ];
 
         $headers = [
-            'Authorization: OAuth '.$accessToken,
+            'Authorization: OAuth ' . $accessToken,
             'file_offset: 0',
         ];
 
@@ -2414,28 +3194,28 @@ trait WhatsApp
         unlink($tempFile);
 
         if ($result === false || ! empty($curlError)) {
-            throw new \Exception('cURL error: '.$curlError);
+            throw new \Exception('cURL error: ' . $curlError);
         }
 
         if ($httpCode !== 200) {
-            throw new \Exception('Upload failed with HTTP code: '.$httpCode.', Response: '.$result);
+            throw new \Exception('Upload failed with HTTP code: ' . $httpCode . ', Response: ' . $result);
         }
 
         $resultData = json_decode($result, true);
 
         if (! $resultData) {
-            throw new \Exception('Invalid JSON response: '.$result);
+            throw new \Exception('Invalid JSON response: ' . $result);
         }
 
         if (isset($resultData['error'])) {
-            throw new \Exception('Upload API error: '.($resultData['error']['message'] ?? json_encode($resultData['error'])));
+            throw new \Exception('Upload API error: ' . ($resultData['error']['message'] ?? json_encode($resultData['error'])));
         }
 
         // WhatsJet returns the 'h' field for resumable uploads
         $uploadHandle = $resultData['h'] ?? null;
 
         if (! $uploadHandle) {
-            throw new \Exception('No upload handle returned. Response: '.$result);
+            throw new \Exception('No upload handle returned. Response: ' . $result);
         }
 
         whatsapp_log('Resumable media uploaded successfully for template', 'info', [
@@ -2448,7 +3228,96 @@ trait WhatsApp
     }
 
     /**
-     * Create a new WhatsApp template (Fixed version)
+     * Upload media for carousel template sending - returns media ID (not handle)
+     * This method uploads media and returns the media ID needed for carousel template sending
+     */
+    protected function uploadMediaForCarousel(string $mediaUrl): ?string
+    {
+        $tenant_id = $this->getWaTenantId();
+        $accessToken = $this->getToken();
+        $phoneId = $this->getPhoneID();
+
+        whatsapp_log('Starting carousel media upload', 'info', [
+            'media_url' => $mediaUrl,
+            'phone_id' => $phoneId,
+        ], null, $tenant_id);
+
+        try {
+            // Step 1: Download the media file
+            $fileResponse = Http::timeout(30)->get($mediaUrl);
+            if ($fileResponse->failed()) {
+                throw new \Exception('Failed to download media file from: ' . $mediaUrl);
+            }
+
+            $fileContents = $fileResponse->body();
+            $mimeType = $fileResponse->header('Content-Type');
+
+            // Detect MIME type if not provided
+            if (! $mimeType) {
+                $extension = strtolower(pathinfo(parse_url($mediaUrl, PHP_URL_PATH), PATHINFO_EXTENSION));
+                $mimeType = match ($extension) {
+                    'jpg', 'jpeg' => 'image/jpeg',
+                    'png' => 'image/png',
+                    'gif' => 'image/gif',
+                    'mp4' => 'video/mp4',
+                    default => 'image/jpeg'
+                };
+            }
+
+            $fileLength = strlen($fileContents);
+
+            // Step 2: Upload media to WhatsApp Media API (for sending, not templates)
+            $baseUrl = self::getBaseUrl();
+            $uploadUrl = "{$baseUrl}/{$phoneId}/media";
+
+            // Create temporary file
+            $tempFile = tempnam(sys_get_temp_dir(), 'whatsapp_carousel_');
+            file_put_contents($tempFile, $fileContents);
+
+            $response = Http::withToken($accessToken)
+                ->attach('file', $fileContents, basename($mediaUrl))
+                ->post($uploadUrl, [
+                    'type' => $mimeType,
+                    'messaging_product' => 'whatsapp',
+                ]);
+
+            // Clean up temp file
+            if (file_exists($tempFile)) {
+                unlink($tempFile);
+            }
+
+            if ($response->failed()) {
+                $errorData = $response->json();
+                throw new \Exception('Media upload failed: ' . ($errorData['error']['message'] ?? $response->body()));
+            }
+
+            $responseData = $response->json();
+            $mediaId = $responseData['id'] ?? null;
+
+            if (! $mediaId) {
+                throw new \Exception('No media ID returned from upload. Response: ' . $response->body());
+            }
+
+            whatsapp_log('Carousel media uploaded successfully', 'info', [
+                'media_url' => $mediaUrl,
+                'media_id' => $mediaId,
+                'file_size' => $fileLength,
+                'mime_type' => $mimeType,
+            ], null, $tenant_id);
+
+            return $mediaId;
+        } catch (\Exception $e) {
+            whatsapp_log('Carousel media upload failed', 'error', [
+                'media_url' => $mediaUrl,
+                'error' => $e->getMessage(),
+            ], $e, $tenant_id);
+
+            return null;
+        }
+    }
+
+    /**
+     * Create a new WhatsApp template (Fixed version with Carousel support)
      */
     public function createTemplate(array $templateData): array
     {
@@ -2457,125 +3326,295 @@ trait WhatsApp
         $accountId = $this->getAccountID();
 
         try {
-            $url = self::getBaseUrl()."{$accountId}/message_templates";
+            $url = self::getBaseUrl() . "{$accountId}/message_templates";
 
             // Build template components from the incoming data structure
             $components = [];
             $data = $templateData['data'] ?? [];
 
-            // Add header component if provided
-            if (! empty($data['header'])) {
-                $headerComponent = [
-                    'type' => 'HEADER',
-                ];
+            // Check if this is a carousel template
+            $isCarouselTemplate = (isset($templateData['cards_json']) && ! empty($templateData['cards_json'])) ||
+                (isset($templateData['data']['cards']) && ! empty($templateData['data']['cards']));
 
-                if ($data['header']['type'] === 'TEXT') {
-                    $headerComponent['format'] = 'TEXT';
-                    $headerComponent['text'] = $data['header']['text'];
+            if ($isCarouselTemplate) {
+                // Handle Carousel Template - use raw cards data for processing
+                $carouselCards = $templateData['data']['cards'] ?? [];
 
-                    // Add header example if there are variables
-                    if (preg_match('/\{\{\d+\}\}/', $data['header']['text'])) {
-                        $headerComponent['example'] = [
-                            'header_text' => ['Sample Header Value'],
+                if (! is_array($carouselCards) || empty($carouselCards)) {
+                    return [
+                        'status' => false,
+                        'message' => 'Carousel template requires at least one card',
+                        'error_details' => 'Cards data is missing or invalid',
+                    ];
+                }
+
+                // Add main template BODY component (required for carousel templates)
+                if (! empty($data['body'])) {
+                    $bodyComponent = [
+                        'type' => 'body',
+                        'text' => $data['body'],
+                    ];
+
+                    // Add body parameters example if there are variables
+                    if (preg_match_all('/\{\{\d+\}\}/', $data['body'], $matches)) {
+                        $paramCount = count(array_unique($matches[0]));
+                        $examples = [];
+                        for ($i = 1; $i <= $paramCount; $i++) {
+                            $examples[] = "Sample Value {$i}";
+                        }
+                        $bodyComponent['example'] = [
+                            'body_text' => [$examples],
                         ];
                     }
-                } elseif (in_array($data['header']['type'], ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
-                    $headerComponent['format'] = $data['header']['type'];
 
-                    $mediaUrl = $data['header']['media_url'] ?? null;
+                    $components[] = $bodyComponent;
+                }
 
-                    if (! empty($mediaUrl)) {
-                        // Upload media and get handle
-                        $uploadedHandle = $this->uploadResumableMediaForTemplate($mediaUrl);
+                // Add CAROUSEL component for media card templates
+                $carouselComponent = [
+                    'type' => 'carousel',
+                    'cards' => [],
+                ];
 
-                        if ($uploadedHandle) {
+                foreach ($carouselCards as $cardIndex => $card) {
+                    $cardComponents = [];
+
+                    // Add card header component (required for carousel cards)
+                    if (isset($card['header'])) {
+                        $cardHeader = [
+                            'type' => 'header',
+                            'format' => strtolower($card['header']['type'] ?? 'image'),
+                        ];
+
+                        // Handle media in carousel card headers
+                        if (in_array(strtoupper($cardHeader['format']), ['IMAGE', 'VIDEO'])) {
+                            $mediaUrl = $card['header']['media_url'] ?? null;
+
+                            if (! empty($mediaUrl)) {
+                                // Upload media and get handle for carousel cards
+                                $uploadedHandle = $this->uploadResumableMediaForTemplate($mediaUrl);
+
+                                if ($uploadedHandle) {
+                                    $cardHeader['example'] = [
+                                        'header_handle' => [$uploadedHandle],
+                                    ];
+
+                                    whatsapp_log('Carousel card media uploaded', 'info', [
+                                        'upload_handle' => $uploadedHandle,
+                                        'media_url' => $mediaUrl,
+                                    ], null, $tenant_id);
+                                } else {
+                                    return [
+                                        'status' => false,
+                                        'message' => "Failed to upload media for carousel card {$cardIndex}. All carousel cards require valid media.",
+                                        'error_details' => 'Media upload failed for card ' . $cardIndex,
+                                    ];
+                                }
+                            } else {
+                                return [
+                                    'status' => false,
+                                    'message' => "Media URL is required for carousel card {$cardIndex}",
+                                    'error_details' => 'Missing media_url for card ' . $cardIndex,
+                                ];
+                            }
+                        }
+
+                        $cardComponents[] = $cardHeader;
+                    } else {
+                        // Header is required for carousel cards
+                        return [
+                            'status' => false,
+                            'message' => "Header is required for carousel card {$cardIndex}",
+                            'error_details' => 'Missing header for card ' . $cardIndex,
+                        ];
+                    }
+
+                    // Add card body component (optional for carousel)
+                    if (isset($card['body']) && ! empty($card['body'])) {
+                        $cardBody = [
+                            'type' => 'body',
+                            'text' => $card['body'],
+                        ];
+
+                        // Add body parameters example if there are variables
+                        if (preg_match_all('/\{\{\d+\}\}/', $card['body'], $matches)) {
+                            $paramCount = count(array_unique($matches[0]));
+                            $examples = [];
+                            for ($i = 1; $i <= $paramCount; $i++) {
+                                $examples[] = "Sample Value {$i}";
+                            }
+                            $cardBody['example'] = [
+                                'body_text' => [$examples],
+                            ];
+                        }
+
+                        $cardComponents[] = $cardBody;
+                    }
+
+                    // Add card buttons (optional)
+                    if (isset($card['buttons']) && is_array($card['buttons']) && ! empty($card['buttons'])) {
+                        $cardButtonsComponent = [
+                            'type' => 'buttons',
+                            'buttons' => [],
+                        ];
+
+                        foreach ($card['buttons'] as $button) {
+                            $buttonData = [
+                                'type' => strtolower($button['type'] ?? 'quick_reply'),
+                            ];
+
+                            if (strtoupper($button['type']) === 'QUICK_REPLY') {
+                                $buttonData['text'] = $button['text'] ?? '';
+                            } elseif (strtoupper($button['type']) === 'PHONE_NUMBER') {
+                                $buttonData['text'] = $button['text'] ?? '';
+                                $buttonData['phone_number'] = $button['phone_number'] ?? '';
+                            } elseif (strtoupper($button['type']) === 'URL') {
+                                $buttonData['text'] = $button['text'] ?? '';
+                                $buttonData['url'] = $button['url'] ?? '';
+
+                                // Check if URL has variables
+                                if (preg_match('/\{\{\d+\}\}/', $button['url'])) {
+                                    $buttonData['example'] = ['https://example.com/sample'];
+                                }
+                            }
+
+                            $cardButtonsComponent['buttons'][] = $buttonData;
+                        }
+
+                        $cardComponents[] = $cardButtonsComponent;
+                    }
+
+                    // Add the complete card to carousel (only if it has components)
+                    if (! empty($cardComponents)) {
+                        $carouselComponent['cards'][] = [
+                            'components' => $cardComponents,
+                        ];
+                    } else {
+                        return [
+                            'status' => false,
+                            'message' => "Carousel card {$cardIndex} must have at least one component (header, body, or buttons)",
+                            'error_details' => 'Empty card components for card ' . $cardIndex,
+                        ];
+                    }
+                }
+
+                $components[] = $carouselComponent;
+            } else {
+                // Handle Regular Template (existing logic)
+                // Add header component if provided
+                if (! empty($data['header'])) {
+                    $headerComponent = [
+                        'type' => 'header',
+                    ];
+
+                    if ($data['header']['type'] === 'TEXT') {
+                        $headerComponent['format'] = 'TEXT';
+                        $headerComponent['text'] = $data['header']['text'];
+
+                        // Add header example if there are variables
+                        if (preg_match('/\{\{\d+\}\}/', $data['header']['text'])) {
                             $headerComponent['example'] = [
-                                'header_handle' => [$uploadedHandle],
-                            ];
-
-                            whatsapp_log('Using upload handle for template header', 'info', [
-                                'upload_handle' => $uploadedHandle,
-                                'media_url' => $mediaUrl,
-                                'header_type' => $data['header']['type'],
-                            ], null, $tenant_id);
-                        } else {
-                            // If upload fails, we cannot create IMAGE/VIDEO/DOCUMENT header without example
-                            return [
-                                'status' => false,
-                                'message' => 'Failed to upload media for template header. Media upload is required for '.$data['header']['type'].' headers.',
-                                'error_details' => 'Media upload failed',
+                                'header_text' => ['Sample Header Value'],
                             ];
                         }
+                    } elseif (in_array($data['header']['type'], ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
+                        $headerComponent['format'] = $data['header']['type'];
+
+                        $mediaUrl = $data['header']['media_url'] ?? null;
+
+                        if (! empty($mediaUrl)) {
+                            // Upload media and get handle
+                            $uploadedHandle = $this->uploadResumableMediaForTemplate($mediaUrl);
+
+                            if ($uploadedHandle) {
+                                $headerComponent['example'] = [
+                                    'header_handle' => [$uploadedHandle],
+                                ];
+
+                                whatsapp_log('Using upload handle for template header', 'info', [
+                                    'upload_handle' => $uploadedHandle,
+                                    'media_url' => $mediaUrl,
+                                    'header_type' => $data['header']['type'],
+                                ], null, $tenant_id);
+                            } else {
+                                // If upload fails, we cannot create IMAGE/VIDEO/DOCUMENT header without example
+                                return [
+                                    'status' => false,
+                                    'message' => 'Failed to upload media for template header. Media upload is required for ' . $data['header']['type'] . ' headers.',
+                                    'error_details' => 'Media upload failed',
+                                ];
+                            }
+                        }
                     }
+
+                    $components[] = $headerComponent;
                 }
 
-                $components[] = $headerComponent;
-            }
+                // Add body component (required for regular templates)
+                if (! empty($data['body'])) {
+                    $bodyComponent = [
+                        'type' => 'body',
+                        'text' => $data['body'],
+                    ];
 
-            // Add body component (required)
-            if (! empty($data['body'])) {
-                $bodyComponent = [
-                    'type' => 'BODY',
-                    'text' => $data['body'],
-                ];
-
-                // Add body parameters example if there are variables
-                if (preg_match_all('/\{\{\d+\}\}/', $data['body'], $matches)) {
-                    $paramCount = count(array_unique($matches[0]));
-                    $examples = [];
-                    for ($i = 1; $i <= $paramCount; $i++) {
-                        $examples[] = "Sample Value {$i}";
+                    // Add body parameters example if there are variables
+                    if (preg_match_all('/\{\{\d+\}\}/', $data['body'], $matches)) {
+                        $paramCount = count(array_unique($matches[0]));
+                        $examples = [];
+                        for ($i = 1; $i <= $paramCount; $i++) {
+                            $examples[] = "Sample Value {$i}";
+                        }
+                        $bodyComponent['example'] = [
+                            'body_text' => [$examples],
+                        ];
                     }
-                    $bodyComponent['example'] = [
-                        'body_text' => [$examples],
+
+                    $components[] = $bodyComponent;
+                }
+
+                // Add footer component if provided
+                if (! empty($data['footer'])) {
+                    $components[] = [
+                        'type' => 'FOOTER',
+                        'text' => $data['footer'],
                     ];
                 }
 
-                $components[] = $bodyComponent;
-            }
-
-            // Add footer component if provided
-            if (! empty($data['footer'])) {
-                $components[] = [
-                    'type' => 'FOOTER',
-                    'text' => $data['footer'],
-                ];
-            }
-
-            // Add buttons component if provided
-            if (! empty($data['buttons']) && is_array($data['buttons'])) {
-                $buttonsComponent = [
-                    'type' => 'BUTTONS',
-                    'buttons' => [],
-                ];
-
-                foreach ($data['buttons'] as $button) {
-                    $buttonData = [
-                        'type' => $button['type'] ?? 'QUICK_REPLY',
+                // Add buttons component if provided
+                if (! empty($data['buttons']) && is_array($data['buttons'])) {
+                    $buttonsComponent = [
+                        'type' => 'buttons',
+                        'buttons' => [],
                     ];
 
-                    if ($button['type'] === 'QUICK_REPLY') {
-                        $buttonData['text'] = $button['text'] ?? '';
-                    } elseif ($button['type'] === 'PHONE_NUMBER') {
-                        $buttonData['text'] = $button['text'] ?? '';
-                        $buttonData['phone_number'] = $button['phone_number'] ?? '';
-                    } elseif ($button['type'] === 'URL') {
-                        $buttonData['text'] = $button['text'] ?? '';
-                        $buttonData['url'] = $button['url'] ?? '';
+                    foreach ($data['buttons'] as $button) {
+                        $buttonData = [
+                            'type' => strtolower($button['type'] ?? 'quick_reply'),
+                        ];
 
-                        // Check if URL has variables
-                        if (preg_match('/\{\{\d+\}\}/', $button['url'])) {
-                            $buttonData['example'] = ['https://example.com/sample'];
+                        if (strtoupper($button['type']) === 'QUICK_REPLY') {
+                            $buttonData['text'] = $button['text'] ?? '';
+                        } elseif (strtoupper($button['type']) === 'PHONE_NUMBER') {
+                            $buttonData['text'] = $button['text'] ?? '';
+                            $buttonData['phone_number'] = $button['phone_number'] ?? '';
+                        } elseif (strtoupper($button['type']) === 'URL') {
+                            $buttonData['text'] = $button['text'] ?? '';
+                            $buttonData['url'] = $button['url'] ?? '';
+
+                            // Check if URL has variables
+                            if (preg_match('/\{\{\d+\}\}/', $button['url'])) {
+                                $buttonData['example'] = ['https://example.com/sample'];
+                            }
+                        } elseif ($button['type'] === 'COPY_CODE') {
+                            $buttonData['text'] = $button['text'] ?? '';
+                            $buttonData['copy_code'] = $button['copy_code'] ?? '';
                         }
-                    } elseif ($button['type'] === 'COPY_CODE') {
-                        $buttonData['text'] = $button['text'] ?? '';
-                        $buttonData['copy_code'] = $button['copy_code'] ?? '';
+
+                        $buttonsComponent['buttons'][] = $buttonData;
                     }
 
-                    $buttonsComponent['buttons'][] = $buttonData;
+                    $components[] = $buttonsComponent;
                 }
-
-                $components[] = $buttonsComponent;
             }
 
             // Prepare the request payload
@@ -2639,7 +3678,200 @@ trait WhatsApp
 
             return [
                 'status' => false,
-                'message' => 'Template creation failed: '.$e->getMessage(),
+                'message' => 'Template creation failed: ' . $e->getMessage(),
+                'error_details' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Create WhatsApp Authentication Template with OTP button support
+     *
+     * @param  array  $templateData  Template configuration
+     * @return array Response with status, message, and template data
+     */
+    public function createAuthenticationTemplate(array $templateData): array
+    {
+        $tenant_id = $this->getWaTenantId();
+        $accessToken = $this->getToken();
+        $accountId = $this->getAccountID();
+
+        try {
+            // Validate category
+            if (($templateData['category'] ?? '') !== 'AUTHENTICATION') {
+                return [
+                    'status' => false,
+                    'message' => 'Category must be AUTHENTICATION for authentication templates.',
+                ];
+            }
+
+            $url = self::getBaseUrl() . "{$accountId}/message_templates";
+
+            // Build components for authentication template
+            $components = [];
+            $data = $templateData['data'] ?? [];
+
+            // BODY component (required for authentication templates)
+            $bodyComponent = [
+                'type' => 'BODY',
+            ];
+
+            // Add security recommendation if specified
+            if (! empty($data['body']['add_security_recommendation'])) {
+                $bodyComponent['add_security_recommendation'] = true;
+            }
+
+            $components[] = $bodyComponent;
+
+            // FOOTER component (optional, for code expiration)
+            if (! empty($data['footer']['code_expiration_minutes'])) {
+                $components[] = [
+                    'type' => 'FOOTER',
+                    'code_expiration_minutes' => (int) $data['footer']['code_expiration_minutes'],
+                ];
+            }
+
+            // BUTTONS component with OTP button
+            if (! empty($data['buttons']) && is_array($data['buttons'])) {
+                $buttonsComponent = [
+                    'type' => 'BUTTONS',
+                    'buttons' => [],
+                ];
+
+                foreach ($data['buttons'] as $button) {
+                    if (($button['type'] ?? '') === 'OTP') {
+                        $otpButton = [
+                            'type' => 'OTP',
+                            'otp_type' => $button['otp_type'] ?? 'COPY_CODE',
+                        ];
+
+                        // Add optional text for COPY_CODE
+                        if (! empty($button['text']) && $otpButton['otp_type'] === 'COPY_CODE') {
+                            $otpButton['text'] = $button['text'];
+                        }
+
+                        // Add fields for ONE_TAP and ZERO_TAP
+                        if ($otpButton['otp_type'] === 'ONE_TAP' || $otpButton['otp_type'] === 'ZERO_TAP') {
+                            if (empty($button['package_name']) || empty($button['signature_hash'])) {
+                                return [
+                                    'status' => false,
+                                    'message' => 'package_name and signature_hash are required for ONE_TAP and ZERO_TAP authentication.',
+                                ];
+                            }
+
+                            if ($otpButton['otp_type'] === 'ONE_TAP') {
+                                $otpButton['autofill_text'] = $button['autofill_text'] ?? 'Autofill';
+                            }
+
+                            $otpButton['package_name'] = $button['package_name'];
+                            $otpButton['signature_hash'] = $button['signature_hash'];
+                        }
+
+                        $buttonsComponent['buttons'][] = $otpButton;
+                    }
+                }
+
+                if (! empty($buttonsComponent['buttons'])) {
+                    $components[] = $buttonsComponent;
+                } else {
+                    return [
+                        'status' => false,
+                        'message' => 'At least one OTP button is required for authentication templates.',
+                    ];
+                }
+            } else {
+                return [
+                    'status' => false,
+                    'message' => 'OTP button configuration is required for authentication templates.',
+                ];
+            }
+
+            // Prepare the request payload
+            $payload = [
+                'name' => $templateData['template_name'],
+                'language' => $templateData['language'] ?? 'en_US',
+                'category' => 'AUTHENTICATION',
+                'components' => $components,
+            ];
+
+            // Add message TTL (default 600 seconds for authentication)
+            $payload['message_send_ttl_seconds'] = $templateData['message_send_ttl_seconds'] ?? 600;
+
+            // Make API request to Meta
+            $response = Http::withToken($accessToken)->post($url, $payload);
+
+            if ($response->failed()) {
+                $errorData = $response->json();
+                $errorMessage = $errorData['error']['message'] ?? 'Failed to create authentication template';
+
+                whatsapp_log('Authentication template creation failed', 'error', [
+                    'template_name' => $templateData['template_name'],
+                    'response_code' => $response->status(),
+                    'error_message' => $errorMessage,
+                    'full_error' => $errorData,
+                    'payload' => $payload,
+                    'tenant_id' => $tenant_id,
+                ], null, $tenant_id);
+
+                return [
+                    'status' => false,
+                    'message' => "Authentication template creation failed: {$errorMessage}",
+                    'error_code' => $response->status(),
+                    'error_details' => $errorData,
+                ];
+            }
+
+            $responseData = $response->json();
+
+            // Store in local database
+            $localTemplate = WhatsappTemplate::updateOrCreate(
+                [
+                    'template_id' => $responseData['id'],
+                    'tenant_id' => $tenant_id,
+                ],
+                [
+                    'template_name' => $templateData['template_name'],
+                    'language' => $templateData['language'] ?? 'en_US',
+                    'status' => $responseData['status'] ?? 'PENDING',
+                    'category' => 'AUTHENTICATION',
+                    'body_data' => '*{{1}}* is your verification code.',
+                    'body_params_count' => 1,
+                    'message_send_ttl_seconds' => $payload['message_send_ttl_seconds'],
+                    'add_security_recommendation' => $data['body']['add_security_recommendation'] ?? false,
+                    'code_expiration_minutes' => $data['footer']['code_expiration_minutes'] ?? null,
+                    'otp_button_config' => ! empty($data['buttons'][0]) ? $data['buttons'][0] : null,
+                ]
+            );
+
+            whatsapp_log('Authentication template created successfully', 'info', [
+                'template_name' => $templateData['template_name'],
+                'template_id' => $responseData['id'] ?? 'unknown',
+                'local_id' => $localTemplate->id,
+                'status' => $responseData['status'] ?? 'unknown',
+                'tenant_id' => $tenant_id,
+            ], null, $tenant_id);
+
+            // Clear authentication templates cache
+            \Illuminate\Support\Facades\Cache::forget("tenant:{$tenant_id}:templates:authentication");
+
+            return [
+                'status' => true,
+                'message' => 'Authentication template created successfully',
+                'data' => $responseData,
+                'template_id' => $responseData['id'] ?? null,
+                'local_id' => $localTemplate->id,
+                'template' => $localTemplate->toArray(),
+            ];
+        } catch (\Exception $e) {
+            whatsapp_log('Authentication template creation exception', 'error', [
+                'template_name' => $templateData['template_name'] ?? 'unknown',
+                'error' => $e->getMessage(),
+                'tenant_id' => $tenant_id,
+            ], $e, $tenant_id);
+
+            return [
+                'status' => false,
+                'message' => 'Authentication template creation failed: ' . $e->getMessage(),
                 'error_details' => $e->getMessage(),
             ];
         }
@@ -2687,132 +3919,303 @@ trait WhatsApp
             if ($localTemplate && in_array($localTemplate->status, ['REJECTED', 'DISABLED'])) {
                 return [
                     'status' => false,
-                    'message' => ucfirst(strtolower($localTemplate->status)).' templates cannot be edited. Please create a new template.',
+                    'message' => ucfirst(strtolower($localTemplate->status)) . ' templates cannot be edited. Please create a new template.',
                     'error_code' => 'TEMPLATE_NOT_EDITABLE',
                 ];
             }
 
             // Use the correct Meta API endpoint for template updates
             // The endpoint should be the template ID directly, not account/template_id
-            $url = self::getBaseUrl().$metaTemplateId;
+            $url = self::getBaseUrl() . $metaTemplateId;
 
             // Build template components from the incoming data structure
             $components = [];
             $data = $templateData['data'] ?? [];
 
-            // Add header component if provided
-            if (! empty($data['header'])) {
-                $headerComponent = [
-                    'type' => 'HEADER',
-                ];
+            // Check if this is a carousel template update
+            $isCarouselTemplate = (isset($templateData['cards_json']) && ! empty($templateData['cards_json'])) ||
+                (isset($templateData['data']['cards']) && ! empty($templateData['data']['cards']));
 
-                if ($data['header']['type'] === 'TEXT') {
-                    $headerComponent['format'] = 'TEXT';
-                    $headerComponent['text'] = $data['header']['text'];
+            if ($isCarouselTemplate) {
+                // Handle Carousel Template Update - use raw cards data for processing
+                $carouselCards = $templateData['data']['cards'] ?? [];
 
-                    // Add header example if there are variables
-                    if (preg_match('/\{\{\d+\}\}/', $data['header']['text'])) {
-                        $headerComponent['example'] = [
-                            'header_text' => ['Sample Header Value'],
+                if (! is_array($carouselCards) || empty($carouselCards)) {
+                    return [
+                        'status' => false,
+                        'message' => 'Carousel template requires at least one card for update',
+                        'error_details' => 'Cards data is missing or invalid',
+                    ];
+                }
+
+                // Add main template BODY component first (required for carousel templates)
+                if (! empty($data['body'])) {
+                    $bodyComponent = [
+                        'type' => 'body',
+                        'text' => $data['body'],
+                    ];
+
+                    // Add body parameters example if there are variables
+                    if (preg_match_all('/\{\{\d+\}\}/', $data['body'], $matches)) {
+                        $paramCount = count(array_unique($matches[0]));
+                        $examples = [];
+                        for ($i = 1; $i <= $paramCount; $i++) {
+                            $examples[] = "Sample Value {$i}";
+                        }
+                        $bodyComponent['example'] = [
+                            'body_text' => [$examples],
                         ];
                     }
-                } elseif (in_array($data['header']['type'], ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
-                    $headerComponent['format'] = $data['header']['type'];
 
-                    $mediaUrl = $data['header']['media_url'] ?? null;
+                    $components[] = $bodyComponent;
+                }
 
-                    if (! empty($mediaUrl)) {
-                        // Upload media and get handle for updates too
-                        $uploadedHandle = $this->uploadResumableMediaForTemplate($mediaUrl);
+                // Add CAROUSEL component for media card templates
+                $carouselComponent = [
+                    'type' => 'carousel',
+                    'cards' => [],
+                ];
 
-                        if ($uploadedHandle) {
+                foreach ($carouselCards as $cardIndex => $card) {
+                    $cardComponents = [];
+
+                    // Add card header component (required for carousel cards)
+                    if (isset($card['header'])) {
+                        $cardHeader = [
+                            'type' => 'header',
+                            'format' => strtolower($card['header']['type'] ?? 'image'),
+                        ];
+
+                        // Handle media in carousel card headers
+                        if (in_array(strtoupper($cardHeader['format']), ['IMAGE', 'VIDEO'])) {
+                            $mediaUrl = $card['header']['media_url'] ?? null;
+
+                            if (! empty($mediaUrl)) {
+                                // Upload media and get handle for carousel cards
+                                $uploadedHandle = $this->uploadResumableMediaForTemplate($mediaUrl);
+
+                                if ($uploadedHandle) {
+                                    $cardHeader['example'] = [
+                                        'header_handle' => [$uploadedHandle],
+                                    ];
+
+                                    whatsapp_log('Carousel card media uploaded for update', 'info', [
+                                        'upload_handle' => $uploadedHandle,
+                                        'media_url' => $mediaUrl,
+                                        'template_id' => $metaTemplateId,
+                                    ], null, $tenant_id);
+                                } else {
+                                    return [
+                                        'status' => false,
+                                        'message' => "Failed to upload media for carousel card {$cardIndex} during update. All carousel cards require valid media.",
+                                        'error_details' => 'Media upload failed for card ' . $cardIndex,
+                                    ];
+                                }
+                            } else {
+                                return [
+                                    'status' => false,
+                                    'message' => "Media URL is required for carousel card {$cardIndex} during update",
+                                    'error_details' => 'Missing media_url for card ' . $cardIndex,
+                                ];
+                            }
+                        }
+
+                        $cardComponents[] = $cardHeader;
+                    } else {
+                        // Header is required for carousel cards
+                        return [
+                            'status' => false,
+                            'message' => "Header is required for carousel card {$cardIndex} during update",
+                            'error_details' => 'Missing header for card ' . $cardIndex,
+                        ];
+                    }
+
+                    // Add card body component (optional for carousel)
+                    if (isset($card['body']) && ! empty($card['body'])) {
+                        $cardBody = [
+                            'type' => 'body',
+                            'text' => $card['body'],
+                        ];
+
+                        // Add body parameters example if there are variables
+                        if (preg_match_all('/\{\{\d+\}\}/', $card['body'], $matches)) {
+                            $paramCount = count(array_unique($matches[0]));
+                            $examples = [];
+                            for ($i = 1; $i <= $paramCount; $i++) {
+                                $examples[] = "Sample Value {$i}";
+                            }
+                            $cardBody['example'] = [
+                                'body_text' => [$examples],
+                            ];
+                        }
+
+                        $cardComponents[] = $cardBody;
+                    }
+
+                    // Add card buttons (optional)
+                    if (isset($card['buttons']) && is_array($card['buttons']) && ! empty($card['buttons'])) {
+                        $cardButtonsComponent = [
+                            'type' => 'buttons',
+                            'buttons' => [],
+                        ];
+
+                        foreach ($card['buttons'] as $button) {
+                            $buttonData = [
+                                'type' => strtolower($button['type'] ?? 'quick_reply'),
+                            ];
+
+                            if (strtoupper($button['type']) === 'QUICK_REPLY') {
+                                $buttonData['text'] = $button['text'] ?? '';
+                            } elseif (strtoupper($button['type']) === 'PHONE_NUMBER') {
+                                $buttonData['text'] = $button['text'] ?? '';
+                                $buttonData['phone_number'] = $button['phone_number'] ?? '';
+                            } elseif (strtoupper($button['type']) === 'URL') {
+                                $buttonData['text'] = $button['text'] ?? '';
+                                $buttonData['url'] = $button['url'] ?? '';
+
+                                // Check if URL has variables
+                                if (preg_match('/\{\{\d+\}\}/', $button['url'])) {
+                                    $buttonData['example'] = ['https://example.com/sample'];
+                                }
+                            }
+
+                            $cardButtonsComponent['buttons'][] = $buttonData;
+                        }
+
+                        $cardComponents[] = $cardButtonsComponent;
+                    }
+
+                    // Add the complete card to carousel (only if it has components)
+                    if (! empty($cardComponents)) {
+                        $carouselComponent['cards'][] = [
+                            'components' => $cardComponents,
+                        ];
+                    } else {
+                        return [
+                            'status' => false,
+                            'message' => "Carousel card {$cardIndex} must have at least one component (header, body, or buttons)",
+                            'error_details' => 'Empty card components for card ' . $cardIndex,
+                        ];
+                    }
+                }
+
+                $components[] = $carouselComponent;
+            } else {
+                // Handle Regular Template Update (existing logic)
+                // Add header component if provided
+                if (! empty($data['header'])) {
+                    $headerComponent = [
+                        'type' => 'header',
+                    ];
+
+                    if ($data['header']['type'] === 'TEXT') {
+                        $headerComponent['format'] = 'TEXT';
+                        $headerComponent['text'] = $data['header']['text'];
+
+                        // Add header example if there are variables
+                        if (preg_match('/\{\{\d+\}\}/', $data['header']['text'])) {
                             $headerComponent['example'] = [
-                                'header_handle' => [$uploadedHandle],
-                            ];
-
-                            whatsapp_log('Using upload handle for template update', 'info', [
-                                'upload_handle' => $uploadedHandle,
-                                'media_url' => $mediaUrl,
-                                'template_id' => $metaTemplateId,
-                            ], null, $tenant_id);
-                        } else {
-                            // If upload fails, we cannot update with IMAGE/VIDEO/DOCUMENT header
-                            return [
-                                'status' => false,
-                                'message' => 'Failed to upload media for template header update. Media upload is required for '.$data['header']['type'].' headers.',
-                                'error_details' => 'Media upload failed',
+                                'header_text' => ['Sample Header Value'],
                             ];
                         }
+                    } elseif (in_array($data['header']['type'], ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
+                        $headerComponent['format'] = $data['header']['type'];
+
+                        $mediaUrl = $data['header']['media_url'] ?? null;
+
+                        if (! empty($mediaUrl)) {
+                            // Upload media and get handle for updates too
+                            $uploadedHandle = $this->uploadResumableMediaForTemplate($mediaUrl);
+
+                            if ($uploadedHandle) {
+                                $headerComponent['example'] = [
+                                    'header_handle' => [$uploadedHandle],
+                                ];
+
+                                whatsapp_log('Using upload handle for template update', 'info', [
+                                    'upload_handle' => $uploadedHandle,
+                                    'media_url' => $mediaUrl,
+                                    'template_id' => $metaTemplateId,
+                                ], null, $tenant_id);
+                            } else {
+                                // If upload fails, we cannot update with IMAGE/VIDEO/DOCUMENT header
+                                return [
+                                    'status' => false,
+                                    'message' => 'Failed to upload media for template header update. Media upload is required for ' . $data['header']['type'] . ' headers.',
+                                    'error_details' => 'Media upload failed',
+                                ];
+                            }
+                        }
                     }
+
+                    $components[] = $headerComponent;
                 }
 
-                $components[] = $headerComponent;
-            }
+                // Add body component (required for regular templates)
+                if (! empty($data['body'])) {
+                    $bodyComponent = [
+                        'type' => 'body',
+                        'text' => $data['body'],
+                    ];
 
-            // Add body component (required)
-            if (! empty($data['body'])) {
-                $bodyComponent = [
-                    'type' => 'BODY',
-                    'text' => $data['body'],
-                ];
-
-                // Add body parameters example if there are variables
-                if (preg_match_all('/\{\{\d+\}\}/', $data['body'], $matches)) {
-                    $paramCount = count(array_unique($matches[0]));
-                    $examples = [];
-                    for ($i = 1; $i <= $paramCount; $i++) {
-                        $examples[] = "Sample Value {$i}";
+                    // Add body parameters example if there are variables
+                    if (preg_match_all('/\{\{\d+\}\}/', $data['body'], $matches)) {
+                        $paramCount = count(array_unique($matches[0]));
+                        $examples = [];
+                        for ($i = 1; $i <= $paramCount; $i++) {
+                            $examples[] = "Sample Value {$i}";
+                        }
+                        $bodyComponent['example'] = [
+                            'body_text' => [$examples],
+                        ];
                     }
-                    $bodyComponent['example'] = [
-                        'body_text' => [$examples],
+
+                    $components[] = $bodyComponent;
+                }
+
+                // Add footer component if provided
+                if (! empty($data['footer'])) {
+                    $components[] = [
+                        'type' => 'FOOTER',
+                        'text' => $data['footer'],
                     ];
                 }
 
-                $components[] = $bodyComponent;
-            }
-
-            // Add footer component if provided
-            if (! empty($data['footer'])) {
-                $components[] = [
-                    'type' => 'FOOTER',
-                    'text' => $data['footer'],
-                ];
-            }
-
-            // Add buttons component if provided
-            if (! empty($data['buttons']) && is_array($data['buttons'])) {
-                $buttonsComponent = [
-                    'type' => 'BUTTONS',
-                    'buttons' => [],
-                ];
-
-                foreach ($data['buttons'] as $button) {
-                    $buttonData = [
-                        'type' => $button['type'] ?? 'QUICK_REPLY',
+                // Add buttons component if provided
+                if (! empty($data['buttons']) && is_array($data['buttons'])) {
+                    $buttonsComponent = [
+                        'type' => 'buttons',
+                        'buttons' => [],
                     ];
 
-                    if ($button['type'] === 'QUICK_REPLY') {
-                        $buttonData['text'] = $button['text'] ?? '';
-                    } elseif ($button['type'] === 'PHONE_NUMBER') {
-                        $buttonData['text'] = $button['text'] ?? '';
-                        $buttonData['phone_number'] = $button['phone_number'] ?? '';
-                    } elseif ($button['type'] === 'URL') {
-                        $buttonData['text'] = $button['text'] ?? '';
-                        $buttonData['url'] = $button['url'] ?? '';
+                    foreach ($data['buttons'] as $button) {
+                        $buttonData = [
+                            'type' => strtolower($button['type'] ?? 'quick_reply'),
+                        ];
 
-                        // Check if URL has variables
-                        if (preg_match('/\{\{\d+\}\}/', $button['url'])) {
-                            $buttonData['example'] = ['https://example.com/sample'];
+                        if (strtoupper($button['type']) === 'QUICK_REPLY') {
+                            $buttonData['text'] = $button['text'] ?? '';
+                        } elseif (strtoupper($button['type']) === 'PHONE_NUMBER') {
+                            $buttonData['text'] = $button['text'] ?? '';
+                            $buttonData['phone_number'] = $button['phone_number'] ?? '';
+                        } elseif (strtoupper($button['type']) === 'URL') {
+                            $buttonData['text'] = $button['text'] ?? '';
+                            $buttonData['url'] = $button['url'] ?? '';
+
+                            // Check if URL has variables
+                            if (preg_match('/\{\{\d+\}\}/', $button['url'])) {
+                                $buttonData['example'] = ['https://example.com/sample'];
+                            }
+                        } elseif ($button['type'] === 'COPY_CODE') {
+                            $buttonData['text'] = $button['text'] ?? '';
+                            $buttonData['copy_code'] = $button['copy_code'] ?? '';
                         }
-                    } elseif ($button['type'] === 'COPY_CODE') {
-                        $buttonData['text'] = $button['text'] ?? '';
-                        $buttonData['copy_code'] = $button['copy_code'] ?? '';
+
+                        $buttonsComponent['buttons'][] = $buttonData;
                     }
 
-                    $buttonsComponent['buttons'][] = $buttonData;
+                    $components[] = $buttonsComponent;
                 }
-
-                $components[] = $buttonsComponent;
             }
 
             // Prepare the update payload - Following WhatsJet pattern
@@ -2900,7 +4303,7 @@ trait WhatsApp
 
             return [
                 'status' => false,
-                'message' => 'Template update failed: '.$e->getMessage(),
+                'message' => 'Template update failed: ' . $e->getMessage(),
                 'error_details' => $e->getMessage(),
             ];
         }
@@ -2919,7 +4322,7 @@ trait WhatsApp
         $accountId = $this->getAccountID();
 
         try {
-            $url = self::getBaseUrl()."{$accountId}/message_templates/{$templateId}";
+            $url = self::getBaseUrl() . "{$accountId}/message_templates/{$templateId}";
 
             $response = Http::withToken($accessToken)->get($url);
 
@@ -2957,7 +4360,7 @@ trait WhatsApp
 
             return [
                 'status' => false,
-                'message' => 'Failed to get template: '.$e->getMessage(),
+                'message' => 'Failed to get template: ' . $e->getMessage(),
             ];
         }
     }
@@ -3178,7 +4581,7 @@ trait WhatsApp
             ];
         } catch (\Exception $e) {
             // Log the error
-            \Log::error('Flow Webhook API Error', [
+            Log::error('Flow Webhook API Error', [
                 'url' => $requestUrl ?? 'unknown',
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

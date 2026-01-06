@@ -60,6 +60,7 @@ class TemplateBot extends BaseModel
         'reply_type' => 'int',
         'is_bot_active' => 'int',
         'sending_count' => 'int',
+        'cards_params' => 'array',
     ];
 
     protected $fillable = [
@@ -70,11 +71,13 @@ class TemplateBot extends BaseModel
         'header_params',
         'body_params',
         'footer_params',
+        'button_params',
         'filename',
         'trigger',
         'reply_type',
         'is_bot_active',
         'sending_count',
+        'cards_params',
     ];
 
     public function tenant()

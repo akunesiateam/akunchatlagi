@@ -11,6 +11,13 @@
     get canSubmit() {
         return this.errors.length === 0;
     },
+    get allowedExtensionsLabel() {
+        return this.allowedExtensions.join(', ');
+    },
+
+    resetFileInput() {
+     this.$refs.fileInput.value = '';
+    },
 
     validateFile(file, currentCount) {
         if (currentCount >= this.maxFiles) {
@@ -33,69 +40,76 @@
         return true;
     },
 
-    handleFiles(event) {
-        this.errors = []; // Clear previous errors
-        const fileList = event.target.files || (event.dataTransfer && event.dataTransfer.files);
-        if (!fileList) return;
+  handleFiles(event) {
+    this.errors = [];
 
-        // Get current number of attachments
-        const currentAttachments = document.querySelectorAll('.attachment-preview').length;
-
-        // Group errors by type to avoid duplicates
-        const errorTypes = {
-            maxFiles: false,
-            invalidExtension: false,
-            oversized: []
-        };
-
-        let validFiles = [];
-        Array.from(fileList).forEach(file => {
-            const currentCount = currentAttachments + validFiles.length;
-
-            // Check max files (only once)
-            if (currentCount >= this.maxFiles) {
-                if (!errorTypes.maxFiles) {
-                    this.errors.push(`Maximum ${this.maxFiles} files are allowed.`);
-                    errorTypes.maxFiles = true;
-                }
-                return;
-            }
-
-            // Check file size
-            if (file.size > this.maxFileSize) {
-                errorTypes.oversized.push(file.name);
-                return;
-            }
-
-            // Check file extension
-            const ext = '.' + file.name.split('.').pop().toLowerCase();
-            if (!this.allowedExtensions.includes(ext)) {
-                if (!errorTypes.invalidExtension) {
-                    this.errors.push(`Invalid file extension. Allowed types: ${this.allowedExtensions.join(', ')}`);
-                    errorTypes.invalidExtension = true;
-                }
-                return;
-            }
-
-            validFiles.push(file);
-        });
-
-        // Add oversized files error (grouped)
-        if (errorTypes.oversized.length > 0) {
-            if (errorTypes.oversized.length === 1) {
-                this.errors.push(`${errorTypes.oversized[0]} is too large. Maximum size is 10MB.`);
-            } else {
-                this.errors.push(`${errorTypes.oversized.length} files are too large. Maximum size is 10MB per file.`);
-            }
-        }
-
-        if (validFiles.length > 0) {
-            @this.uploadMultiple('attachments', validFiles);
-        } else {
-            // Clear the input if no valid files
-            event.target.value = '';
-        }
+    const fileList = Array.from(event.target.files || []);
+    if (!fileList.length) {
+        this.resetFileInput();
+        return;
     }
+
+    let validFiles = [];
+    let oversized = [];
+    let invalidExtension = false;
+    let duplicatesReplaced = [];
+
+    fileList.forEach(file => {
+        // Check if file with same name already exists (only replace true duplicates)
+        const existingIndex = this.files.findIndex(f => f.name === file.name && f.size === file.size);
+        
+        if (existingIndex !== -1) {
+            // Replace existing file with same name and size
+            this.files.splice(existingIndex, 1);
+            duplicatesReplaced.push(file.name);
+        }
+
+        const currentCount = this.files.length + validFiles.length;
+
+        if (currentCount >= this.maxFiles) {
+            if (!this.errors.includes(`Maximum ${this.maxFiles} files are allowed.`)) {
+                this.errors.push(`Maximum ${this.maxFiles} files are allowed.`);
+            }
+            return;
+        }
+
+        if (file.size > this.maxFileSize) {
+            oversized.push(file.name);
+            return;
+        }
+
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        if (!this.allowedExtensions.includes(ext)) {
+            invalidExtension = true;
+            return;
+        }
+
+        validFiles.push(file);
+    });
+
+    if (oversized.length) {
+        this.errors.push(
+            oversized.length === 1
+                ? `${oversized[0]} is too large. Maximum size is 10MB.`
+                : `${oversized.length} files are too large. Maximum size is 10MB per file.`
+        );
+    }
+
+    if (invalidExtension) {
+        this.errors.push(
+            `Invalid file extension. Allowed types: ${this.allowedExtensions.join(', ')}`
+        );
+    }
+
+    if (validFiles.length) {
+        this.files.push(...validFiles);
+        @this.uploadMultiple('attachments', validFiles);
+    }
+
+    // Reset input synchronously to ensure file picker closes immediately
+    this.resetFileInput();
+}
+
 }">
     <form wire:submit="save">
         <div class="p-6 space-y-6">
@@ -304,9 +318,9 @@
                 </div>
                 @endif
 
-                <!-- New Attachments Upload Area -->
+                  <!-- New Attachments Upload Area -->
                 <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 rounded-md transition-colors cursor-pointer hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    @click="$refs.fileInput.click()" :class="{
+                    :class="{
                         'border-gray-300 dark:border-gray-700 border-dashed': !isDragging,
                         'border-primary-500 border-solid bg-primary-50 dark:bg-primary-900/20': isDragging
                     }">
@@ -323,13 +337,13 @@
                                 class="relative cursor-pointer bg-white dark:bg-gray-800 rounded-md font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary-500">
                                 <span>{{ 'Upload files' }}</span>
                                 <input x-ref="fileInput" id="file-upload" type="file" class="sr-only"
-                                    @change="handleFiles($event)" multiple
-                                    accept="{{ get_whatsmark_allowed_extension()['file_types']['extension'] }}">
+                                    @change="handleFiles($event)" multiple :accept="allowedExtensionsLabel">
                             </label>
 
                         </div>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
                             {{ t('maximum_5_files_allowed') }}
+                            <span class="font-medium" x-text="allowedExtensionsLabel"></span>
                         </p>
                     </div>
                 </div>
@@ -400,6 +414,7 @@
                                     $attachment->getClientOriginalName() }}</span>
                             </div>
                             <button type="button" wire:click="removeAttachment({{ $key }})"
+                                @click="files = files.filter((_, i) => i !== {{ $key }})"
                                 class="text-danger-500 hover:text-danger-700">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

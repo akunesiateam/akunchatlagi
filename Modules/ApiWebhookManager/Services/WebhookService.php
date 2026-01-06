@@ -20,10 +20,14 @@ class WebhookService
     {
         $defaultHeaders = config('ApiWebhookManager.headers', []);
 
+        // N8N format only - extract event type
+        $eventType = $payload['event']['type'] ?? 'unknown';
+
         return array_merge($defaultHeaders, [
             'X-Webhook-Signature' => $this->generateSignature($payload, $secret),
-            'X-Webhook-Event' => $payload['event'],
+            'X-Webhook-Event' => $eventType,
             'X-Webhook-Timestamp' => now()->toIso8601String(),
+            'X-Webhook-Format' => 'n8n',
         ]);
     }
 
@@ -42,8 +46,8 @@ class WebhookService
                     ->post($url, $payload);
 
                 $this->logWebhook([
-                    'event' => $payload['event'],
-                    'model' => $payload['model'],
+                    'event' => $payload['event']['type'] ?? 'unknown',
+                    'model' => $payload['data']['resource']['type'] ?? null,
                     'url' => $url,
                     'status' => $response->successful() ? 'success' : 'failed',
                     'attempt' => $attempt,
@@ -67,8 +71,8 @@ class WebhookService
 
             } catch (\Throwable $e) {
                 $this->logWebhook([
-                    'event' => $payload['event'],
-                    'model' => $payload['model'],
+                    'event' => $payload['event']['type'] ?? 'unknown',
+                    'model' => $payload['data']['resource']['type'] ?? null,
                     'url' => $url,
                     'status' => 'error',
                     'attempt' => $attempt,

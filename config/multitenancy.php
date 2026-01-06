@@ -117,7 +117,7 @@ return [
      * Jobs not tenant aware even if these don't implement the NotTenantAware interface.
      */
     'not_tenant_aware_jobs' => [
-        // ...
+        \App\Jobs\ProcessDelayedFlowNodeJob::class,
     ],
 
     'use_tenant_prefix' => env('TENANT_USE_PREFIX', false),

@@ -24,3 +24,22 @@ if (! function_exists('is_admin_context')) {
         return false;
     }
 }
+
+if (! function_exists('is_admin')) {
+    /**
+     * Check if the current authenticated user is the main super admin.
+     *
+     * @return bool Returns true if user is the main super admin (is_admin = 1)
+     */
+    function is_admin(): bool
+    {
+        $user = Auth::user();
+
+        // Check if user exists and has is_admin flag set to true
+        if ($user && isset($user->is_admin) && $user->is_admin) {
+            return true;
+        }
+
+        return false;
+    }
+}

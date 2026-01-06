@@ -20,9 +20,9 @@
                     <x-slot:header>
                         <div class="flex items-center space-x-2">
                             <x-heroicon-o-document-text class="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                            <h3 class="text-base sm:text-lg font-semibold text-slate-700 dark:text-slate-300">
                                 {{ t('template_configuration') }}
-                            </h2>
+                            </h3>
                         </div>
                     </x-slot:header>
 
@@ -36,9 +36,9 @@
                                     <div class="flex items-center space-x-2">
                                         <x-heroicon-o-cog-6-tooth
                                             class="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                                        <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                                        <h3 class="text-base sm:text-lg font-semibold text-slate-700 dark:text-slate-300">
                                             {{ t('basic_information') }}
-                                        </h2>
+                                        </h3>
                                     </div>
                                 </x-slot:header>
                                 <x-slot:content>
@@ -74,9 +74,9 @@
                                 <div class="flex items-center space-x-2">
                                     <x-heroicon-o-pencil-square
                                         class="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                                    <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                                    <h3 class="text-base sm:text-lg font-semibold text-slate-700 dark:text-slate-300">
                                         {{ t('email_content') }}
-                                    </h2>
+                                    </h3>
                                 </div>
                             </x-slot:header>
 
@@ -202,9 +202,9 @@
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-2">
                                     <x-heroicon-o-squares-2x2 class="w-5 h-5 text-primary-500" />
-                                    <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                                    <h3 class="text-base sm:text-lg font-semibold text-slate-700 dark:text-slate-300">
                                         {{ t('merge_fields') }}
-                                    </h2>
+                                    </h3>
                                 </div>
                                 <div id="activeFieldIndicator" style="display: none;"
                                     class="text-xs px-3 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded-full font-medium">
