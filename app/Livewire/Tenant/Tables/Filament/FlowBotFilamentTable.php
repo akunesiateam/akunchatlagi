@@ -5,6 +5,7 @@ namespace App\Livewire\Tenant\Tables\Filament;
 use App\Models\Tenant\BotFlow;
 use App\Services\FeatureService;
 use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Illuminate\Database\Eloquent\Builder;
@@ -89,34 +90,44 @@ class FlowBotFilamentTable extends BaseFilamentTable
     protected function getTableActions(): array
     {
         return [
-            Action::make('flow')
-                ->label(t('flow'))
-                ->extraAttributes([
-                    'class' => 'inline-flex items-center gap-2 px-3 py-1 text-sm font-medium text-white bg-success-600  shadow-sm hover:bg-success-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-success-600 justify-center',
-                ])
-                ->hidden(fn () => ! checkPermission('tenant.bot_flow.view'))
-                ->action(fn (BotFlow $record) => $this->dispatch('editRedirect', flowId: $record->id)),
+            ActionGroup::make([
 
-            Action::make('edit')
-                ->label(t('edit'))
-                ->extraAttributes([
-                    'class' => 'inline-flex items-center gap-2 px-3 py-1 text-sm font-medium text-white bg-primary-600  shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 justify-center',
-                ])
-                ->hidden(fn () => ! checkPermission('tenant.bot_flow.edit'))
-                ->action(fn (BotFlow $record) => $this->dispatch('editFlow', flowId: $record->id)),
+                Action::make('flow')
+                    ->label(t('flow'))
+                    ->hidden(fn () => ! checkPermission('tenant.bot_flow.view'))
+                    ->action(fn (BotFlow $record) => $this->dispatch('editRedirect', flowId: $record->id)),
 
-            Action::make('delete')
-                ->label(t('delete'))
-                ->extraAttributes([
-                    'class' => 'inline-flex items-center gap-2 px-3 py-1 text-sm font-medium text-white bg-danger-600  shadow-sm hover:bg-danger-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-600 justify-center',
-                ])
-                ->extraAttributes([
-                    'class' => 'inline-flex items-center gap-2 px-3 py-1 text-sm font-medium text-white bg-danger-600  shadow-sm hover:bg-danger-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-600 justify-center',
-                ])
-                ->hidden(fn () => ! checkPermission('tenant.bot_flow.delete'))
-                ->action(fn (BotFlow $record) => $this->dispatch('confirmDelete', flowId: $record->id)),
+                Action::make('clone')
+                    ->label(t('Clone'))
+                    ->hidden(fn () => ! checkPermission('tenant.bot_flow.create'))
+                    ->action(fn (BotFlow $record) => $this->dispatch('confirmClone', flowId: $record->id)),
+
+                Action::make('export')
+                    ->label(t('Export'))
+                    ->hidden(fn () => ! checkPermission('tenant.bot_flow.view'))
+                    ->action(fn (BotFlow $record) => $this->exportFlow($record->id)),
+
+                Action::make('edit')
+                    ->label(t('edit'))
+                    ->hidden(fn () => ! checkPermission('tenant.bot_flow.edit'))
+                    ->action(fn (BotFlow $record) => $this->dispatch('editFlow', flowId: $record->id)),
+
+                Action::make('delete')
+                    ->label(t('delete'))
+                    ->hidden(fn () => ! checkPermission('tenant.bot_flow.delete'))
+                    ->action(fn (BotFlow $record) => $this->dispatch('confirmDelete', flowId: $record->id)),
+            ])
+                ->icon('heroicon-m-ellipsis-vertical'),
 
         ];
+    }
+
+    /**
+     * Export a flow
+     */
+    public function exportFlow(int $flowId): void
+    {
+        $this->dispatch('export-flow', flowId: $flowId);
     }
 
     #[On('edit')]

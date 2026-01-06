@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\Feature;
 use App\Models\FeatureLimit;
 use App\Services\FeatureCache;
+use App\Services\PlanFeatureCache;
 
 class FeatureLimitRepository extends BaseRepository
 {
@@ -37,7 +38,9 @@ class FeatureLimitRepository extends BaseRepository
      */
     public function setCustomLimit(int $tenantId, string $featureSlug, ?int $limit, ?string $expiresAt = null): void
     {
-        $feature = Feature::where('slug', $featureSlug)->first();
+        // Get feature from cache
+        $features = PlanFeatureCache::getFeatures();
+        $feature = $features->where('slug', $featureSlug)->first();
 
         if (! $feature) {
             return;
@@ -64,7 +67,9 @@ class FeatureLimitRepository extends BaseRepository
      */
     public function removeCustomLimit(int $tenantId, string $featureSlug): void
     {
-        $feature = Feature::where('slug', $featureSlug)->first();
+        // Get feature from cache
+        $features = PlanFeatureCache::getFeatures();
+        $feature = $features->where('slug', $featureSlug)->first();
 
         if (! $feature) {
             return;

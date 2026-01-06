@@ -256,11 +256,12 @@ class PlanService
      */
     protected function syncPlanFeatures(Plan $plan, array $features): void
     {
-        // Preload all features in a single query for performance
-        $featureModels = Feature::whereIn('id', array_keys($features))->get()->keyBy('id');
+        // Use cached features instead of querying database
+        $allFeatures = PlanFeatureCache::getFeatures();
+        $featureModels = $allFeatures->whereIn('id', array_keys($features))->keyBy('id');
 
         foreach ($features as $featureId => $value) {
-            // Get feature from our preloaded collection
+            // Get feature from our cached collection
             $feature = $featureModels->get($featureId);
 
             if (! $feature) {
@@ -275,6 +276,9 @@ class PlanService
                 'slug' => $feature->slug, // Add the required slug field
             ]);
         }
+
+        // Clear cache after syncing plan features
+        PlanFeatureCache::clearCache();
     }
 
     /**

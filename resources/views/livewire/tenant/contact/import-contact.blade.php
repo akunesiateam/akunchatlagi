@@ -45,9 +45,9 @@
         <!-- Import Contact Card -->
         <x-card class="rounded-lg xl:col-span-1">
             <x-slot:header>
-                <h1 class="text-xl font-semibold text-slate-700 dark:text-slate-300">
+                <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300">
                     {{ t('import_contact_camel') }}
-                </h1>
+                </h3>
             </x-slot:header>
 
             <x-slot:content>
@@ -222,9 +222,9 @@
             <x-card class="rounded-lg mb-6">
                 <x-slot:header>
                     <div class="flex items-center justify-between">
-                        <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                        <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300">
                             {{ t('staff_members') }} ({{ t('assigned_id') }})
-                        </h2>
+                        </h3>
                         <span
                             class="text-xs text-gray-500 dark:text-gray-400 bg-info-50 dark:bg-info-900/20 px-2 py-1 rounded">
                             {{ t('use_for_assigned_id_column') }}
@@ -289,9 +289,9 @@
                 <x-card class="rounded-lg">
                     <x-slot:header>
                         <div class="flex items-center justify-between">
-                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300">
                                 {{ t('contact_statuses') }}
-                            </h2>
+                            </h3>
                             <span
                                 class="text-xs text-gray-500 dark:text-gray-400 bg-success-50 dark:bg-success-900/20 px-2 py-1 rounded">
                                 status_id
@@ -332,9 +332,9 @@
                 <x-card class="rounded-lg">
                     <x-slot:header>
                         <div class="flex items-center justify-between">
-                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300">
                                 {{ t('lead_sources') }}
-                            </h2>
+                            </h3>
                             <span
                                 class="text-xs text-gray-500 dark:text-gray-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded">
                                 source_id
@@ -374,9 +374,9 @@
                 <x-card class="rounded-lg">
                     <x-slot:header>
                         <div class="flex items-center justify-between">
-                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300">
                                 {{ t('contact_groups') }}
-                            </h2>
+                            </h3>
                             <span
                                 class="text-xs text-gray-500 dark:text-gray-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded">
                                 group_id

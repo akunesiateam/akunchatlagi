@@ -52,6 +52,7 @@ final class CampaignExecutedTable extends PowerGridComponent
     public function datasource(): Builder
     {
         $query = CampaignDetail::query()
+            ->with(['campaign.whatsappTemplate']) // Load campaign and template relationships
             ->join($this->tenant_subdomain.'_contacts as contact', 'campaign_details.rel_id', '=', 'contact.id')
             ->where('campaign_id', $this->campaign_id)
             ->where('status', '!=', 1)
@@ -87,9 +88,33 @@ final class CampaignExecutedTable extends PowerGridComponent
             ->add('header_message')
             ->add(
                 'body_message_formatted',
-                fn ($model) => ($model->header_message ? $model->header_message."\n\n" : '').
-                    ($model->body_message ?? '').
-                    ($model->footer_message ? "\n\n".$model->footer_message : '')
+                function ($model) {
+                    // Check if this is an authentication template by checking the template
+                    $campaign = $model->campaign;
+                    $isAuthTemplate = $campaign && $campaign->whatsappTemplate && $campaign->whatsappTemplate->category === 'AUTHENTICATION';
+
+                    $message = '';
+                    if ($model->header_message) {
+                        $message .= $model->header_message."\n\n";
+                    }
+
+                    if ($model->body_message) {
+                        if ($isAuthTemplate) {
+                            // For auth templates, show the template text with actual OTP code
+                            // Extract the OTP pattern - could be any sequence of digits/letters
+                            $bodyText = $model->body_message;
+                            $message .= $bodyText; // Show the actual OTP sent
+                        } else {
+                            $message .= $model->body_message;
+                        }
+                    }
+
+                    if ($model->footer_message) {
+                        $message .= "\n\n".$model->footer_message;
+                    }
+
+                    return $message;
+                }
             )
             ->add('footer_message')
             ->add(

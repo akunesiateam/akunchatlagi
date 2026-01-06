@@ -12,6 +12,13 @@ class GroupFilamentTable extends BaseFilamentTable
 {
     protected bool $hasBulkActions = false;
 
+    protected array $usedGroupIds = [];
+
+    public function boot()
+    {
+        $this->loadusedGroupIds();
+    }
+
     protected function getTableQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $tenantId = tenant_id();
@@ -52,12 +59,12 @@ class GroupFilamentTable extends BaseFilamentTable
                 ])
                 ->hidden(fn () => ! checkPermission('tenant.group.delete'))
                 ->action(function (Group $record) {
-                    $isGroupUsed = DB::table(tenant_subdomain().'_contacts')
-                        ->where('group_id', $record->id)
-                        ->exists();
 
-                    if ($isGroupUsed) {
-                        $this->dispatch('notify', ['message' => t('group_in_use_notify'), 'type' => 'warning']);
+                    if (in_array($record->id, $this->usedGroupIds)) {
+                        $this->dispatch('notify', [
+                            'message' => t('group_in_use_notify'),
+                            'type' => 'warning',
+                        ]);
 
                         return;
                     }
@@ -65,6 +72,25 @@ class GroupFilamentTable extends BaseFilamentTable
                     $this->dispatch('confirmDelete', groupId: $record->id);
                 }),
         ];
+    }
+
+    protected function loadUsedGroupIds(): void
+    {
+        $subdomain = tenant_subdomain();
+        $table = $subdomain.'_contacts';
+
+        $rawGroupIds = DB::table($table)
+            ->pluck('group_id')
+            ->toArray();
+
+        $this->usedGroupIds = collect($rawGroupIds)
+            ->flatMap(function ($item) {
+                return is_string($item) ? json_decode($item, true) : (array) $item;
+            })
+            ->unique()
+            ->values()
+            ->toArray();
+
     }
 
     #[On('group-table-refresh')]

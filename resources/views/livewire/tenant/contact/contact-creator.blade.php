@@ -232,6 +232,7 @@
                                                 <option value="">{{ t('select_type') }}</option>
                                                 <option value="lead">{{ t('type_lead') }}</option>
                                                 <option value="customer">{{ t('type_customer') }}</option>
+                                                <option value="guest">{{ t('type_guest') }}</option>
                                             </x-select>
                                         </div>
                                     </div>

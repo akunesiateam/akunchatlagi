@@ -2,7 +2,17 @@
 
 namespace App\Providers;
 
+use App\Models\Currency;
+use App\Models\Feature;
+use App\Models\Plan;
+use App\Models\Subscription;
 use App\Models\Tenant;
+use App\Models\Tenant\Contact;
+use App\Observers\ContactObserver;
+use App\Observers\CurrencyObserver;
+use App\Observers\FeatureObserver;
+use App\Observers\PlanObserver;
+use App\Observers\SubscriptionObserver;
 use App\Services\LanguageService;
 use App\Services\MailService;
 use App\Services\pusher\PusherService;
@@ -60,6 +70,9 @@ class AppServiceProvider extends ServiceProvider
         Model::shouldBeStrict();
         DB::prohibitDestructiveCommands($this->app->environment('production'));
 
+        // Register model observers for cache synchronization
+        $this->registerObservers();
+
         $theme = 'default'; // Fallback name
 
         if (File::exists(base_path('theme.json'))) {
@@ -76,6 +89,20 @@ class AppServiceProvider extends ServiceProvider
         $this->configureTimezoneAndDateFormats();
 
         do_action('globally_registration');
+    }
+
+    /**
+     * Register model observers for cache synchronization
+     */
+    private function registerObservers(): void
+    {
+        // Admin-side models that cascade to tenants
+        Feature::observe(FeatureObserver::class);
+        Currency::observe(CurrencyObserver::class);
+
+        // Tenant-side models that cascade to admin
+        Contact::observe(ContactObserver::class);
+        Subscription::observe(SubscriptionObserver::class);
     }
 
     /**

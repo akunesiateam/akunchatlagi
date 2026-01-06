@@ -20,14 +20,13 @@
                         <div class="flex items-center justify-center h-full">
                             @php
 
-                            $settings = get_batch_settings(['theme.cover_page_image']);
+                                $settings = get_batch_settings(['theme.cover_page_image']);
 
-
-                            $cover_page_image = $settings['theme.cover_page_image'];
-                            // Get the image path from settings
-                            $imagePath = $cover_page_image
-                            ? Storage::url($cover_page_image)
-                            : url('./img/coverpage.png');
+                                $cover_page_image = $settings['theme.cover_page_image'];
+                                // Get the image path from settings
+                                $imagePath = $cover_page_image
+                                    ? Storage::url($cover_page_image)
+                                    : url('./img/coverpage.png');
                             @endphp
 
                             <img src="{{ $imagePath }}" alt="Cover Page Image"
@@ -95,21 +94,20 @@
 
                             <div class="mb-6">
                                 @php
-                                $settings = get_batch_settings(['re-captcha.isReCaptchaEnable']);
+                                    $settings = get_batch_settings(['re-captcha.isReCaptchaEnable']);
                                 @endphp
                                 @if ($settings['re-captcha.isReCaptchaEnable'])
-                                <div class="mb-5">
-                                    <div class="bg-slate-100 p-4 rounded-md text-sm text-slate-600">
-                                        {{ t('site_protected_by_recaptcha') }}
-                                        <a href="https://policies.google.com/privacy" class="hover:text-slate-500"
-                                            tabindex="-1">{{ t('privacy_policy') }}</a> {{ t('and') }}
-                                        <a href="https://policies.google.com/terms" class="hover:text-slate-500"
-                                            tabindex="-1">{{ t('terms_of_service') }}</a> apply.
+                                    <div class="mb-5">
+                                        <div class="bg-slate-100 p-4 rounded-md text-sm text-slate-600">
+                                            {{ t('site_protected_by_recaptcha') }}
+                                            <a href="https://policies.google.com/privacy" class="hover:text-slate-500"
+                                                tabindex="-1">{{ t('privacy_policy') }}</a> {{ t('and') }}
+                                            <a href="https://policies.google.com/terms" class="hover:text-slate-500"
+                                                tabindex="-1">{{ t('terms_of_service') }}</a> apply.
+                                        </div>
+                                        <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
+                                        <x-input-error :messages="$errors->first('g-recaptcha-response')" class="mt-2" for="g-recaptcha-response" />
                                     </div>
-                                    <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
-                                    <x-input-error :messages="$errors->first('g-recaptcha-response')" class="mt-2"
-                                        for="g-recaptcha-response" />
-                                </div>
                                 @endif
 
                                 <button type="submit"
@@ -140,6 +138,12 @@
                                 </div>
                             </div>
                         </form>
+                        <div class="flex justify-end">
+                            <x-button.outline onclick="window.history.back()">
+                                {{ t('back') }}
+                            </x-button.outline>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -147,18 +151,18 @@
     </div>
 </x-guest-layout>
 @php
-$settings = get_batch_settings(['re-captcha.isReCaptchaEnable', 're-captcha.site_key']);
+    $settings = get_batch_settings(['re-captcha.isReCaptchaEnable', 're-captcha.site_key']);
 @endphp
 
 @if (!empty($settings['re-captcha.isReCaptchaEnable']))
-<script src="https://www.google.com/recaptcha/api.js?render={{ $settings['re-captcha.site_key'] }}"></script>
-<script>
-    grecaptcha.ready(function() {
+    <script src="https://www.google.com/recaptcha/api.js?render={{ $settings['re-captcha.site_key'] }}"></script>
+    <script>
+        grecaptcha.ready(function() {
             grecaptcha.execute('{{ $settings['re-captcha.site_key'] }}', {
                 action: 'login'
             }).then(function(token) {
                 document.getElementById('g-recaptcha-response').value = token;
             });
         });
-</script>
+    </script>
 @endif

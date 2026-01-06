@@ -6,6 +6,7 @@ use App\Events\InvoicePaid;
 use App\Events\NewRegistered;
 use App\Events\PaymentApproved;
 use App\Events\PaymentRejected;
+use App\Events\PaymentSettingsViewRendering;
 use App\Events\SubscriptionActivated;
 use App\Events\SubscriptionCancelled;
 use App\Events\SubscriptionCreated;
@@ -15,7 +16,6 @@ use App\Events\TransactionFailed;
 use App\Events\TransactionPending;
 use App\Events\TransactionSuccessful;
 use App\Listeners\ClearSpatieSettingsCache;
-use App\Listeners\Language\ClearLanguageCaches;
 use App\Listeners\SendInvoiceReceipt;
 use App\Listeners\SendPaymentApprovedMail;
 use App\Listeners\SendPaymentRejectedMail;
@@ -99,6 +99,10 @@ class EventServiceProvider extends ServiceProvider
         SettingsSaved::class => [
             ClearSpatieSettingsCache::class,
         ],
+
+        PaymentSettingsViewRendering::class => [
+            \App\Listeners\RenderPaymentGateway::class,
+        ],
     ];
 
     /**
@@ -108,7 +112,6 @@ class EventServiceProvider extends ServiceProvider
      */
     protected $subscribe = [
         TenantCacheManager::class,
-        ClearLanguageCaches::class,
     ];
 
     /**
