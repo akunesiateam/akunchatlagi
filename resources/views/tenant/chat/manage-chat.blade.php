@@ -1970,725 +1970,73 @@
 
                 <div x-show="isInitiateChatModal" x-cloak>
                     <div class="fixed inset-0 z-50">
-
+                        <!-- Stylish Backdrop with Gradient -->
+                        <div class="fixed inset-0 backdrop-blur-sm bg-gradient-to-br from-black/30 to-black/60">
+                        </div>
+                        <!-- Modal Container with Animation -->
                         <div class="fixed inset-0 z-50 overflow-y-auto">
                             <div class="flex justify-center p-4 mt-12">
-                                <div x-data="{ modalSize: 'max-w-3xl', campaignsSelected: false, }" x-show="isInitiateChatModal"
+                                <div x-data="{
+                                    vueMounted: false,
+                                    campaignsSelected: false,
+                                    modalSize: 'max-w-2xl'
+                                }"
+                                    x-effect="
+                                        // 🔹 Resize modal
+                                        modalSize = campaignsSelected ? 'max-w-6xl' : 'max-w-2xl';
+
+                                        // 🔹 Mount Vue when modal opens
+                                        if (isInitiateChatModal && !vueMounted) {
+                                            $nextTick(() => {
+                                                setTimeout(() => {
+                                                    window.mountInitiateChatTemplate();
+                                                    vueMounted = true;
+                                                }, 50);
+                                            });
+                                        }
+
+                                        // 🔹 Reset when modal closes
+                                        if (!isInitiateChatModal) {
+                                            vueMounted = false;
+                                            campaignsSelected = false;
+                                        }
+                                    "
+                                     x-init="
+                                        window.addEventListener('template-selected', () => {
+                                            campaignsSelected = true;
+                                        });
+
+                                        window.addEventListener('close-modal', (e) => {
+                                            if (e.detail === 'initiate-chat-template') {
+                                                isInitiateChatModal = false;
+                                            }
+                                        });
+                                    " x-show="isInitiateChatModal"
                                     x-transition:enter="transition ease-out duration-300"
-                                    x-effect="modalSize = campaignsSelected ? 'max-w-6xl' : 'max-w-2xl'"
                                     x-transition:enter-start="opacity-0 scale-95"
                                     x-transition:enter-end="opacity-100 scale-100"
                                     x-transition:leave="transition ease-in duration-200"
                                     x-transition:leave-start="opacity-100 scale-100"
                                     x-transition:leave-end="opacity-0 scale-95" :class="modalSize"
-                                    class="relative w-full rounded-lg bg-white/95 dark:bg-slate-800/95 shadow-2xl ring-1 ring-black/5 dark:ring-white/5">
-
+                                    class="relative w-full rounded-lg bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 transition-all duration-300">
+                                    <!-- Header -->
                                     <div
-                                        class="px-8 py-4 border-b border-neutral-200 dark:border-neutral-500/30 flex justify-between">
-                                        <h1 class="text-xl font-medium text-slate-800 dark:text-slate-300">
+                                        class="px-8 py-4 border-b border-neutral-200 dark:border-slate-700 flex justify-between">
+                                        <h1 class="text-xl font-semibold text-slate-800 dark:text-white">
                                             {{ t('initiate_chat') }}
                                         </h1>
-                                        <button
-                                            class="text-gray-500 hover:text-gray-700 text-2xl dark:hover:text-gray-300"
-                                            x-on:click="modalClose()">
+                                        <button class="text-gray-500 hover:text-gray-700 dark:text-gray-300 text-2xl dark:hover:text-white"
+                                           x-on:click="isInitiateChatModal = false">
                                             &times;
                                         </button>
                                     </div>
 
-                                    <div x-data="{
-
-                                        fileError: null,
-                                        isDisabled: false,
-                                        campaignHeader: '',
-                                        isSaving: false,
-                                        campaignBody: '',
-                                        campaignFooter: '',
-                                        buttons: [],
-                                        inputType: 'text',
-                                        inputAccept: '',
-                                        headerInputErrors: [],
-                                        bodyInputErrors: [],
-                                        footerInputErrors: [],
-                                        headerParamsCount: 0,
-                                        bodyParamsCount: 0,
-                                        footerParamsCount: 0,
-                                        selectedCount: 0,
-                                        relType: '',
-                                        // Added for preview
-                                        previewType: '', // Store file type (image, video, document)
-                                        previewFileName: '{{ !empty($filename) ? basename($filename) : '' }}',
-                                        {{-- filteredContacts: @entangle('contacts'), --}}
-                                        filteredContacts: '',
-                                        metaExtensions: {{ json_encode(get_meta_allowed_extension()) }},
-                                        {{-- isUploading: false, --}}
-                                        progress: 0,
-
-                                        uploadStarted() {
-                                            this.isUploading = true;
-                                            this.progress = 0;
-                                            $dispatch('upload-started');
-                                        },
-                                        uploadFinished() {
-                                            this.isUploading = false;
-                                            this.progress = 100;
-                                            $dispatch('upload-finished');
-                                        },
-                                        initTribute() {
-
-
-                                            setTimeout(() => {
-                                                if (typeof window.Tribute === 'undefined') {
-                                                    return;
-                                                }
-                                                let tribute = new window.Tribute({
-                                                    trigger: '@',
-                                                    values: this.mergeFields,
-                                                });
-                                                document.querySelectorAll('.mentionable').forEach((el) => {
-                                                    if (!el.hasAttribute('data-tribute')) {
-                                                        tribute.attach(el);
-                                                        el.setAttribute('data-tribute', 'true'); // Mark as initialized
-                                                    }
-                                                });
-                                            }, 500);
-
-                                        },
-                                        handleCampaignChange(event) {
-
-                                            this.selectedOption = event.target.selectedOptions[0];
-
-                                            this.campaignsSelected = event.target.value !== '';
-                                            this.campaignHeader = this.selectedOption?.dataset.header || '';
-                                            this.campaignBody = this.selectedOption?.dataset.body || '';
-                                            this.campaignFooter = this.selectedOption?.dataset.footer || '';
-                                            this.buttons = this.selectedOption ? JSON.parse(this.selectedOption.dataset.buttons || '[]') : [];
-                                            this.inputType = this.selectedOption?.dataset.headerFormat || 'text';
-                                            this.headerParamsCount = parseInt(this.selectedOption?.dataset.headerParamsCount || 0);
-                                            this.bodyParamsCount = parseInt(this.selectedOption?.dataset.bodyParamsCount || 0);
-                                            this.footerParamsCount = parseInt(this.selectedOption?.dataset.footerParamsCount || 0);
-                                            this.editTemplateId = this.selectedOption.value;
-
-                                            this.hInput = Array(this.headerParamsCount).fill('');
-                                            this.bInput = Array(this.bodyParamsCount).fill('');
-                                            this.footerInputs = Array(this.footerParamsCount).fill('');
-
-                                            if (!this.selectedOption || !this.previewUrl.includes('{{ $filename ?? '' }}')) {
-                                                this.previewUrl = '';
-                                                this.previewFileName = '';
-                                            }
-
-                                            const format = this.selectedOption?.dataset.headerFormat || 'text';
-                                            this.inputAccept = this.metaExtensions[format.toLowerCase()]?.extension || '';
-
-                                        },
-
-                                        replaceVariables(template, inputs) {
-                                            if (!template || !inputs) return ''; // Prevent undefined error
-                                            return template.replace(/\{\{(\d+)\}\}/g, (match, p1) => {
-                                                const index = parseInt(p1, 10) - 1;
-                                                return `<span class='text-primary-600'>${inputs[index] || match}</span>`;
-                                            });
-                                        },
-                                        handleFilePreview(event) {
-
-                                            const file = event.target.files[0];
-                                            this.fileError = null; // Clear previous errors
-
-                                            if (!file) {
-                                                return;
-                                            }
-
-                                            // Get allowed extensions and max size from metaExtensions
-                                            const typeKey = this.inputType.toLowerCase(); // Convert to lowercase for consistency
-                                            const metaData = this.metaExtensions[typeKey];
-
-
-                                            const allowedExtensions = metaData.extension.split(',').map(ext => ext.trim());
-                                            const maxSizeMB = metaData.size || 0; // Default to 0 if not set
-                                            const maxSizeBytes = maxSizeMB * 1024 * 1024; // Convert MB to bytes
-
-                                            // Extract file extension
-                                            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
-
-                                            // Validate file extension (from metaExtensions)
-                                            if (!allowedExtensions.includes(fileExtension)) {
-                                                this.fileError = `Invalid file type. Allowed types: ${allowedExtensions.join(', ')}`;
-                                                return;
-                                            }
-
-                                            // MIME type validation (strict check)
-                                            const fileType = file.type.split('/')[0];
-
-                                            if (this.inputType === 'DOCUMENT' && !['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'text/plain'].includes(file.type)) {
-                                                this.fileError = 'Invalid document type. Please upload a valid document.';
-                                                return;
-                                            }
-
-                                            if (this.inputType === 'IMAGE' && !file.type.startsWith('image/')) {
-                                                this.fileError = 'Invalid image file. Please upload an image.';
-                                                return;
-                                            }
-
-                                            if (this.inputType === 'VIDEO' && !file.type.startsWith('video/')) {
-                                                this.fileError = 'Invalid video file. Please upload a video.';
-                                                return;
-                                            }
-
-                                            if (this.inputType === 'AUDIO' && !file.type.startsWith('audio/')) {
-                                                this.fileError = 'Invalid audio file. Please upload an audio file.';
-                                                return;
-                                            }
-
-                                            if (this.inputType === 'STICKER' && file.type !== 'image/webp') {
-                                                this.fileError = 'Invalid sticker file. Only .webp format is allowed.';
-                                                return;
-                                            }
-
-                                            // Validate file size
-                                            if (file.size > maxSizeBytes) {
-                                                this.fileError = `File size exceeds ${maxSizeMB} MB. Please upload a smaller file.`;
-                                                return;
-                                            }
-
-                                            // If validation passes, handle the file preview
-                                            this.prev = URL.createObjectURL(file);
-                                            this.previewUrl = this.prev;
-                                            this.previewFileName = file.name;
-                                            this.fileInput = file.name;
-                                            this.fileI = file;
-
-
-                                        },
-                                        validateInputs() {
-                                            const hasTextInputs = this.headerParamsCount > 0 || this.bodyParamsCount > 0 || this.footerInputs.length > 0;
-                                            const hasFileInput = ['IMAGE', 'VIDEO', 'DOCUMENT', 'AUDIO'].includes(this.inputType);
-
-                                            if (!hasTextInputs && !hasFileInput) {
-                                                return true;
-                                            }
-                                            const validateInputGroup = (inputs, paramsCount) => {
-                                                // Ensure inputs is a properly unwrapped array
-                                                const unwrappedInputs = inputs ? JSON.parse(JSON.stringify(inputs)) : [];
-
-                                                // Ensure length matches paramsCount by filling missing values with empty strings
-                                                while (unwrappedInputs.length < paramsCount) {
-
-                                                    unwrappedInputs.push('');
-                                                }
-
-                                                // Return errors if inputs are empty
-                                                return unwrappedInputs.map(value =>
-                                                    value.trim() === '' ? '{{ t('this_field_is_required') }}' : ''
-                                                );
-                                            };
-
-                                            // Validate text inputs
-                                            this.headerInputErrors = validateInputGroup(this.hInput, this.headerParamsCount);
-                                            this.bodyInputErrors = validateInputGroup(this.bInput, this.bodyParamsCount);
-                                            this.footerInputErrors = validateInputGroup(this.footerInputs, this.footerInputs.length);
-
-                                            if (hasFileInput && !this.previewFileName) {
-                                                this.fileError = '{{ t('this_field_is_required') }}';
-                                            } else {
-                                                this.fileError = ''; // Reset file error if not needed
-                                            }
-
-                                            // Check if all inputs are valid
-                                            const isTextValid = [this.headerInputErrors, this.bodyInputErrors, this.footerInputErrors]
-                                                .every(errors => errors.length === 0 || errors.every(error => error === ''));
-
-
-                                            const isFileValid = !this.fileError; // No error means file validation passed
-
-                                            return isTextValid && isFileValid;
-                                        },
-
-                                        handleSave() {
-
-                                            if (!this.validateInputs()) {
-                                                return; // Prevent further action if validation fails
-                                            }
-
-                                            submitChat(selectedUser.id)
-
-                                        }
-
-                                    }" x-init="$nextTick(() => {
-                                        const select = $el.querySelector('#basic-select');
-
-                                        if (select?.value) {
-                                            handleCampaignChange({ target: select });
-                                        }
-                                        if (isInitiateChatModal = false) {
-
-                                            this.campaignsSelected = '';
-                                        }
-                                    })" class="">
-
-                                        <div class="px-6 py-4">
-                                            <form @submit.prevent="handleSave" enctype="multipart/form-data">
-                                                @csrf
-
-                                                {{-- template_name --}}
-                                                <div class="mt-1 mb-2">
-                                                    <div class="flex item-centar justify-start">
-                                                        <span class="text-danger-500 me-1 ">*</span>
-                                                        <x-label for="template_id" :value="t('template')" />
-                                                    </div>
-
-                                                    <div wire:ignore x-cloak>
-                                                        <x-select id="basic-select" class="block w-full tom-select"
-                                                            wire:model.defer="template_id" x-ref="campaignsChange"
-                                                            x-on:change="handleCampaignChange({ target: $refs.campaignsChange });"
-                                                            x-init="() => {
-                                                                handleCampaignChange({ target: $refs.campaignsChange });
-                                                            }">
-                                                            <option value="" selected>
-                                                                {{ t('nothing_selected') }}
-                                                            </option>
-
-                                                            @foreach ($templates as $template)
-                                                                <option value="{{ $template['template_id'] }}"
-                                                                    data-header="{{ $template['header_data_text'] }}"
-                                                                    data-body="{{ $template['body_data'] }}"
-                                                                    data-footer="{{ $template['footer_data'] }}"
-                                                                    data-buttons="{{ $template['buttons_data'] }}"
-                                                                    data-header-format="{{ $template['header_data_format'] }}"
-                                                                    data-header-params-count="{{ $template['header_params_count'] }}"
-                                                                    data-body-params-count="{{ $template['body_params_count'] }}"
-                                                                    data-footer-params-count="{{ $template['footer_params_count'] }}">
-                                                                    {{ $template['template_name'] . ' (' . $template['language'] . ')' }}
-                                                                </option>
-                                                            @endforeach
-
-                                                        </x-select>
-                                                    </div>
-
-                                                    <x-input-error for="template_id" class="mt-2" />
-                                                </div>
-                                                <div x-show="campaignsSelected" x-cloak
-                                                    class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                    <div>
-                                                        {{-- Variables --}}
-                                                        <x-card class="rounded-lg mt-8">
-                                                            <x-slot:header>
-                                                                <h1
-                                                                    class="text-xl font-semibold text-slate-700 dark:text-slate-300 ">
-                                                                    {{ t('variables') }}
-                                                                </h1>
-                                                            </x-slot:header>
-                                                            <x-slot:content>
-                                                                <div>
-                                                                    <!-- Alert for missing variables -->
-                                                                    <div x-show="((inputType == 'TEXT' || inputType == '') && headerParamsCount === 0) && bodyParamsCount === 0 && footerParamsCount === 0"
-                                                                        class="bg-danger-100 border-l-4 rounded border-danger-500 text-danger-800 px-2 py-3 dark:bg-gray-800 dark:border-danger-800 dark:text-danger-300"
-                                                                        role="alert">
-                                                                        <div
-                                                                            class="flex justify-start items-center gap-2">
-                                                                            <p class="font-base text-sm">
-                                                                                {{ t('variable_not_available_for_this_template') }}
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {{-- Header section --}}
-                                                                    <div
-                                                                        x-show="inputType !== 'TEXT' || headerParamsCount > 0">
-                                                                        <div class="flex items-center justify-start">
-                                                                            <label for="dynamic_input"
-                                                                                class="block font-medium text-slate-700 dark:text-slate-200">
-                                                                                <template
-                                                                                    x-if="inputType == 'TEXT' && headerParamsCount > 0">
-                                                                                    <span
-                                                                                        class="text-lg font-semibold">{{ t('header') }}</span>
-                                                                                </template>
-                                                                                <template x-if="inputType == 'IMAGE'">
-                                                                                    <span
-                                                                                        class="text-lg font-semibold">{{ t('image') }}</span>
-                                                                                </template>
-                                                                                <template
-                                                                                    x-if="inputType == 'DOCUMENT'">
-                                                                                    <span
-                                                                                        class="text-lg font-semibold">{{ t('document') }}</span>
-                                                                                </template>
-                                                                                <template x-if="inputType == 'VIDEO'">
-                                                                                    <span
-                                                                                        class="text-lg font-semibold">{{ t('video') }}</span>
-                                                                                </template>
-                                                                            </label>
-                                                                        </div>
-
-                                                                        <div>
-                                                                            <!-- Standard Input with Tailwind CSS -->
-                                                                            <template x-if="inputType == 'TEXT'">
-                                                                                <template
-                                                                                    x-for="(value, index) in headerParamsCount"
-                                                                                    :key="index">
-                                                                                    <div class="mt-2">
-                                                                                        <div
-                                                                                            class="flex justify-start gap-1">
-                                                                                            <span
-                                                                                                class="text-danger-500">*</span>
-                                                                                            <label
-                                                                                                :for="'header_name_' + index"
-                                                                                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                                                                {{ t('variable') }}
-                                                                                                <span
-                                                                                                    x-text="index + 1"></span>
-                                                                                            </label>
-                                                                                        </div>
-                                                                                        <input
-                                                                                            x-bind:type="inputType"
-                                                                                            :id="'header_name_' + index"
-                                                                                            x-model="hInput[index]"
-                                                                                            x-init="initTribute()"
-                                                                                            class="mentionable block mt-1 w-full border-slate-300 rounded-md shadow-sm text-slate-900 sm:text-sm focus:ring-info-500 focus:border-info-500 disabled:opacity-50 dark:border-slate-500 dark:bg-slate-800 dark:placeholder-slate-500 dark:text-slate-200 dark:focus:ring-info-500 dark:focus:border-info-500 dark:focus:placeholder-slate-600"
-                                                                                            autocomplete="off" />
-                                                                                        <p x-show="headerInputErrors[index]"
-                                                                                            x-text="headerInputErrors[index]"
-                                                                                            class="text-danger-500 text-sm mt-1">
-                                                                                        </p>
-                                                                                    </div>
-                                                                                </template>
-                                                                            </template>
-                                                                            @if ($errors->has('hInput.*'))
-                                                                                <x-dynamic-alert type="danger"
-                                                                                    :message="$errors->first(
-                                                                                        'hInput.*',
-                                                                                    )"
-                                                                                    class="mt-4"></x-dynamic-alert>
-                                                                            @endif
-                                                                            <!-- For DOCUMENT input type (file upload) -->
-                                                                            <template x-if="inputType == 'DOCUMENT'">
-                                                                                <div>
-                                                                                    <label for="document_upload"
-                                                                                        class="block text-sm font-medium text-gray-800 dark:text-gray-300">
-                                                                                        {{ t('select_document') }}
-                                                                                        <span
-                                                                                            x-text="metaExtensions.document.extension"></span>
-                                                                                    </label>
-
-                                                                                    <div class="relative mt-1 p-6 border-2 border-dashed rounded-lg cursor-pointer hover:border-info-500 transition duration-300"
-                                                                                        x-on:click="$refs.documentUpload.click()">
-                                                                                        <div class="text-center">
-                                                                                            <x-heroicon-s-photo
-                                                                                                class="h-12 w-12 text-gray-400 mx-auto" />
-                                                                                            <p
-                                                                                                class="mt-2 text-sm text-gray-600">
-                                                                                                {{ t('select_or_browse_to') }}
-                                                                                                <span
-                                                                                                    class="text-info-600 underline">{{ t('document') }}</span>
-                                                                                            </p>
-                                                                                        </div>
-                                                                                        <input type="file"
-                                                                                            x-ref="documentUpload"
-                                                                                            id="document_upload"
-                                                                                            x-bind:accept="inputAccept"
-                                                                                            wire:model="file"
-                                                                                            x-on:change="handleFilePreview($event)"
-                                                                                            class="hidden" />
-                                                                                    </div>
-                                                                                    <template x-if="fileError">
-                                                                                        <p class="text-danger-500 text-sm mt-2"
-                                                                                            x-text="fileError">
-                                                                                        </p>
-                                                                                    </template>
-                                                                                </div>
-                                                                            </template>
-
-                                                                            <!-- For IMAGE input type (image file upload) -->
-                                                                            <template x-if="inputType === 'IMAGE'">
-                                                                                <div>
-                                                                                    <label for="image_upload"
-                                                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                                                        {{ t('select_image') }}
-                                                                                        <span
-                                                                                            x-text="metaExtensions.image.extension"></span>
-                                                                                    </label>
-                                                                                    <div class="relative mt-1 p-6 border-2 border-dashed rounded-lg cursor-pointer hover:border-info-500 transition duration-300"
-                                                                                        x-on:click="$refs.imageUpload.click()">
-                                                                                        <div class="text-center">
-                                                                                            <x-heroicon-s-photo
-                                                                                                class="h-12 w-12 text-gray-400 mx-auto" />
-                                                                                            <p
-                                                                                                class="mt-2 text-sm text-gray-600">
-                                                                                                {{ t('select_or_browse_to') }}
-                                                                                                <span
-                                                                                                    class="text-info-600 underline">{{ t('image') }}</span>
-                                                                                            </p>
-                                                                                        </div>
-                                                                                        <input type="file"
-                                                                                            id="image_upload"
-                                                                                            x-ref="imageUpload"
-                                                                                            x-bind:accept="inputAccept"
-                                                                                            wire:model.defer="file"
-                                                                                            x-on:change="handleFilePreview($event)"
-                                                                                            class="hidden" />
-                                                                                    </div>
-
-                                                                                    @if ($errors->has('file'))
-                                                                                        <x-input-error class="mt-2"
-                                                                                            for="file" />
-                                                                                    @else
-                                                                                        <template x-if="fileError">
-                                                                                            <p class="text-danger-500 text-sm mt-2"
-                                                                                                x-text="fileError">
-                                                                                            </p>
-                                                                                        </template>
-                                                                                    @endif
-                                                                                </div>
-                                                                            </template>
-
-                                                                            <!-- For VIDEO input type (video file upload) -->
-                                                                            <template x-if="inputType == 'VIDEO'">
-                                                                                <div>
-                                                                                    <label for="video_upload"
-                                                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                                                        {{ t('select_video') }}
-                                                                                    </label>
-                                                                                    <span
-                                                                                        x-text="metaExtensions.video.extension"></span>
-                                                                                    <div class="relative mt-1 p-6 border-2 border-dashed rounded-lg cursor-pointer hover:border-info-500 transition duration-300"
-                                                                                        x-on:click="$refs.videoUpload.click()">
-                                                                                        <div class="text-center">
-                                                                                            <x-heroicon-s-photo
-                                                                                                class="h-12 w-12 text-gray-400 mx-auto" />
-                                                                                            <p
-                                                                                                class="mt-2 text-sm text-gray-600">
-                                                                                                {{ t('select_or_browse_to') }}
-                                                                                                <span
-                                                                                                    class="text-info-600 underline">{{ t('video') }}</span>
-                                                                                            </p>
-                                                                                        </div>
-                                                                                        <input type="file"
-                                                                                            id="video_upload"
-                                                                                            x-ref="videoUpload"
-                                                                                            x-bind:accept="inputAccept"
-                                                                                            wire:model.defer="file"
-                                                                                            x-on:change="handleFilePreview($event)"
-                                                                                            class="hidden" />
-                                                                                    </div>
-                                                                                    <template x-if="fileError">
-                                                                                        <p class="text-danger-500 text-sm mt-2"
-                                                                                            x-text="fileError">
-                                                                                        </p>
-                                                                                    </template>
-                                                                                </div>
-                                                                            </template>
-
-                                                                        </div>
-                                                                    </div>
-                                                                    {{-- Body section --}}
-                                                                    <div x-show="bodyParamsCount > 0">
-                                                                        <div
-                                                                            class="flex items-center justify-start mt-2">
-                                                                            <label for="dynamic_input"
-                                                                                class="block font-medium text-slate-700 dark:text-slate-200">
-                                                                                <span
-                                                                                    class="text-lg font-semibold">{{ t('body') }}</span>
-                                                                            </label>
-                                                                        </div>
-
-                                                                        <div>
-                                                                            <template
-                                                                                x-for="(value, index) in bodyParamsCount"
-                                                                                :key="index">
-                                                                                <div class="mt-2">
-                                                                                    <div
-                                                                                        class="flex justify-start gap-1">
-                                                                                        <span
-                                                                                            class="text-danger-500">*</span>
-                                                                                        <label
-                                                                                            :for="'body_name_' + index"
-                                                                                            class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                                                            {{ t('variable') }} <span
-                                                                                                x-text="index + 1"></span>
-                                                                                        </label>
-                                                                                    </div>
-                                                                                    <input type="text"
-                                                                                        :id="'body_name_' + index"
-                                                                                        x-model="bInput[index]"
-                                                                                        x-init='initTribute()'
-                                                                                        class="mentionable block mt-1 w-full border-slate-300 rounded-md shadow-sm text-slate-900 sm:text-sm focus:ring-info-500 focus:border-info-500 disabled:opacity-50 dark:border-slate-500 dark:bg-slate-800 dark:placeholder-slate-500 dark:text-slate-200 dark:focus:ring-info-500 dark:focus:border-info-500 dark:focus:placeholder-slate-600"
-                                                                                        autocomplete="off" />
-                                                                                    <p x-show="bodyInputErrors[index]"
-                                                                                        x-text="bodyInputErrors[index]"
-                                                                                        class="text-danger-500 text-sm mt-1">
-                                                                                    </p>
-                                                                                </div>
-                                                                            </template>
-                                                                            @if ($errors->has('bInput.*'))
-                                                                                <x-dynamic-alert type="danger"
-                                                                                    :message="$errors->first(
-                                                                                        'bInput.*',
-                                                                                    )"
-                                                                                    class="mt-4"></x-dynamic-alert>
-                                                                            @endif
-                                                                        </div>
-                                                                    </div>
-                                                                    {{-- Footer section --}}
-                                                                    <div x-show="footerParamsCount > 0">
-                                                                        <div
-                                                                            class="text-gray-600 dark:text-gray-400 border-b mt-8 mb-6 border-gray-300 dark:border-gray-600">
-                                                                        </div>
-
-                                                                        {{-- Footer section --}}
-                                                                        <div class="flex items-center justify-start">
-                                                                            <label for="dynamic_input"
-                                                                                class="block font-medium text-slate-700 dark:text-slate-200">
-                                                                                <span
-                                                                                    class="text-lg font-semibold">{{ t('footer') }}</span>
-                                                                            </label>
-                                                                        </div>
-
-                                                                        <div>
-                                                                            <template
-                                                                                x-for="(value, index) in footerInputs"
-                                                                                :key="index">
-                                                                                <div class="mt-2">
-                                                                                    <div
-                                                                                        class="flex justify-start gap-1">
-                                                                                        <span
-                                                                                            class="text-danger-500">*</span>
-                                                                                        <label
-                                                                                            :for="'footer_name_' + index"
-                                                                                            class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                                                            {{ t('variable') }} <span
-                                                                                                x-text="index"></span>
-                                                                                        </label>
-                                                                                    </div>
-                                                                                    <input type="text"
-                                                                                        :id="'footer_name_' + index"
-                                                                                        x-model="footerInputs[index]"
-                                                                                        class="mentionable block mt-1 w-full border-slate-300 rounded-md shadow-sm text-slate-900 sm:text-sm focus:ring-info-500 focus:border-info-500 disabled:opacity-50 dark:border-slate-500 dark:bg-slate-800 dark:placeholder-slate-500 dark:text-slate-200 dark:focus:ring-info-500 dark:focus:border-info-500 dark:focus:placeholder-slate-600"
-                                                                                        autocomplete="off" />
-                                                                                    <p x-show="footerInputErrors[index]"
-                                                                                        x-text="footerInputErrors[index]"
-                                                                                        class="text-danger-500 text-sm mt-1">
-                                                                                    </p>
-                                                                                </div>
-                                                                            </template>
-                                                                            @if ($errors->has('footerInputs.*'))
-                                                                                <x-dynamic-alert type="danger"
-                                                                                    :message="$errors->first(
-                                                                                        'footerInputs.*',
-                                                                                    )"
-                                                                                    class="mt-4"></x-dynamic-alert>
-                                                                            @endif
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </x-slot:content>
-                                                        </x-card>
-                                                    </div>
-                                                    <div class="h-full">
-                                                        {{-- Preview --}}
-                                                        <x-card class="rounded-lg mt-8">
-                                                            <x-slot:header>
-                                                                <h1
-                                                                    class="text-xl font-semibold text-slate-700 dark:text-slate-300 ">
-                                                                    {{ t('preview') }}
-                                                                </h1>
-                                                            </x-slot:header>
-                                                            <x-slot:content>
-                                                                <div class="w-full p-6 border border-gray-200 rounded shadow-sm dark:border-gray-700"
-                                                                    style="background-image: url('{{ asset('img/chat/whatsapp_light_bg.png') }}');">
-                                                                    <!-- File Preview Section -->
-                                                                    <div class="mb-1" x-show="previewUrl">
-                                                                        <!-- Image Preview -->
-                                                                        <a x-show="inputType === 'IMAGE'"
-                                                                            x-init="$nextTick(() => { window.initGLightbox() })"
-                                                                            :href="previewUrl" class="glightbox">
-                                                                            <img x-show="inputType === 'IMAGE'"
-                                                                                :src="previewUrl"
-                                                                                class="w-full max-h-60 rounded-lg shadow bg-white dark:bg-gray-800" />
-                                                                        </a>
-
-                                                                        <!-- Video Preview -->
-                                                                        <video x-show="inputType === 'VIDEO'"
-                                                                            x-init="$nextTick(() => { window.initGLightbox() })"
-                                                                            :src="previewUrl" controls
-                                                                            class="w-full max-h-60 rounded-lg shadow bg-white dark:bg-gray-800 glightbox cursor-pointer"></video>
-
-                                                                        <!-- Document Preview -->
-                                                                        <div x-show="inputType === 'DOCUMENT'"
-                                                                            class="p-4 border border-gray-300 bg-white dark:bg-gray-800 rounded-lg">
-                                                                            <p
-                                                                                class="text-sm text-gray-500 dark:text-gray-400">
-                                                                                {{ t('document_uploaded') }}
-                                                                                <a :href="previewUrl"
-                                                                                    target="_blank"
-                                                                                    class="text-info-500 underline break-all inline-block"
-                                                                                    x-text="previewFileName"></a>
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <!-- Campaign Text Section -->
-                                                                    <div
-                                                                        class="p-6 bg-white rounded-lg dark:bg-gray-800 dark:text-white">
-                                                                        <p class="mb-3 font-meduim text-gray-800 dark:text-gray-400"
-                                                                            x-html="replaceVariables(campaignHeader, hInput)">
-                                                                        </p>
-                                                                        <p class="mb-3 font-normal text-sm text-gray-500 dark:text-gray-400"
-                                                                            x-html="replaceVariables(campaignBody, bInput)">
-                                                                        </p>
-                                                                        <div class="mt-4">
-                                                                            <p class="font-normal text-xs text-gray-500 dark:text-gray-400"
-                                                                                x-text="campaignFooter">
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <template x-if="buttons && buttons.length > 0"
-                                                                        class="bg-white rounded-lg py-2 dark:bg-gray-800 dark:text-white">
-                                                                        <!-- Check if buttons is defined and not empty -->
-                                                                        <div class="space-y-1">
-                                                                            <!-- Use space-y-2 for vertical spacing between buttons -->
-                                                                            <template
-                                                                                x-for="(button, index) in buttons"
-                                                                                :key="index">
-                                                                                <div
-                                                                                    class="w-full px-4 py-2 bg-white text-gray-900 rounded-md dark:bg-gray-700 dark:text-white">
-                                                                                    <span x-text="button.text"
-                                                                                        class="text-sm block text-center"></span>
-                                                                                    <!-- Center the text inside the button -->
-                                                                                </div>
-                                                                            </template>
-                                                                        </div>
-                                                                    </template>
-                                                                </div>
-                                                            </x-slot:content>
-
-                                                        </x-card>
-
-                                                    </div>
-                                                </div>
-                                                <div x-show="campaignsSelected" x-cloak
-                                                    class="py-4 flex justify-end space-x-3 border-t border-neutral-200 dark:border-neutral-500/30  mt-5 px-6">
-                                                    <x-button.secondary x-on:click="modalClose()">
-                                                        {{ t('cancel') }}
-                                                    </x-button.secondary>
-
-                                                    <x-button.loading-button type="button"
-                                                        x-on:click="
-                            initiate_chat_loading =true;
-                            handleSave();
-                          "
-                                                        x-bind:disabled="initiate_chat_loading"
-                                                        x-bind:class="{ 'opacity-50 cursor-not-allowed': initiate_chat_loading }">
-                                                        <span x-show="initiate_chat_loading">
-                                                            <x-heroicon-o-arrow-path
-                                                                class="animate-spin w-4 h-4 my-1" />
-                                                        </span>
-                                                        <span x-show="!initiate_chat_loading">
-                                                            {{ t('submit') }}
-                                                        </span>
-                                                    </x-button.loading-button>
-
-                                                </div>
-                                            </form>
-                                        </div>
+                                    <!-- Body -->
+                                    <div id="initiate-chat-template" >
+                                        <initiate-chat-template
+                                            :templates='@json($templates ?? [])'
+                                            :meta-extensions='@json($metaExtensions ?? [])'
+                                          ></initiate-chat-template>
                                     </div>
                                 </div>
                             </div>
@@ -3117,7 +2465,10 @@
                         }
                     })
                     .catch(error => {
-                        // Error handling for chat submission
+                        this.initiate_chat_loading = false;
+                        this.isInitiateChatModal = false;
+                        console.error('Error submitting chat:', error);
+                        showNotification('An error occurred while sending the message', 'danger');
                     });
             },
             getUserInformation(type, type_id) {
@@ -3229,6 +2580,7 @@
                     .then(response => response.json())
                     .then(data => {
                         this.asignAgentView = data.agent_layout;
+                        window.selectedChatId = data.chat_id;
                     })
                     .catch(error => {
                         // Error handling for agent view fetch
@@ -4221,6 +3573,7 @@
                 this.isShowChatMenu = false;
                 this.overdueAlert = false;
                 this.loading = true; // Start loading indicator
+                this.getBotCountdown(chat.id);
                 this.getAgentView(chat.id);
                 this.chatId = this.selectedUser.id;
                 this.getUserInformation(chat.type, chat.type_id);
