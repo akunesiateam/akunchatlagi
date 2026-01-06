@@ -129,10 +129,10 @@
                             <x-heroicon-o-trophy class="w-5 h-5 text-primary-600 dark:text-primary-400" />
                         </div>
                         <div>
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+                            <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
                                 {{ t('top_departments') }}
                             </h3>
-                            <p class="text-xs sm:text-sm text-gray-600 dark:text-slate-400">
+                            <p class="text-sm text-slate-500 dark:text-slate-400">
                                 {{ t('ranked_by_activity') }}
                             </p>
                         </div>

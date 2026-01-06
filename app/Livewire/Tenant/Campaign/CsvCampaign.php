@@ -77,10 +77,7 @@ class CsvCampaign extends Component
             return redirect(tenant_route('tenant.dashboard'));
         }
 
-        $this->templates = WhatsappTemplate::where('tenant_id', tenant_id())
-            ->whereIn('category', ['MARKETING', 'UTILITY', 'AUTHENTICATION'])
-            ->where('status', 'APPROVED')
-            ->get();
+        $this->templates = WhatsappTemplate::where('tenant_id', tenant_id())->get();
     }
 
     protected function rules()

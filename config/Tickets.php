@@ -43,6 +43,7 @@ return [
     */
     'statuses' => [
         'open' => 'Open',
+        'pending' => 'Pending',
         'answered' => 'Answered',
         'closed' => 'Closed',
         'on_hold' => 'On Hold',

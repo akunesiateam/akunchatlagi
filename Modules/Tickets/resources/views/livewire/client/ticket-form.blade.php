@@ -11,13 +11,6 @@
     get canSubmit() {
         return this.errors.length === 0;
     },
-  get allowedExtensionsLabel() {
-        return this.allowedExtensions.join(', ');
-    },
-
-    resetFileInput() {
-     this.$refs.fileInput.value = '';
-    },
 
     validateFile(file, currentCount) {
         if (currentCount >= this.maxFiles) {
@@ -41,74 +34,68 @@
     },
 
     handleFiles(event) {
-    this.errors = [];
+        this.errors = []; // Clear previous errors
+        const fileList = event.target.files || (event.dataTransfer && event.dataTransfer.files);
+        if (!fileList) return;
 
-    const fileList = Array.from(event.target.files || []);
-    if (!fileList.length) {
-        this.resetFileInput();
-        return;
-    }
+        // Get current number of attachments
+        const currentAttachments = document.querySelectorAll('.attachment-preview').length;
 
-    let validFiles = [];
-    let oversized = [];
-    let invalidExtension = false;
-    let duplicatesReplaced = [];
+        // Group errors by type to avoid duplicates
+        const errorTypes = {
+            maxFiles: false,
+            invalidExtension: false,
+            oversized: []
+        };
 
-    fileList.forEach(file => {
-        // Check if file with same name already exists (only replace true duplicates)
-        const existingIndex = this.files.findIndex(f => f.name === file.name && f.size === file.size);
-        
-        if (existingIndex !== -1) {
-            // Replace existing file with same name and size
-            this.files.splice(existingIndex, 1);
-            duplicatesReplaced.push(file.name);
-        }
+        let validFiles = [];
+        Array.from(fileList).forEach(file => {
+            const currentCount = currentAttachments + validFiles.length;
 
-        const currentCount = this.files.length + validFiles.length;
-
-        if (currentCount >= this.maxFiles) {
-            if (!this.errors.includes(`Maximum ${this.maxFiles} files are allowed.`)) {
-                this.errors.push(`Maximum ${this.maxFiles} files are allowed.`);
+            // Check max files (only once)
+            if (currentCount >= this.maxFiles) {
+                if (!errorTypes.maxFiles) {
+                    this.errors.push(`Maximum ${this.maxFiles} files are allowed.`);
+                    errorTypes.maxFiles = true;
+                }
+                return;
             }
-            return;
+
+            // Check file size
+            if (file.size > this.maxFileSize) {
+                errorTypes.oversized.push(file.name);
+                return;
+            }
+
+            // Check file extension
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (!this.allowedExtensions.includes(ext)) {
+                if (!errorTypes.invalidExtension) {
+                    this.errors.push(`Invalid file extension. Allowed types: ${this.allowedExtensions.join(', ')}`);
+                    errorTypes.invalidExtension = true;
+                }
+                return;
+            }
+
+            validFiles.push(file);
+        });
+
+        // Add oversized files error (grouped)
+        if (errorTypes.oversized.length > 0) {
+            if (errorTypes.oversized.length === 1) {
+                this.errors.push(`${errorTypes.oversized[0]} is too large. Maximum size is 10MB.`);
+            } else {
+                this.errors.push(`${errorTypes.oversized.length} files are too large. Maximum size is 10MB per file.`);
+            }
         }
 
-        if (file.size > this.maxFileSize) {
-            oversized.push(file.name);
-            return;
+        if (validFiles.length > 0) {
+            @this.uploadMultiple('attachments', validFiles);
+        } else {
+            // Clear the input if no valid files
+            event.target.value = '';
         }
-
-        const ext = '.' + file.name.split('.').pop().toLowerCase();
-        if (!this.allowedExtensions.includes(ext)) {
-            invalidExtension = true;
-            return;
-        }
-
-        validFiles.push(file);
-    });
-
-    if (oversized.length) {
-        this.errors.push(
-            oversized.length === 1
-                ? `${oversized[0]} is too large. Maximum size is 10MB.`
-                : `${oversized.length} files are too large. Maximum size is 10MB per file.`
-        );
-    }
-
-    if (invalidExtension) {
-        this.errors.push(
-            `Invalid file extension. Allowed types: ${this.allowedExtensions.join(', ')}`
-        );
-    }
-
-    if (validFiles.length) {
-        this.files.push(...validFiles);
-        @this.uploadMultiple('attachments', validFiles);
-    }
-
-    // Reset input synchronously to ensure file picker closes immediately
-    this.resetFileInput();
-},
+    },
     clearDepartmentDropdown() {
         const select = document.getElementById('department_id');
         if (select && select.tomselect) {
@@ -280,31 +267,35 @@
                 @endif
 
                 <!-- New Attachments Upload Area -->
-               <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 rounded-md transition-colors cursor-pointer hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    :class="{
+                <div class="mt-1 flex justify-center items-center px-6 py-4 border-2 rounded-md transition-colors cursor-pointer hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                    @click="$refs.fileInput.click()" :class="{
                         'border-gray-300 dark:border-gray-700 border-dashed': !isDragging,
                         'border-primary-500 border-solid bg-primary-50 dark:bg-primary-900/20': isDragging
                     }">
-                    <div class="flex flex-col items-center text-center space-y-1">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none"
-                            viewBox="0 0 48 48" aria-hidden="true">
+
+                    <div class="flex flex-col items-center justify-center gap-1 text-center">
+                        <!-- Icon -->
+                        <svg class="h-10 w-10 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48"
+                            aria-hidden="true">
                             <path
                                 d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
-                        <div
-                            class="flex flex-col sm:flex-row justify-center items-center text-sm text-gray-600 dark:text-gray-400">
+
+                        <!-- Upload Label -->
+                        <div class="text-sm text-gray-600 dark:text-gray-400">
                             <label for="file-upload"
                                 class="relative cursor-pointer bg-white dark:bg-gray-800 rounded-md font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary-500">
-                                <span>{{ 'Upload files' }}</span>
+                                <span>{{ t('upload_files') }}</span>
                                 <input x-ref="fileInput" id="file-upload" type="file" class="sr-only"
-                                    @change="handleFiles($event)" multiple :accept="allowedExtensionsLabel">
+                                    @change="handleFiles($event)" multiple
+                                    accept="{{ get_whatsmark_allowed_extension()['file_types']['extension'] }}">
                             </label>
-
                         </div>
+
+                        <!-- Description -->
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ t('maximum_5_files_allowed') }}
-                            <span class="font-medium" x-text="allowedExtensionsLabel"></span>
+                            {{ t('maximum_size_per_file_10mb') }}
                         </p>
                     </div>
                 </div>

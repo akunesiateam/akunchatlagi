@@ -984,6 +984,7 @@ class MessageController extends Controller
     public function sendTemplateMessage(Request $request, $subdomain)
     {
         $tenant_id = $request->get('tenant_id');
+        // Set tenant ID for WhatsApp trait
         $this->setWaTenantId($tenant_id);
 
         // Basic validation
@@ -993,7 +994,7 @@ class MessageController extends Controller
             'template_language' => 'required|string|min:2|max:10',
             'from_phone_number_id' => 'nullable|string',
 
-            // Contact creation fields
+            // Contact creation fields - allow null/empty values, validate structure if provided
             'contact' => 'nullable',
             'contact.firstname' => 'nullable|string|max:255',
             'contact.lastname' => 'nullable|string|max:255',
@@ -1002,17 +1003,17 @@ class MessageController extends Controller
             'contact.assigned_id' => 'nullable|integer',
             'contact.groups' => 'nullable|string',
 
-            // Header media files/URLs
+            // Header media files/URLs - allow null/empty values, validate when actually provided
             'header_image_url' => 'nullable|url',
-            'header_image_file' => 'nullable|file|max:5120',
+            'header_image_file' => 'nullable|file|max:5120', // 5MB
             'header_video_url' => 'nullable|url',
-            'header_video_file' => 'nullable|file|max:16384',
+            'header_video_file' => 'nullable|file|max:16384', // 16MB
             'header_document_url' => 'nullable|url',
-            'header_document_file' => 'nullable|file|max:102400',
+            'header_document_file' => 'nullable|file|max:102400', // 100MB
             'header_document_name' => 'nullable|string|max:255',
             'header_field_1' => 'nullable|string',
 
-            // Body fields
+            // Body fields (dynamic parameters) - allow null/empty, validate based on template requirements
             'field_1' => 'nullable|string',
             'field_2' => 'nullable|string',
             'field_3' => 'nullable|string',
@@ -1024,16 +1025,11 @@ class MessageController extends Controller
             'field_9' => 'nullable|string',
             'field_10' => 'nullable|string',
 
-            // Button parameters
+            // Button parameters - allow null/empty, validate based on template requirements
             'button_0' => 'nullable|string',
             'button_1' => 'nullable|string',
             'button_2' => 'nullable|string',
             'copy_code' => 'nullable|string|max:100',
-
-            // OTP/Authentication specific fields (NEW)
-            'auto_generate_otp' => 'nullable|boolean',
-            'otp_length' => 'nullable|integer|min:4|max:10',
-            'otp_field_number' => 'nullable|integer|min:1|max:10',
         ]);
 
         if ($validator->fails()) {
@@ -1050,11 +1046,11 @@ class MessageController extends Controller
         $contactData = $request->input('contact', []);
 
         try {
-            // 1. TEMPLATE VALIDATION
+            // 1. TEMPLATE VALIDATION - Check if template exists and get requirements
             $template = \App\Models\Tenant\WhatsappTemplate::where('tenant_id', $tenant_id)
                 ->where('template_name', $templateName)
                 ->where('language', $language)
-                ->where('status', 'APPROVED')
+                ->where('status', 'APPROVED') // Only allow approved templates
                 ->first();
 
             if (! $template) {
@@ -1067,35 +1063,7 @@ class MessageController extends Controller
                 ], 404);
             }
 
-            // 2. AUTO-GENERATE OTP IF REQUESTED (NEW FEATURE)
-            $otpGenerated = false;
-            $generatedOtpCode = null;
-
-            if ($request->boolean('auto_generate_otp', false)) {
-                $otpFieldNumber = $request->integer('otp_field_number', 1);
-                $fieldKey = "field_{$otpFieldNumber}";
-
-                // Only generate if field is not already provided
-                if (! $request->filled($fieldKey)) {
-                    $otpLength = $request->integer('otp_length', 6);
-                    $generatedOtpCode = $this->generateOtpCode($otpLength);
-
-                    // Merge generated OTP into request
-                    $request->merge([$fieldKey => $generatedOtpCode]);
-                    $otpGenerated = true;
-
-                    // Log OTP generation for security audit
-                    whatsapp_log('Auto-Generated OTP', 'info', [
-                        'template_name' => $templateName,
-                        'phone' => $phoneNumber,
-                        'otp_length' => $otpLength,
-                        'field_number' => $otpFieldNumber,
-                        'template_category' => $template->category,
-                    ], null, $tenant_id);
-                }
-            }
-
-            // 3. TEMPLATE REQUIREMENTS VALIDATION
+            // 2. TEMPLATE REQUIREMENTS VALIDATION
             $templateValidation = $this->validateTemplateRequirements($template, $request);
             if (! $templateValidation['valid']) {
                 return response()->json([
@@ -1105,7 +1073,7 @@ class MessageController extends Controller
                 ], 422);
             }
 
-            // 4. HANDLE HEADER MEDIA
+            // 3. HANDLE HEADER MEDIA (if template requires it)
             $headerMediaResult = null;
             if (in_array($template->header_data_format, ['IMAGE', 'VIDEO', 'DOCUMENT'])) {
                 $headerMediaResult = $this->handleTemplateHeaderMedia($template, $request, $tenant_id);
@@ -1118,10 +1086,15 @@ class MessageController extends Controller
                 }
             }
 
-            // 5. FIND OR CREATE CONTACT
+            // 4. FIND OR CREATE CONTACT
             $contactResult = $this->findOrCreateContact($phoneNumber, $contactData, $tenant_id, $subdomain);
             if (! $contactResult['success']) {
-                $response = ['status' => 'error', 'message' => $contactResult['message']];
+                $response = [
+                    'status' => 'error',
+                    'message' => $contactResult['message'],
+                ];
+
+                // Include validation errors if they exist
                 if (isset($contactResult['errors'])) {
                     $response['errors'] = $contactResult['errors'];
                 }
@@ -1132,6 +1105,7 @@ class MessageController extends Controller
             $contact = $contactResult['contact'];
             $contactCreated = $contactResult['created'];
 
+            // Check if contact has opted out
             if ($contact->is_opted_out) {
                 return response()->json([
                     'status' => 'error',
@@ -1140,7 +1114,7 @@ class MessageController extends Controller
                 ], 403);
             }
 
-            // 6. GET WHATSAPP SETTINGS
+            // 5. GET WHATSAPP SETTINGS
             $whatsappSettings = $this->getWhatsAppConnectionSettings($tenant_id);
             if (! $whatsappSettings) {
                 return response()->json([
@@ -1149,7 +1123,7 @@ class MessageController extends Controller
                 ], 503);
             }
 
-            // 7. CHECK CONVERSATION LIMITS
+            // 6. CHECK CONVERSATION LIMITS
             if ($this->featureLimitChecker->checkConversationLimit($contact->id, $tenant_id, $subdomain, $contact->type)) {
                 return response()->json([
                     'status' => 'error',
@@ -1158,10 +1132,10 @@ class MessageController extends Controller
                 ], 403);
             }
 
-            // 8. EXTRACT AND PARSE TEMPLATE PARAMETERS
+            // 7. EXTRACT AND PARSE TEMPLATE PARAMETERS
             $templateParams = $this->extractAndParseTemplateParameters($request, $contact, $tenant_id);
 
-            // 9. PREPARE TEMPLATE DATA
+            // 8. PREPARE TEMPLATE DATA
             $templateData = [
                 'rel_type' => $contact->type ?? 'guest',
                 'rel_id' => $contact->id,
@@ -1169,7 +1143,6 @@ class MessageController extends Controller
                 'template_id' => $template->template_id,
                 'template_name' => $template->template_name,
                 'language' => $template->language,
-                'category' => $template->category,
                 'header_data_format' => $template->header_data_format,
                 'header_data_text' => $template->header_data_text,
                 'body_data' => $template->body_data,
@@ -1185,6 +1158,7 @@ class MessageController extends Controller
                 'footer_message' => $template->footer_data,
             ];
 
+            // Add parsed parameters
             if (! empty($templateParams['header'])) {
                 $templateData['header_params'] = json_encode($templateParams['header']);
             }
@@ -1195,17 +1169,12 @@ class MessageController extends Controller
                 $templateData['footer_params'] = json_encode($templateParams['footer']);
             }
 
-            // For AUTHENTICATION templates with COPY_CODE, add copy_code parameter
-            if ($template->category === 'AUTHENTICATION' && $request->has('copy_code')) {
-                $templateData['copy_code'] = $request->input('copy_code');
-            }
-
-            // 10. SEND TEMPLATE
+            // 9. SEND TEMPLATE
             $fromPhoneNumberId = $request->input('from_phone_number_id');
             $whatsappResult = $this->sendWhatsAppTemplate($phoneNumber, $templateData, 'campaign', $fromPhoneNumberId);
 
             if ($whatsappResult['status']) {
-                // 11. CREATE CHAT INTERACTION
+                // 10. CREATE CHAT INTERACTION
                 $chatInteraction = $this->createOrUpdateChatInteraction(
                     $phoneNumber,
                     $contact,
@@ -1215,7 +1184,7 @@ class MessageController extends Controller
                     $subdomain
                 );
 
-                // 12. STORE TEMPLATE MESSAGE
+                // 11. STORE TEMPLATE MESSAGE IN CHAT
                 $this->storeTemplateMessageInChat(
                     $templateData,
                     $chatInteraction->id,
@@ -1227,48 +1196,35 @@ class MessageController extends Controller
                     $headerMediaResult
                 );
 
-                // 13. TRACK CONVERSATION USAGE
+                // 12. TRACK CONVERSATION USAGE
                 $this->trackConversationUsage($contact->id, 'contact', $tenant_id, $subdomain);
-
-                $responseData = [
-                    'contact' => [
-                        'id' => $contact->id,
-                        'phone' => $contact->phone,
-                        'first_name' => $contact->firstname ?? '',
-                        'last_name' => $contact->lastname ?? '',
-                        'email' => $contact->email ?? '',
-                        'created' => $contactCreated,
-                    ],
-                    'template' => [
-                        'template_name' => $templateName,
-                        'language' => $language,
-                        'category' => $template->category,
-                        'sent' => true,
-                        'header_format' => $template->header_data_format,
-                        'has_media' => ! empty($headerMediaResult['filename']),
-                    ],
-                    'whatsapp_response' => $whatsappResult['data'] ?? [],
-                    'media_info' => $headerMediaResult ? [
-                        'filename' => $headerMediaResult['filename'],
-                        'media_url' => $headerMediaResult['media_url'] ?? null,
-                        'media_type' => $headerMediaResult['media_type'] ?? null,
-                    ] : null,
-                ];
-
-                // Add OTP info if generated (NEW)
-                if ($otpGenerated) {
-                    $responseData['otp'] = [
-                        'code' => $generatedOtpCode,
-                        'generated' => true,
-                        'length' => strlen($generatedOtpCode),
-                        'field_number' => $request->integer('otp_field_number', 1),
-                    ];
-                }
 
                 return response()->json([
                     'status' => 'success',
                     'message' => t('template_sent_successfully'),
-                    'data' => $responseData,
+                    'data' => [
+                        'contact' => [
+                            'id' => $contact->id,
+                            'phone' => $contact->phone,
+                            'first_name' => $contact->firstname ?? '',
+                            'last_name' => $contact->lastname ?? '',
+                            'email' => $contact->email ?? '',
+                            'created' => $contactCreated,
+                        ],
+                        'template' => [
+                            'template_name' => $templateName,
+                            'language' => $language,
+                            'sent' => true,
+                            'header_format' => $template->header_data_format,
+                            'has_media' => ! empty($headerMediaResult['filename']),
+                        ],
+                        'whatsapp_response' => $whatsappResult['data'] ?? [],
+                        'media_info' => $headerMediaResult ? [
+                            'filename' => $headerMediaResult['filename'],
+                            'media_url' => $headerMediaResult['media_url'] ?? null,
+                            'media_type' => $headerMediaResult['media_type'] ?? null,
+                        ] : null,
+                    ],
                 ]);
             } else {
                 return response()->json([
@@ -1295,20 +1251,6 @@ class MessageController extends Controller
                 ],
             ], 500);
         }
-    }
-
-    /**
-     * Generate a random OTP code
-     *
-     * @param  int  $length  Length of the OTP (default: 6)
-     * @return string Generated OTP code
-     */
-    private function generateOtpCode(int $length = 6): string
-    {
-        $min = pow(10, $length - 1);
-        $max = pow(10, $length) - 1;
-
-        return (string) random_int($min, $max);
     }
 
     /**

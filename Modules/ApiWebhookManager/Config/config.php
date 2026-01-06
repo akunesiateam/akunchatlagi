@@ -117,28 +117,4 @@ return [
         'timeout' => 30,
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Webhook Format Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configure the default webhook payload format
-    | Supported formats: 'n8n', 'legacy'
-    |
-    */
-    'default_format' => env('WEBHOOK_DEFAULT_FORMAT', 'n8n'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Webhook Tracking Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configure webhook logging and cleanup
-    |
-    */
-    'tracking' => [
-        'enabled' => env('WEBHOOK_TRACKING_ENABLED', true),
-        'cleanup_after_days' => env('WEBHOOK_CLEANUP_DAYS', 30),
-    ],
-
 ];

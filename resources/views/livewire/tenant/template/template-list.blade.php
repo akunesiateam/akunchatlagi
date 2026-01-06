@@ -8,15 +8,33 @@
         ['label' => t('whatsapp_template')],
     ]" />
 
+    <x-dynamic-alert type="warning" class="mb-4">
+        <div class="space-y-1">
+            <p class="text-warning-700 dark:text-warning-300">
+                <strong>{{ t('imp_real_time_template_updates') }} </strong><br>
+
+                {{ t('in_your')}}<strong>{{ t('meta_whatsapp_api_configuration') }}</strong>{{ t('if_you_have_subscribe_to_event') }}
+                <code>message_template_status_update</code> {{ t('and') }} <code>template_category_update</code>{{ t('template_status_or_category_update_alert') }}<strong>{{ t('real_time') }}</strong>.<br>
+
+                <span class="block mt-1">
+                    {{ t('if_you_are') }}<strong>{{ t('not_subscribed') }}</strong>{{ t('template_changes_will_not_update_automatically') }}<strong>{{ t('manually_reload') }}</strong>{{ t('get_latest_status_and_category_information') }}
+                </span>
+
+                <span class="block mt-1">
+                    {{ t('after_any') }}<strong>{{ t('template_status_update') }}</strong>{{ t('please_verify') }}
+                    <strong>{{ t('configured_template_bots') }}</strong> {{ t('and') }} <strong>{{ t('scheduled_campaigns') }}</strong>
+                    {{ t('validation_ensure') }}
+                </span>
+            </p>
+        </div>
+    </x-dynamic-alert>
+
     <div class="flex flex-col sm:flex-row justify-start items-start lg:items-center gap-2 mb-4">
         @if (checkPermission('tenant.template.load_template'))
         @if (get_tenant_setting_from_db('whatsapp', 'is_whatsmark_connected') != 0)
         <x-button.loading-button type="button" target="loadTemplate" wire:click="loadTemplate"
-            class="whitespace-nowrap px-4 py-2 relative">
-            <span class="flex items-center justify-center">
-                <span class="absolute left-[1.1rem] h-3 w-3 rounded-full opacity-75 bg-gray-200 animate-ping"></span>
-                <x-heroicon-m-arrow-path class="w-4 h-4 text-white mr-2" /> {{ t('load_template') }}
-            </span>
+            class="whitespace-nowrap px-4 py-2">
+            {{ t('load_template') }}
         </x-button.loading-button>
         @endif
         @endif
@@ -28,12 +46,16 @@
         </a>
         @if (checkPermission('tenant.template.create'))
         @if (get_tenant_setting_from_db('whatsapp', 'is_whatsmark_connected') != 0)
-        <x-button.primary class="whitespace-nowrap px-4 py-2 relative"
-            x-on:click="$dispatch('open-modal', 'template-type-select')">
-            <span class="flex items-center justify-center">
-                <span class="absolute left-[1.1rem] h-3 w-3 rounded-full opacity-75 bg-gray-200 animate-ping"></span>
-                <x-heroicon-m-plus class="w-4 h-4 text-white mr-2" /> {{ t('create_template') }}
-            </span>
+        <x-button.primary class="whitespace-nowrap px-4 py-2"
+            href="{{ tenant_route('tenant.dynamic-template.index') }}">
+            <button type="button" class="relative hover:text-primary-500 text-gray-500 dark:text-slate-400 mr-2">
+                <!-- Status Indicator -->
+                <span class="flex items-center justify-center">
+                    <span class="absolute h-3 w-3 rounded-full opacity-75 bg-gray-200 animate-ping"></span>
+                    <x-heroicon-m-plus class="w-4 h-4 text-white" />
+                </span>
+            </button>
+            {{ t('create_template') }}
         </x-button.primary>
         @endif
         @endif
@@ -89,85 +111,4 @@
             {{ t('cancel') }}
         </x-button.cancel-button>
     </x-modal.confirm-box>
-
-    <x-modal name="template-type-select" :show="false" maxWidth="3xl">
-        <x-card x-data="{ selectedType: 'header' }">
-            {{-- Header --}}
-            <x-slot:header>
-                <div class="flex items-center gap-3">
-                    <div
-                        class="flex-shrink-0 w-10 h-10 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
-                        <x-heroicon-o-sparkles class="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                    </div>
-                    <div>
-                        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
-                            Choose Template Type
-                        </h1>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                            Select the type of WhatsApp marketing template you’d like to create.
-                        </p>
-                    </div>
-                </div>
-            </x-slot:header>
-
-            {{-- Content --}}
-            <x-slot:content>
-                <div class="space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {{-- Header Template Option --}}
-                        <label
-                            class="cursor-pointer group relative rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary-500 transition p-5 flex flex-col items-center text-center"
-                            :class="{ 'ring-2 ring-primary-500 border-primary-500': selectedType === 'header' }">
-                            <input type="radio" name="template_type" value="header" x-model="selectedType"
-                                class="hidden">
-                            <div class="flex flex-col items-center gap-3">
-                                <div
-                                    class="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-                                    <x-heroicon-o-rectangle-stack
-                                        class="w-6 h-6 text-primary-600 dark:text-primary-400" />
-                                </div>
-                                <h3 class="font-semibold text-gray-900 dark:text-white">Header Template</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Create a single-message template
-                                    with text, image, or video header.</p>
-                            </div>
-                        </label>
-
-                        {{-- Carousel Template Option --}}
-                        <label
-                            class="cursor-pointer group relative rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary-500 transition p-5 flex flex-col items-center text-center"
-                            :class="{ 'ring-2 ring-primary-500 border-primary-500': selectedType === 'carousel' }">
-                            <input type="radio" name="template_type" value="carousel" x-model="selectedType"
-                                class="hidden">
-                            <div class="flex flex-col items-center gap-3">
-                                <div
-                                    class="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-                                    <x-heroicon-o-view-columns class="w-6 h-6 text-primary-600 dark:text-primary-400" />
-                                </div>
-                                <h3 class="font-semibold text-gray-900 dark:text-white">Carousel Template</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Show multiple cards with images,
-                                    text, and button links for richer promotions.</p>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-            </x-slot:content>
-            <x-slot:footer>
-            {{-- Footer --}}
-            <div class="flex justify-end gap-3">
-                <x-button.secondary type="button" x-on:click="$dispatch('close-modal', 'template-type-select')">
-                    Cancel
-                </x-button.secondary>
-
-                {{-- ✅ Direct wire:click call to Livewire --}}
-                <x-button.primary type="button" x-on:click="
-                                $dispatch('close-modal', 'template-type-select');
-                                window.location.href = '{{ tenant_route('tenant.dynamic-template.index') }}' + '?type=' + selectedType;
-                            ">
-                    Continue
-                </x-button.primary>
-            </div>
-            </x-slot:footer>
-
-        </x-card>
-    </x-modal>
 </div>

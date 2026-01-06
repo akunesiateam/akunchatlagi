@@ -54,17 +54,8 @@ class LogViewer extends Component
             $base_path = storage_path("logs/tenant/{$tenantId}");
 
             $files = File::exists($base_path)
-                ? File::files(storage_path("logs/tenant/{$tenantId}"))
-                : (
-                    File::exists(storage_path('logs/tenant'))
-                    ? File::files(storage_path('logs/tenant'))
-                    : File::files(
-                        tap(
-                            storage_path('logs/tenant'),
-                            fn($path) => File::makeDirectory($path, 0755, true)
-                        )
-                    )
-                );
+                      ? File::files(storage_path("logs/tenant/{$tenantId}"))
+                      : File::files(storage_path('logs/tenant'));
 
         } else {
             $files = File::files(storage_path('logs'));

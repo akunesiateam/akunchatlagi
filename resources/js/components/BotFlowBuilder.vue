@@ -38,9 +38,7 @@ import {
   BsChatRightQuote,
   AkArrowLeft,
   AkArrowRight,
-  AkLinkOn,
-  MdOutlinedSchedule,
-  MdOutlinedPersonAddAlt1,
+  AkLinkOn
 } from "@kalimahapps/vue-icons";
 
 
@@ -55,8 +53,6 @@ import LocationMessageNode from "./nodes/LocationMessageNode.vue";
 import ContactMessageNode from "./nodes/ContactMessageNode.vue";
 import AIAssistantNode from "./nodes/AIAssistantNode.vue";
 import WebhookApiNode from "./nodes/WebhookApi.vue";
-import DelayNode from "./nodes/DelayNode.vue";
-import UpdateContactNode from "./nodes/UpdateContactNode.vue";
 // Custom edge
 import CustomEdge from "./ui/CustomEdge.vue";
 
@@ -72,8 +68,6 @@ const nodeTypes = markRaw({
     contactMessage: ContactMessageNode,
     aiAssistant: AIAssistantNode,
     webhookApi: WebhookApiNode,
-    delay: DelayNode,
-    updateContact: UpdateContactNode,
 });
 
 // Custom edge types
@@ -188,16 +182,6 @@ const nodeTemplates = reactive([
         label: "API Request",
         icon: CaHttp,
     },
-    {
-        type: "delay",
-        label: "Delay",
-        icon: MdOutlinedSchedule,
-    },
-    {
-        type: "updateContact",
-        label: "Update Contact",
-        icon: MdOutlinedPersonAddAlt1,
-    },
 ]);
 
 // Group node templates by category
@@ -211,8 +195,8 @@ const nodeCategories = computed(() => {
             "contactMessage",
         ],
         "Advanced Features": aiAssistantEnabled.value
-            ? ["aiAssistant", "webhookApi", "delay", "updateContact"]
-            : ["webhookApi", "delay", "updateContact"],
+            ? ["aiAssistant", "webhookApi"]
+            : ["webhookApi"],
     };
 });
 
@@ -294,23 +278,6 @@ function addNodeAtPosition(type, position) {
                         requestFormat: "JSON",
                         requestHeaders: [{ name: "", value: "" }],
                         requestBody: [{ key: "", value: "" }],
-                    },
-                ],
-            };
-            break;
-        case "delay":
-            nodeData = {
-                delayMilliseconds: 1000,
-            };
-            break;
-        case "updateContact":
-            nodeData = {
-                output: [
-                    {
-                        relation_type: null,
-                        status_id: null,
-                        source_id: null,
-                        group_ids: [],
                     },
                 ],
             };
@@ -402,9 +369,7 @@ const validateWorkflow = () => {
             (node.type === "contactMessage" && node.data.isValid === false) ||
             (node.type === "mediaMessage" && node.data.isValid === false) ||
             (node.type === "aiAssistant" && node.data.isValid === false) ||
-            (node.type === "webhookApi" && node.data.isValid === false) ||
-            (node.type === "delay" && node.data.isValid === false) ||
-            (node.type === "updateContact" && node.data.isValid === false)
+            (node.type === "webhookApi" && node.data.isValid === false)
         );
     });
 
@@ -961,30 +926,6 @@ function getReplyTypeText(type) {
 
                         <template #node-webhookApi="nodeProps">
                             <WebhookApiNode
-                                v-bind="nodeProps"
-                                @update:isValid="
-                                    handleTextNodeValidation(
-                                        nodeProps.id,
-                                        $event
-                                    )
-                                "
-                            />
-                        </template>
-
-                        <template #node-delay="nodeProps">
-                            <DelayNode
-                                v-bind="nodeProps"
-                                @update:isValid="
-                                    handleTextNodeValidation(
-                                        nodeProps.id,
-                                        $event
-                                    )
-                                "
-                            />
-                        </template>
-
-                        <template #node-updateContact="nodeProps">
-                            <UpdateContactNode
                                 v-bind="nodeProps"
                                 @update:isValid="
                                     handleTextNodeValidation(

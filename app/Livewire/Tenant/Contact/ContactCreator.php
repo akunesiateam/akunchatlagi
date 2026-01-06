@@ -164,7 +164,7 @@ class ContactCreator extends Component
             'contact.firstname' => ['required', 'string', new PurifiedInput(t('sql_injection_error')), 'max:191'],
             'contact.lastname' => ['required', 'string', new PurifiedInput(t('sql_injection_error')), 'max:191'],
             'contact.company' => ['nullable', 'string', new PurifiedInput(t('sql_injection_error')), 'max:191'],
-            'contact.type' => ['required', 'in:customer,lead,guest'],
+            'contact.type' => ['required', 'in:customer,lead'],
             'contact.description' => ['nullable', 'string', new PurifiedInput(t('sql_injection_error')), 'max:65535'],
             'contact.country_id' => ['nullable', 'integer'],
             'contact.zip' => ['nullable', 'string', new PurifiedInput(t('sql_injection_error')), 'max:15'],
@@ -178,7 +178,7 @@ class ContactCreator extends Component
                 return $query->where('tenant_id', $this->tenant_id);
             })],
             'contact.website' => ['nullable', 'url', new PurifiedInput(t('sql_injection_error')), 'max:100'],
-            'contact.phone' => ['required', 'regex:/^\+?[0-9]+$/', new PurifiedInput(t('sql_injection_error')), Rule::unique($contactTable, 'phone')->ignore($this->contact->id)->where(function ($query) {
+            'contact.phone' => ['required', new PurifiedInput(t('sql_injection_error')), Rule::unique($contactTable, 'phone')->ignore($this->contact->id)->where(function ($query) {
                 return $query->where('tenant_id', $this->tenant_id);
             })],
             'group_ids' => [
@@ -379,7 +379,7 @@ class ContactCreator extends Component
                     $this->featureLimitChecker->trackUsage('contacts');
                 }
 
-                if (($isNewContact || $assignedChanged) && can_send_email('tenant-new-contact-assigned', 'tenant_email_templates', $this->tenant_id) && is_smtp_valid()) {
+                if (($isNewContact || $assignedChanged) && can_send_email('tenant-new-contact-assigned', 'tenant_email_templates') && is_smtp_valid()) {
                     $this->send_content_assigned_mail();
                 }
 

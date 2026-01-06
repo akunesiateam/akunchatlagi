@@ -71,34 +71,20 @@ class TemplateBotFilamentTable extends BaseFilamentTable
 
             TextColumn::make('rel_type')
                 ->label(t('relation_type'))
-                ->sortable()
                 ->searchable()
+                ->sortable()
                 ->toggleable()
-                ->formatStateUsing(function (?string $state): string {
-                    $label = t($state ?? 'N/A');
+                ->formatStateUsing(function (string $state): string {
+                    $label = t($state);
+                    $class = $state === 'lead'
+                        ? 'bg-primary-100 text-primary-800 dark:text-primary-400 dark:bg-primary-900/20'
+                        : 'bg-success-100 text-success-800 dark:text-success-400 dark:bg-success-900/20';
 
-                    return match ($state) {
-                        'lead' => <<<HTML
-                <span class="bg-primary-100 text-primary-800 dark:text-primary-400 dark:bg-primary-900/20 px-2.5 py-0.5 rounded-full text-xs font-medium">
-                    {$label}
-                </span>
-            HTML,
-                        'customer' => <<<HTML
-                <span class="bg-success-100 text-success-800 dark:text-success-400 dark:bg-success-900/20 px-2.5 py-0.5 rounded-full text-xs font-medium">
-                    {$label}
-                </span>
-            HTML,
-                        'guest' => <<<HTML
-                <span class="bg-warning-100 text-warning-800 dark:text-warning-400 dark:bg-warning-900/20 px-2.5 py-0.5 rounded-full text-xs font-medium">
-                    {$label}
-                </span>
-            HTML,
-                        default => <<<HTML
-                <span class="bg-danger-100 ring-1 ring-danger-300 text-danger-800 dark:bg-danger-800 dark:ring-danger-600 dark:text-danger-100 px-3 py-1 rounded-full text-xs font-semibold">
-                    {$label}
-                </span>
-            HTML,
-                    };
+                    return <<<HTML
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {$class}">
+                {$label}
+            </span>
+        HTML;
                 })
                 ->html(),
 

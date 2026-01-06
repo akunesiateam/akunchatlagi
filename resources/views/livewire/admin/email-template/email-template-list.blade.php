@@ -17,7 +17,7 @@
                     class="bg-white dark:bg-slate-800 rounded-lg ring-1 ring-slate-300 dark:ring-slate-600 overflow-hidden hover:shadow-md transition-shadow duration-300">
                     <!-- Header with name and status -->
                     <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                        <h3 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200 truncate">{{ $template->name
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 truncate">{{ $template->name
                             }}</h3>
                         <span
                             class="px-2 py-1 text-xs rounded-full {{ $template->is_active ? 'bg-success-100 text-success-800 dark:bg-success-900 dark:text-success-100' : 'bg-danger-100 text-danger-800 dark:bg-danger-900 dark:text-danger-100' }}">

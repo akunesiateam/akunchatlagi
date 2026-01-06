@@ -28,7 +28,4 @@
     // Additional data that might be needed
     window.categories = @json($categories ?? []);
     window.languages = @json($languages ?? []);
-    var templateType = @json(request()->query('type', 'header'));
-templateType =  templateType != '' ? templateType : 'header';
-    window.initialTemplateType = templateType;
 </script>

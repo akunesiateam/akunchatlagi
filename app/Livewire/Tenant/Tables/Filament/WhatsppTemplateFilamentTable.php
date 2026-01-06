@@ -50,25 +50,7 @@ class WhatsppTemplateFilamentTable extends BaseFilamentTable
                 ->label(t('category'))
                 ->toggleable()
                 ->searchable()
-                ->sortable()
-                ->html()
-                ->formatStateUsing(function ($state, $record) {
-                    $badgeClass = match ($state) {
-                        'MARKETING' => 'bg-blue-100 text-blue-800 dark:text-blue-400 dark:bg-blue-900/20',
-                        'UTILITY' => 'bg-green-100 text-green-800 dark:text-green-400 dark:bg-green-900/20',
-                        'AUTHENTICATION' => 'bg-purple-100 text-purple-800 dark:text-purple-400 dark:bg-purple-900/20',
-                        default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-                    };
-
-                    $icon = '';
-                    if ($state === 'AUTHENTICATION') {
-                        $icon = '<svg class="w-3 h-3 mr-1 inline-block" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>';
-                    }
-
-                    $displayText = $state === 'AUTHENTICATION' ? 'OTP' : $state;
-
-                    return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium '.$badgeClass.'">'.$icon.''.$displayText.'</span>';
-                }),
+                ->sortable(),
 
             TextColumn::make('header_data_format')
                 ->label(t('template_type'))
@@ -113,7 +95,7 @@ class WhatsppTemplateFilamentTable extends BaseFilamentTable
         return [
             Action::make('edit')
                 ->label('')
-                ->action(fn (WhatsappTemplate $record) => $this->dispatch('showEditPage', templateId: $record->id, templateType: $record->template_type))
+                ->action(fn (WhatsappTemplate $record) => $this->dispatch('showEditPage', templateId: $record->id))
                 ->visible(fn (WhatsappTemplate $record) => in_array($record->status, ['APPROVED', 'PENDING']))
                 ->extraAttributes([
                     'class' => 'inline-flex items-center px-2 py-1 text-sm font-medium text-blue-800 bg-blue-100 rounded shadow-sm hover:bg-blue-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 justify-center',

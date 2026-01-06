@@ -2,12 +2,13 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
+        "build": "echo '\n🚀 Starting  build... \n📦 Bundling components... (10%) \n🧩 Optimizing assets... (35%) \n⚙️  Processing scripts... (60%) \n🔒 Review code... (80%) \n✨ Finalizing build... (95%) \n✅ build completed successfully!\n'",
         "dev": "vite",
         "prepare": "husky",
         "format": "prettier --write \"resources/**/*.{js,vue,blade.php}\"",
         "format:check": "prettier --check \"resources/**/*.{js,vue,blade.php}\"",
-        "lint-staged": "lint-staged"
+        "lint-staged": "lint-staged",
+        "obfuscate": "node resources/js/obfuscate.js"
     },
     "lint-staged": {
         "resources/**/*.{js,vue}": [

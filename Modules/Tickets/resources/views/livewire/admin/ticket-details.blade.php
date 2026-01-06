@@ -298,12 +298,6 @@
                                     get canSubmit() {
                                         return this.errors.length === 0 && {{ $ticket->status === 'closed' ? 'false' : 'true' }};
                                     },
-                                    get allowedExtensionsLabel() {
-                                            return this.allowedExtensions.join(', ');
-                                        },
-                                    resetFileInput() {
-                                        this.$refs.fileInput.value = '';
-                                    },
                                     validateFile(file, currentCount) {
                                         const newErrors = [];
 
@@ -338,70 +332,62 @@
                                     },
 
                                     handleFiles(event) {
-                                        this.errors = [];
+                                        this.errors = []; // Clear previous errors
+                                        const fileList = event.target.files || (event.dataTransfer && event.dataTransfer.files);
+                                        if (!fileList) return;
 
-                                        const selectedFiles = Array.from(event.target.files || []);
-                                        if (!selectedFiles.length) {
-                                            this.resetFileInput();
-                                            return;
-                                        }
+
+                                        this.files = []; // This is the KEY to achieve your goal!
+
+
+                                        // Get current number of attachments
+                                        const currentAttachments = this.files.length;
+
+                                        // Group errors by type to avoid duplicates
+                                        const errorTypes = {
+                                            maxFiles: false,
+                                            invalidExtension: false,
+                                            oversized: []
+                                        };
 
                                         let validFiles = [];
-                                        let oversized = [];
-                                        let invalidExtension = false;
+                                        Array.from(fileList).forEach(file => {
+                                            const currentCount = currentAttachments + validFiles.length;
 
-                                        selectedFiles.forEach(file => {
-                                            // ❗ prevent duplicate file names
-                                            if (this.files.some(f => f.name === file.name && f.size === file.size)) {
-                                                return;
-                                            }
-
-                                            const currentCount = this.files.length + validFiles.length;
-
+                                            // Check max files (only once)
                                             if (currentCount >= this.maxFiles) {
-                                                if (!this.errors.some(e => e.includes('Maximum'))) {
+                                                if (!errorTypes.maxFiles) {
                                                     this.errors.push(`Maximum ${this.maxFiles} files are allowed.`);
+                                                    errorTypes.maxFiles = true;
                                                 }
                                                 return;
                                             }
 
+                                            // Check file size
                                             if (file.size > this.maxFileSize) {
-                                                oversized.push(file.name);
+                                                errorTypes.oversized.push(file.name);
                                                 return;
                                             }
 
-                                            const ext = '.' + file.name.split('.').pop().toLowerCase();
-                                            if (!this.allowedExtensions.includes(ext)) {
-                                                invalidExtension = true;
-                                                return;
-                                            }
 
                                             validFiles.push(file);
                                         });
 
-                                        if (oversized.length) {
-                                            this.errors.push(
-                                                oversized.length === 1
-                                                    ? `${oversized[0]} is too large. Maximum size is 10MB.`
-                                                    : `${oversized.length} files are too large. Maximum size is 10MB per file.`
-                                            );
+                                        // Add oversized files error (grouped)
+                                        if (errorTypes.oversized.length > 0) {
+                                            if (errorTypes.oversized.length === 1) {
+                                                this.errors.push(`${errorTypes.oversized[0]} is too large. Maximum size is 10MB.`);
+                                            } else {
+                                                this.errors.push(`${errorTypes.oversized.length} files are too large. Maximum size is 10MB per file.`);
+                                            }
                                         }
 
-                                        if (invalidExtension) {
-                                            this.errors.push(
-                                                `Invalid file extension. Allowed types: ${this.allowedExtensions.join(', ')}`
-                                            );
+                                        if (validFiles.length > 0) {
+                                            this.files = [...this.files, ...validFiles];
+                                        } else if (this.errors.length > 0) {
+                                            // Clear the input if no valid files and there are errors
+                                            event.target.value = '';
                                         }
-
-                                        if (validFiles.length) {
-                                            this.files.push(...validFiles);
-
-                                            // 🔥 upload to Livewire manually
-                                            this.$wire.uploadMultiple('attachments', validFiles);
-                                        }
-
-                                        // 🔥 ALWAYS reset input (fixes same-file + picker-close bug)
-                                        this.resetFileInput();
                                     },
 
                                     removeFile(index) {
@@ -454,12 +440,12 @@
                             </label>
 
                             <!-- Drag & Drop Upload Area -->
-                            <div class="relative" :class="{
-                                            'border-gray-300 dark:border-gray-600 border-2 border-dashed rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50':
+                            <div class="relative" @click="$refs.fileInput.click()" :class="{
+                                            'border-gray-300 dark:border-gray-600 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50':
                                                 !isDragging,
                                             'border-primary-500 border-2 border-solid bg-primary-50 dark:bg-primary-900/20 hover:bg-gray-50 dark:hover:bg-gray-700/50': isDragging
                                         }"
-                                class="rounded-lg p-6 hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200">
+                                class="rounded-lg p-6 cursor-pointer hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200">
 
                                 <div class="text-center p-4" x-show="!isDragging">
                                     <svg class="mx-auto h-8 w-8 text-gray-400" stroke="currentColor" fill="none"
@@ -468,19 +454,16 @@
                                             d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
                                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                     </svg>
-                                    <p class="text-sm font-medium text-primary-700 dark:text-primary-300 cursor-pointer hover:underline"
-                                        @click="$refs.fileInput.click()">
-                                        {{ t('upload_files') }}
-                                    </p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:underline"
-                                        @click="$refs.fileInput.click()">
-                                        {{ t('click_to_browse') }}
-                                    </p>
+                                    <p class="text-sm font-medium text-primary-700 dark:text-primary-300">{{
+                                        t('upload_files') }}</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('click_to_browse') }}</p>
                                 </div>
 
                                 <!-- Hidden File Input -->
-                                <input x-ref="fileInput" type="file" class="hidden" id="attachments" multiple
-                                    :accept="allowedExtensionsLabel" @change="handleFiles($event)">
+                                <input x-ref="fileInput" type="file" wire:model="attachments" class="hidden"
+                                    id="attachments" multiple
+                                    accept="{{ get_whatsmark_allowed_extension()['file_types']['extension'] }}"
+                                    @change="handleFiles($event)">
                             </div>
 
                             <!-- File Info -->

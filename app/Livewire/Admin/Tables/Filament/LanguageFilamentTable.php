@@ -63,14 +63,6 @@ class LanguageFilamentTable extends BaseFilamentTable
                 }, shouldOpenInNewTab: false)
                 ->visible(fn (Language $record) => ! ($record->code === 'en' || strcasecmp($record->name, 'English') === 0)),
 
-            Action::make('download')
-                ->label(t('download'))
-                ->extraAttributes([
-                    'class' => 'iinline-flex items-center gap-2 px-3 py-1 text-sm font-medium text-white bg-info-600 shadow-sm hover:bg-info-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info-600 rounded-md',
-                ])
-                ->visible(fn (Language $record) => ! ($record->code === 'en' || strcasecmp($record->name, 'English') === 0))
-                ->action(fn (Language $record) => $this->dispatch('downloadLanguage', languageId: $record->id)),
-
             Action::make('edit')
                 ->label(t('edit'))
                 ->extraAttributes([

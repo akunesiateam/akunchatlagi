@@ -4,7 +4,6 @@ namespace Modules\ApiWebhookManager\Traits;
 
 use Illuminate\Database\Eloquent\Model;
 use Modules\ApiWebhookManager\Services\WebhookService;
-use Modules\ApiWebhookManager\Transformers\N8NWebhookTransformer;
 
 trait HasWebhooks
 {
@@ -26,7 +25,7 @@ trait HasWebhooks
     protected static function triggerWebhook(string $event, Model $model, ?array $original = null): void
     {
         $webhookSettings = tenant_settings_by_group('webhook');
-        if (! isset($webhookSettings['webhook_enabled']) || ! $webhookSettings['webhook_enabled']) {
+        if (! isset($webhookSettings['webhook_enabled'])) {
             return;
         }
 
@@ -36,11 +35,25 @@ trait HasWebhooks
             return;
         }
 
-        // Eager load relationships for webhook
-        static::loadWebhookRelationships($model);
+        // Get loaded relations
+        $relations = [];
+        foreach ($model->getRelations() as $key => $relation) {
+            if (! empty($relation)) {
+                $relations[$key] = $relation->toArray();
+            }
+        }
 
-        // Generate N8N format payload (N8N format only)
-        $payload = N8NWebhookTransformer::transform($event, $model, $original);
+        $payload = [
+            'event' => $event,
+            'model' => get_class($model),
+            'data' => [
+                'id' => $model->id,
+                'attributes' => $model->attributesToArray(),
+                'relations' => $relations,
+            ],
+            'original' => $original,
+            'timestamp' => now()->toIso8601String(),
+        ];
 
         $webhookService = app(WebhookService::class);
 
@@ -55,28 +68,12 @@ trait HasWebhooks
     }
 
     /**
-     * Load relationships needed for webhook
-     */
-    protected static function loadWebhookRelationships(Model $model): void
-    {
-        $className = get_class($model);
-
-        // Load relationships based on model type (only for Contacts, Sources, Statuses)
-        if ($className === 'App\Models\Tenant\Contact') {
-            $model->loadMissing(['status', 'source', 'user']);
-        }
-        // Sources and Statuses don't need additional relationships
-    }
-
-    /**
      * Get webhook actions for the current model from settings
      */
     protected static function getWebhookActionsForModel(Model $model, $settings): array
     {
         $tenant_subdomain = tenant_subdomain_by_tenant_id(tenant_id());
         $modelTable = $model->getTable();
-
-        // Only support Contacts, Sources, and Statuses
         $actionMappings = [
             'contacts' => 'contacts_actions',
             'statuses' => 'status_actions',
@@ -90,7 +87,7 @@ trait HasWebhooks
             return strpos('tenant1_contacts', 'contacts') !== false ? $settings[$actionMappings['contacts']] : [];
         }
 
-        return $settings[$settingKey] ?? [];
+        return $settings[$settingKey];
     }
 
     /**

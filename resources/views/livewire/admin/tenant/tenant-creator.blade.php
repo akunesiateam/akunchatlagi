@@ -44,10 +44,10 @@
 
             <x-card class="relative rounded-lg lg:w-3/4">
                   <x-slot:header>
-                    <h3
-                        class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300  border-slate-200 dark:border-slate-700">
+                    <h2
+                        class="text-md font-medium text-slate-700 dark:text-slate-300  border-slate-200 dark:border-slate-700">
                         {{ t('personal_information') }}
-                    </h3>
+                    </h2>
                 </x-slot:header>
                 <x-slot:content>
                     <!-- Form Content -->

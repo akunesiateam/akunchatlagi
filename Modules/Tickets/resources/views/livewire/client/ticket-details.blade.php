@@ -147,396 +147,307 @@
                 </div>
                 <!-- Enhanced File Upload -->
 
-                <div class="group" x-cloak x-data="{
-                                    files: [],
-                                    allowedExtensions: {{ json_encode(array_map('trim', explode(',', get_whatsmark_allowed_extension()['file_types']['extension']))) }}, // Example extensions
-                                    maxFileSize: 10 * 1024 * 1024, // 10MB in bytes
-                                    maxFiles: 5, // Maximum number of files allowed
-                                    errors: [],
-                                    attachments: $wire.entangle('attachments'),
-                                    isDragging: false,
-                                    get canSubmit() {
-                                        return this.errors.length === 0 && {{ $ticket->status === 'closed' ? 'false' : 'true' }};
-                                    },
-                                    get allowedExtensionsLabel() {
-                                            return this.allowedExtensions.join(', ');
-                                        },
-                                    resetFileInput() {
-                                        this.$refs.fileInput.value = '';
-                                    },
-                                    validateFile(file, currentCount) {
-                                        const newErrors = [];
+                <div class="group" x-data="{
+                        files: [],
+                        allowedExtensions: {{ json_encode(array_map('trim', explode(',', get_whatsmark_allowed_extension()['file_types']['extension']))) }},
+                        maxFileSize: 10 * 1024 * 1024, // 10MB
+                        maxFiles: 5,
+                        errors: [],
+                        attachments: $wire.entangle('attachments'),
+                        isDragging: false,
+                        get canSubmit() {
+                            return this.errors.length === 0;
+                        },
+                        validateFile(file, currentCount) {
+                            const newErrors = [];
+                            if (currentCount >= this.maxFiles && !this.errors.some(err => err.includes('Maximum'))) {
+                                newErrors.push(`Maximum ${this.maxFiles} files are allowed.`);
+                            }
+                            // Check file extension
+                            const ext = '.' + file.name.split('.').pop().toLowerCase();
+                            if (!this.allowedExtensions.includes(ext.replace('.', ''))) {
+                                // Only add extension error if it's not already present
+                                const extensionErrorExists = this.errors.some(err => err.includes('invalid extension'));
+                                if (!extensionErrorExists) {
+                                    newErrors.push(`Invalid file extension. Allowed types: ${this.allowedExtensions.join(', ')}`);
+                                } else {
+                                    // Just add the specific file name to show which files are invalid
+                                    newErrors.push(`${file.name} has invalid extension.`);
+                                }
+                            }
+                            if (file.size > this.maxFileSize) {
+                                newErrors.push(`${file.name} is too large. Maximum size is 10MB.`);
+                            }
+                            this.errors = [...this.errors, ...newErrors];
+                            return newErrors.length === 0;
+                        },
 
-                                        // Check maximum files limit (only add this error once)
+                        handleFiles(event) {
+                            this.errors = [];
+                            const fileList = event.target.files || (event.dataTransfer && event.dataTransfer.files);
+                            if (!fileList) return;
 
-                                        if (currentCount >= this.maxFiles && !this.errors.some(err => err.includes('Maximum'))) {
-                                            newErrors.push(`Maximum ${this.maxFiles} files are allowed.`);
-                                        }
+                            const currentAttachments = this.files.length;
 
-                                        // Check file extension
-                                        const ext = '.' + file.name.split('.').pop().toLowerCase();
-                                        if (!this.allowedExtensions.includes(ext.replace('.', ''))) {
-                                            // Only add extension error if it's not already present
-                                            const extensionErrorExists = this.errors.some(err => err.includes('invalid extension'));
-                                            if (!extensionErrorExists) {
-                                                newErrors.push(`Invalid file extension. Allowed types: ${this.allowedExtensions.join(', ')}`);
-                                            } else {
-                                                // Just add the specific file name to show which files are invalid
-                                                newErrors.push(`${file.name} has invalid extension.`);
-                                            }
-                                        }
-                                        // Check file size
-                                        if (file.size > this.maxFileSize) {
-                                            newErrors.push(`${file.name} is too large. Maximum size is 10MB.`);
-                                        }
+                            const errorTypes = { maxFiles: false, invalidExtension: false, oversized: [] };
+                            let validFiles = [];
 
-
-                                        // Add new errors to the main errors array
-                                        this.errors = [...this.errors, ...newErrors];
-
-                                        return newErrors.length === 0;
-                                    },
-
-                                    handleFiles(event) {
-                                        this.errors = [];
-
-                                        const selectedFiles = Array.from(event.target.files || []);
-                                        if (!selectedFiles.length) {
-                                            this.resetFileInput();
-                                            return;
-                                        }
-
-                                        let validFiles = [];
-                                        let oversized = [];
-                                        let invalidExtension = false;
-
-                                        selectedFiles.forEach(file => {
-                                            // ❗ prevent duplicate file names
-                                            if (this.files.some(f => f.name === file.name && f.size === file.size)) {
-                                                return;
-                                            }
-
-                                            const currentCount = this.files.length + validFiles.length;
-
-                                            if (currentCount >= this.maxFiles) {
-                                                if (!this.errors.some(e => e.includes('Maximum'))) {
-                                                    this.errors.push(`Maximum ${this.maxFiles} files are allowed.`);
-                                                }
-                                                return;
-                                            }
-
-                                            if (file.size > this.maxFileSize) {
-                                                oversized.push(file.name);
-                                                return;
-                                            }
-
-                                            const ext = '.' + file.name.split('.').pop().toLowerCase();
-                                            if (!this.allowedExtensions.includes(ext)) {
-                                                invalidExtension = true;
-                                                return;
-                                            }
-
-                                            validFiles.push(file);
-                                        });
-
-                                        if (oversized.length) {
-                                            this.errors.push(
-                                                oversized.length === 1
-                                                    ? `${oversized[0]} is too large. Maximum size is 10MB.`
-                                                    : `${oversized.length} files are too large. Maximum size is 10MB per file.`
-                                            );
-                                        }
-
-                                        if (invalidExtension) {
-                                            this.errors.push(
-                                                `Invalid file extension. Allowed types: ${this.allowedExtensions.join(', ')}`
-                                            );
-                                        }
-
-                                        if (validFiles.length) {
-                                            this.files.push(...validFiles);
-
-                                            // 🔥 upload to Livewire manually
-                                            this.$wire.uploadMultiple('attachments', validFiles);
-                                        }
-
-                                        // 🔥 ALWAYS reset input (fixes same-file + picker-close bug)
-                                        this.resetFileInput();
-                                    },
-
-                                    removeFile(index) {
-                                        this.files.splice(index, 1);
-                                        this.errors = [];
-                                    },
-
-                                    // Auto-clear when backend clears attachments
-                                    clearFileInput() {
-                                        if (!Array.isArray(this.attachments) || this.attachments.length === 0) {
-                                            this.files = [];
-                                            this.errors = [];
-                                            const fileInput = this.$refs.fileInput;
-                                            if (fileInput) {
-                                                fileInput.value = '';
-                                            }
-                                        }
-                                    },
-
-                                    // Manual reset method
-                                    reset() {
-                                        this.files = [];
-                                        this.errors = [];
-                                        this.attachments = []; // This will trigger backend clear via entangle
-                                        const fileInput = this.$refs.fileInput;
-                                        if (fileInput) {
-                                            fileInput.value = '';
-                                        }
-                                    },
-                                    init() {
-                                        this.$watch('attachments', (value) => {
-
-                                            // If backend attachments become empty, clear frontend
-                                            if (!Array.isArray(value) || value.length === 0) {
-                                                this.clearFileInput();
-                                            }
-                                        });
+                            Array.from(fileList).forEach(file => {
+                                const currentCount = currentAttachments + validFiles.length;
+                                if (currentCount >= this.maxFiles) {
+                                    if (!errorTypes.maxFiles) {
+                                        this.errors.push(`Maximum ${this.maxFiles} files are allowed.`);
+                                        errorTypes.maxFiles = true;
                                     }
-                                }">
+                                    return;
+                                }
+                                if (file.size > this.maxFileSize) {
+                                    errorTypes.oversized.push(file.name);
+                                    return;
+                                }
 
-                            <label for="attachments"
-                                class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                                <svg class="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400 transition-colors duration-200"
-                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                </svg>
-                                {{ t('attachments') }} <span
-                                    class="text-gray-500 dark:text-gray-400 font-normal ml-1">{{ t('optional') }}</span>
-                            </label>
 
-                            <!-- Drag & Drop Upload Area -->
-                            <div class="relative" :class="{
-                                            'border-gray-300 dark:border-gray-600 border-2 border-dashed rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50':
-                                                !isDragging,
-                                            'border-primary-500 border-2 border-solid bg-primary-50 dark:bg-primary-900/20 hover:bg-gray-50 dark:hover:bg-gray-700/50': isDragging
-                                        }"
-                                class="rounded-lg p-6 hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200">
+                                validFiles.push(file);
+                            });
 
-                                <div class="text-center p-4" x-show="!isDragging">
-                                    <svg class="mx-auto h-8 w-8 text-gray-400" stroke="currentColor" fill="none"
-                                        viewBox="0 0 48 48">
-                                        <path
-                                            d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                    <p class="text-sm font-medium text-primary-700 dark:text-primary-300 cursor-pointer hover:underline"
-                                        @click="$refs.fileInput.click()">
-                                        {{ t('upload_files') }}
-                                    </p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:underline"
-                                        @click="$refs.fileInput.click()">
-                                        {{ t('click_to_browse') }}
-                                    </p>
-                                </div>
+                            if (errorTypes.oversized.length > 0) {
+                                if (errorTypes.oversized.length === 1) {
+                                    this.errors.push(`${errorTypes.oversized[0]} is too large. Maximum size is 10MB.`);
+                                } else {
+                                    this.errors.push(`${errorTypes.oversized.length} files are too large. Maximum size is 10MB per file.`);
+                                }
+                            }
 
-                                <!-- Hidden File Input -->
-                                <input x-ref="fileInput" type="file" class="hidden" id="attachments" multiple
-                                    :accept="allowedExtensionsLabel" @change="handleFiles($event)">
-                            </div>
+                            if (validFiles.length > 0) {
+                                this.files = [...this.files, ...validFiles];
+                            } else if (this.errors.length > 0) {
+                                event.target.value = '';
+                            }
+                        },
 
-                            <!-- File Info -->
-                            <div class="mt-2 flex items-start space-x-2 text-xs text-gray-500 dark:text-gray-400">
-                                <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <div>
-                                    <p>{{ t('maximum_5_files') }}</p>
+                        removeFile(index) {
+                            this.files.splice(index, 1);
+                            this.errors = [];
+                        },
 
-                                </div>
-                            </div>
+                        clearFileInput() {
+                            if (!Array.isArray(this.attachments) || this.attachments.length === 0) {
+                                this.files = [];
+                                this.errors = [];
+                                const fileInput = this.$refs.fileInput;
+                                if (fileInput) {
+                                    fileInput.value = '';
+                                }
+                            }
+                        },
 
-                            <!-- Validation Errors -->
-                            <div x-show="errors.length > 0" x-transition:enter="transition ease-out duration-200"
-                                x-transition:enter-start="opacity-0 transform scale-95"
-                                x-transition:enter-end="opacity-100 transform scale-100" class="mt-2" x-cloak>
-                                <div
-                                    class="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 rounded-md p-3">
-                                    <div class="flex">
-                                        <svg class="w-5 h-5 text-danger-400 mr-2 mt-0.5 flex-shrink-0"
-                                            fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd"
-                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                                clip-rule="evenodd" />
-                                        </svg>
-                                        <div class="flex-1">
-                                            <h3 class="text-sm font-medium text-danger-800 dark:text-danger-200">{{
-                                                t('file_validation_errors') }}</h3>
-                                            <div class="mt-1 space-y-1">
-                                                <template x-for="(error, index) in errors" :key="index">
-                                                    <p class="text-sm text-danger-700 dark:text-danger-300"
-                                                        x-text="error">
-                                                    </p>
-                                                </template>
-                                            </div>
-                                        </div>
-                                        <button type="button" @click="errors = []"
-                                            class="ml-2 text-danger-400 hover:text-danger-600 focus:outline-none">
-                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd"
-                                                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                                                    clip-rule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Server-side Error Messages -->
-                            @error('attachments.*')
-                            <p class="mt-2 text-sm text-danger-600 dark:text-danger-400 flex items-center">
-                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        reset() {
+                            this.files = [];
+                            this.errors = [];
+                            this.attachments = [];
+                            const fileInput = this.$refs.fileInput;
+                            if (fileInput) {
+                                fileInput.value = '';
+                            }
+                        },
+
+                        init() {
+                            this.$watch('attachments', (value) => {
+                                if (!Array.isArray(value) || value.length === 0) {
+                                    this.clearFileInput();
+                                }
+                            });
+                        }
+                    }">
+
+                    <label for="attachments"
+                        class=" text-sm my-2 font-medium text-gray-700 dark:text-gray-300  flex items-center">
+                        <svg class="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400 transition-colors duration-200"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                        {{ t('attachments') }} <span class="text-gray-500 dark:text-gray-400 font-normal ml-1">{{
+                            t('optional') }}</span>
+                    </label>
+
+                    <!-- Drag & Drop Upload Area -->
+                    <div class="relative w-full" @click="$refs.fileInput.click()" :class="{
+                                'border-gray-300 dark:border-gray-600 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50':
+                                    !isDragging,
+                                'border-primary-500 border-2 border-solid bg-primary-50 dark:bg-primary-900/20 hover:bg-gray-50 dark:hover:bg-gray-700/50': isDragging
+                            }"
+                        class="rounded-lg p-6 cursor-pointer hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200">
+
+                        <div class="text-center p-4" x-show="!isDragging">
+                            <svg class="mx-auto h-8 w-8 text-gray-400" stroke="currentColor" fill="none"
+                                viewBox="0 0 48 48">
+                                <path
+                                    d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <p class="text-sm font-medium text-primary-700 dark:text-primary-300">{{ t('upload_files')
+                                }}</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('click_to_browse') }} </p>
+                        </div>
+
+
+
+                        <!-- Hidden File Input -->
+                        <input x-ref="fileInput" type="file" wire:model="attachments" class="hidden" id="attachments"
+                            multiple accept="{{ get_whatsmark_allowed_extension()['file_types']['extension'] }}"
+                            @change="handleFiles($event)" {{ $ticket->status === 'closed' ? 'disabled' : '' }}>
+
+
+                    </div>
+
+                    <!-- File Info -->
+                    <div class="mt-2 flex items-start space-x-2 text-xs text-gray-500 dark:text-gray-400">
+                        <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <p>{{ t('maximum_files_10mb_each') }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Validation Errors -->
+                    <div x-show="errors.length > 0" x-transition:enter="transition ease-out duration-200"
+                        x-transition:enter-start="opacity-0 transform scale-95"
+                        x-transition:enter-end="opacity-100 transform scale-100" class="mt-2" x-cloak>
+                        <div
+                            class="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 rounded-md p-3">
+                            <div class="flex">
+                                <svg class="w-5 h-5 text-danger-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor"
+                                    viewBox="0 0 20 20">
                                     <path fill-rule="evenodd"
-                                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
                                         clip-rule="evenodd" />
                                 </svg>
-                                {{ $message }}
-                            </p>
-                            @enderror
-
-                            <!-- File Preview -->
-                            <div x-show="files.length > 0" x-transition class="mt-4">
-                                <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                                    <svg class="w-4 h-4 mr-1 text-primary-500" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    {{ t('selected_files') }} (<span x-text="files.length"></span>)
-                                </h4>
-                                <div class="space-y-2">
-                                    <template x-for="(file, index) in files" :key="index">
-                                        <div
-                                            class="flex items-center justify-between p-2 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg attachment-preview">
-                                            <div class="flex items-center min-w-0 flex-1">
-                                                <svg class="h-4 w-4 mr-2 text-primary-500 flex-shrink-0" fill="none"
-                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                                </svg>
-                                                <div class="min-w-0 flex-1">
-                                                    <p class="text-sm font-medium text-primary-700 dark:text-primary-300 truncate"
-                                                        x-text="file.name"></p>
-                                                    <p class="text-xs text-primary-600 dark:text-primary-400"
-                                                        x-text="(file.size / (1024 * 1024)).toFixed(2) + ' MB'">
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <button type="button" @click="removeFile(index)"
-                                                class="ml-2 p-1 text-danger-500 hover:text-danger-700 dark:text-danger-400 dark:hover:text-danger-300 hover:bg-danger-100 dark:hover:bg-danger-800/50 rounded transition-colors">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-
-                            <!-- Closed Ticket Notice -->
-                            @if ($ticket->status === 'closed')
-                            <div
-                                class="mt-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
-                                <div class="flex items-center space-x-2">
-                                    <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none"
-                                        stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                    <p class="text-sm text-gray-600 dark:text-gray-300">{{ t('file_uploads_disabled') }}
-                                    </p>
-                                </div>
-                            </div>
-                            @endif
-
-
-                            <!-- Actions Row -->
-                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
-                                <!-- Email Notification Checkbox (Left side on desktop) -->
-                                <div class="flex items-center order-2 sm:order-1">
-                                    <input
-                                        class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded
-                                            dark:border-gray-600 dark:bg-gray-800 dark:focus:ring-primary-500 dark:focus:ring-offset-gray-800
-                                            disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                                        type="checkbox" wire:model="send_notification" id="sendNotification" {{
-                                        $ticket->status === 'closed' ? 'disabled' : '' }} checked>
-                                    <label class="ml-2 text-sm text-gray-700 dark:text-gray-300 select-none"
-                                        for="send_notification">
-                                        {{ t('send_email_notification') }}
-                                    </label>
-                                </div>
-
-                                <div class="flex items-center space-x-3 order-1 sm:order-2">
-                                    <!-- ✅ Send Reply Button - Converted to regular button -->
-                                    <button type="submit"
-                                        class="flex items-center justify-center space-x-2 w-[200px] px-4 py-2 text-sm font-medium rounded-md border border-transparent transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                                        :class="{
-                                                    'opacity-50 cursor-not-allowed bg-gray-400 text-gray-600': !
-                                                        canSubmit,
-                                                    'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500': canSubmit
-                                                }" :disabled="!canSubmit" wire:loading.attr="disabled">
-
-                                        <!-- Normal state -->
-                                        <span wire:loading.remove class="flex items-center space-x-2">
-                                            <span>{{ t('send_reply') }}</span>
-                                        </span>
-
-                                        <!-- Loading state -->
-                                        <span wire:loading class="flex items-center space-x-2">
-                                            <x-heroicon-o-arrow-path class="animate-spin h-4 w-4" />
-                                        </span>
-                                    </button>
-
-                                    <!-- ✅ Reply & Close Button - Updated with Alpine.js directives -->
-                                    <button type="button"
-                                        class="inline-flex items-center justify-center px-4 py-2 text-sm border border-transparent rounded-md font-medium transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-offset-2"
-                                        :class="{
-                                                    'opacity-50 cursor-not-allowed bg-gray-400 text-gray-600': !
-                                                        canSubmit,
-                                                    'text-white bg-success-600 hover:bg-success-700 focus:ring-success-500 dark:hover:bg-success-500 dark:focus:ring-offset-slate-800': canSubmit
-                                                }" :disabled="!canSubmit" wire:click="addReplyAndClose"
-                                        wire:loading.attr="disabled">
-
-                                        <x-heroicon-o-check-circle class="w-4 h-4 mr-2 flex-shrink-0" />
-                                        {{ t('reply_and_close') }}
-                                    </button>
-                                </div>
-                            </div>
-
-
-                            <!-- Closed Ticket Notice -->
-                            @if ($ticket->status === 'closed')
-                            <div
-                                class="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800/50 rounded-lg p-4">
-                                <div class="flex items-start space-x-3">
-                                    <svg class="w-5 h-5 text-warning-600 dark:text-warning-400 mt-0.5 flex-shrink-0"
-                                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                    <div>
-                                        <h4 class="text-sm font-medium text-warning-800 dark:text-warning-200">
-                                            {{ t('ticket_closed') }}</h4>
-                                        <p class="text-sm text-warning-700 dark:text-warning-300 mt-1">
-                                            {{ t('ticket_is_closed_message') }}
-                                        </p>
+                                <div class="flex-1">
+                                    <h3 class="text-sm font-medium text-danger-800 dark:text-danger-200">{{
+                                        t('file_validation_errors') }}</h3>
+                                    <div class="mt-1 space-y-1">
+                                        <template x-for="(error,index) in errors" :key="index">
+                                            <p class="text-sm text-danger-700 dark:text-danger-300" x-text="error"></p>
+                                        </template>
                                     </div>
                                 </div>
+                                <button type="button" @click="errors = []"
+                                    class="ml-2 text-danger-400 hover:text-danger-600 focus:outline-none">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd"
+                                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                </button>
                             </div>
-                            @endif
                         </div>
+                    </div>
+
+                    <!-- Server-side Error Messages -->
+                    @error('attachments.*')
+                    <p class="mt-2 text-sm text-danger-600 dark:text-danger-400 flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd"
+                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                                clip-rule="evenodd" />
+                        </svg>
+                        {{ $message }}
+                    </p>
+                    @enderror
+
+                    <!-- File Preview -->
+                    <div x-show="files.length > 0" x-transition class="mt-4" @submit.window="files = []">
+                        <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                            <svg class="w-4 h-4 mr-1 text-primary-500" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            {{ t('selected_files') }} (<span x-text="files.length"></span>)
+                        </h4>
+                        <div class="space-y-2">
+                            <template x-for="(file, index) in files" :key="index">
+                                <div
+                                    class="flex items-center justify-between p-2 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg attachment-preview">
+                                    <div class="flex items-center min-w-0 flex-1">
+                                        <svg class="h-4 w-4 mr-2 text-primary-500 flex-shrink-0" fill="none"
+                                            stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                        </svg>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm font-medium text-primary-700 dark:text-primary-300 truncate"
+                                                x-text="file.name"></p>
+                                            <p class="text-xs text-primary-600 dark:text-primary-400"
+                                                x-text="(file.size / (1024 * 1024)).toFixed(2) + ' MB'">
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button type="button" @click="removeFile(index)"
+                                        class="ml-2 p-1 text-danger-500 hover:text-danger-700 dark:text-danger-400 dark:hover:text-danger-300 hover:bg-danger-100 dark:hover:bg-danger-800/50 rounded transition-colors">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Closed Ticket Notice -->
+                    @if ($ticket->status === 'closed')
+                    <div
+                        class="mt-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">{{ t('ticket_is_closed') }}</p>
+                        </div>
+                    </div>
+                    @endif
+
+
+                    <div class="flex justify-between items-center sm:flex-row flex-col gap-4 sm:items-center mt-4">
+                        <div class="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {{ t('reply_visible_support_agents') }}
+                        </div>
+                        <button type="submit" :class="{
+                                    'opacity-50 cursor-not-allowed bg-gray-400 text-gray-600': !
+                                        canSubmit,
+                                    'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500': canSubmit
+                                }" :disabled="!canSubmit"
+                            class="inline-flex items-center justify-center px-4 py-2 bg-info-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-info-700 focus:bg-info-700 active:bg-info-900 focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150"
+                            wire:loading.attr="disabled">
+                            <span class="flex items-center">
+                                <div wire:loading class="mr-2">
+                                    <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                        </path>
+                                    </svg>
+                                </div>
+                                <div wire:loading.remove>
+                                    <x-heroicon-o-paper-airplane class="w-4 h-4 mr-2 flex-shrink-0" />
+                                </div>
+                                <span wire:loading.remove>{{ t('send_reply') }}</span>
+                                <span wire:loading>{{ t('submitting') }}</span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
             </form>
         </x-slot:content>
     </x-card>

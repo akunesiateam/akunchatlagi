@@ -18,7 +18,7 @@ if (! function_exists('parseCsvText')) {
     function parseCsvText(string $type, array $data, array $relData): mixed
     {
         // Create merge fields by mapping {key} => value
-        $mergeFields = collect($relData)->mapWithKeys(fn($value, $key) => ["{{$key}}" => $value])->toArray();
+        $mergeFields = collect($relData)->mapWithKeys(fn ($value, $key) => ["{{$key}}" => $value])->toArray();
         $parseData = [];
 
         for ($i = 0; $i < $data["{$type}_params_count"]; $i++) {
@@ -113,11 +113,11 @@ if (! function_exists('parseText')) {
      *
      * @param  string  $rel_type
      * @param  string  $type
-     * @param  array  &$data  Passed by reference to preserve generated_otp
+     * @param  array  $data
      * @param  string  $return_type
-     * @return array|string
+     * @return string|array
      */
-    function parseText($rel_type, $type, &$data, $return_type = 'text')
+    function parseText($rel_type, $type, $data, $return_type = 'text')
     {
         // Ensure we have a MergeFields service instance
         $mergeFieldsService = app(MergeFieldsService::class);
@@ -134,16 +134,6 @@ if (! function_exists('parseText')) {
 
         // Replace @{} with {} for consistent merge field syntax
         $data["{$type}_params"] = preg_replace('/@{(.*?)}/', '{$1}', $data["{$type}_params"]);
-
-        // Generate OTP codes for authentication templates before parsing
-        if (preg_match('/\{otp_code\}/', $data["{$type}_params"])) {
-            // Reuse existing OTP if already generated (to avoid mismatch between sent and displayed OTP)
-            $otpCode = $data['generated_otp'] ?? generate_otp_code(6);
-            $data["{$type}_params"] = str_replace('{otp_code}', $otpCode, $data["{$type}_params"]);
-
-            // Store the OTP code for potential future use (e.g., verification)
-            $data['generated_otp'] = $otpCode;
-        }
 
         // Parse the parameters using merge fields
         $data["{$type}_params"] = $mergeFieldsService->parseTemplates(['tenant-other-group', 'tenant-contact-group'], $data["{$type}_params"], $context);
@@ -169,8 +159,8 @@ if (! function_exists('parseText')) {
                 foreach ($merge_fields as $field) {
                     $key = $field['key'] ?? '';
                     $body = str_contains($body, "{{$key}}")
-                        ? str_replace("{{$key}}", '', $body)
-                        : $body;
+                    ? str_replace("{{$key}}", '', $body)
+                    : $body;
                 }
 
                 return preg_replace('/\s+/', ' ', trim($body));
@@ -184,43 +174,7 @@ if (! function_exists('parseText')) {
             $parsedData[] = ! empty($parsedText[$i]) ? $parsedText[$i] : ' ';
         }
 
-        return ($return_type == 'text') ? ($data["{$type}_message"] ?? '') : $parsedData;
-    }
-}
-
-if (! function_exists('parseCarouselCardText')) {
-    /**
-     * Parse carousel card text with merge fields
-     *
-     * @param  string  $rel_type
-     * @param  string  $type
-     * @param  array  $data
-     * @param  string  $text
-     * @return string
-     */
-    function parseCarouselCardText($rel_type, $type, $data, $text)
-    {
-        // Ensure we have a MergeFields service instance
-        $mergeFieldsService = app(MergeFieldsService::class);
-
-        // Prepare context for merge field parsing
-        $context = [
-            'contactId' => $data['rel_id'] ?? null,
-            'relType' => $rel_type,
-            'tenantId' => $data['tenant_id'] ?? null,
-        ];
-
-        // Replace @{} with {} for consistent merge field syntax
-        $text = preg_replace('/@{(.*?)}/', '{$1}', $text);
-
-        // Parse the text using merge fields
-        if ($rel_type == 'lead' || $rel_type == 'customer') {
-            $text = $mergeFieldsService->parseTemplates(['tenant-other-group', 'tenant-contact-group'], $text, $context);
-        } else {
-            $text = $mergeFieldsService->parseTemplates(['tenant-other-group'], $text, $context);
-        }
-
-        return trim($text);
+        return ($return_type == 'text') ? $data["{$type}_message"] : $parsedData;
     }
 }
 
@@ -236,7 +190,7 @@ if (! function_exists('parseMessageText')) {
         $data['reply_text'] = preg_replace('/@{(.*?)}/', '{$1}', $data['reply_text'] ?? '');
 
         $mergeFieldsService = app(MergeFieldsService::class);
-        if ($data['rel_type'] == 'lead' || $data['rel_type'] == 'customer' || $data['rel_type'] == 'guest') {
+        if ($data['rel_type'] == 'lead' || $data['rel_type'] == 'customer') {
             $data['reply_text'] = $mergeFieldsService->parseTemplates(['tenant-other-group', 'tenant-contact-group'], $data['reply_text'], ['contactId' => $data['rel_id'], 'tenantId' => $data['tenant_id']]);
         }
         $data['reply_text'] = $mergeFieldsService->parseTemplates(['tenant-other-group'], $data['reply_text'], []);
@@ -320,126 +274,5 @@ if (! function_exists('decodeWhatsAppSigns')) {
         ];
 
         return preg_replace($patterns, $replacements, $text);
-    }
-}
-
-/**
- * Check if a template is an authentication template
- *
- * @param  int  $templateId
- * @return bool
- */
-if (! function_exists('is_authentication_template')) {
-    function is_authentication_template(int $templateId): bool
-    {
-        $template = \App\Models\Tenant\WhatsappTemplate::where('tenant_id', tenant_id())
-            ->where('id', $templateId)
-            ->first();
-
-        return $template?->isAuthenticationTemplate() ?? false;
-    }
-}
-
-/**
- * Get authentication template by ID
- *
- * @param  int  $templateId
- * @return \App\Models\Tenant\WhatsappTemplate|null
- */
-if (! function_exists('get_authentication_template')) {
-    function get_authentication_template(int $templateId): ?\App\Models\Tenant\WhatsappTemplate
-    {
-        $template = \App\Models\Tenant\WhatsappTemplate::where('tenant_id', tenant_id())
-            ->where('id', $templateId)
-            ->where('category', 'AUTHENTICATION')
-            ->first();
-
-        return $template;
-    }
-}
-
-/**
- * Get all authentication templates for current tenant
- *
- * @return \Illuminate\Support\Collection
- */
-if (! function_exists('get_tenant_authentication_templates')) {
-    function get_tenant_authentication_templates(): \Illuminate\Support\Collection
-    {
-        $cacheKey = 'tenant:' . tenant_id() . ':templates:authentication';
-
-        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function () {
-            return \App\Models\Tenant\WhatsappTemplate::where('tenant_id', tenant_id())
-                ->where('category', 'AUTHENTICATION')
-                ->where('status', 'APPROVED')
-                ->get();
-        });
-    }
-}
-
-/**
- * Format OTP code (adds formatting, hyphens, etc.)
- *
- * @param  string  $code
- * @return string
- */
-if (! function_exists('format_otp_code')) {
-    function format_otp_code(string $code): string
-    {
-        // Remove any existing spaces or hyphens
-        $code = preg_replace('/[\s\-]/', '', $code);
-
-        // Format as XXX-XXX for 6 digits, or XXXX-XXXX for 8 digits
-        if (strlen($code) === 6) {
-            return substr($code, 0, 3) . '-' . substr($code, 3, 3);
-        } elseif (strlen($code) === 8) {
-            return substr($code, 0, 4) . '-' . substr($code, 4, 4);
-        }
-
-        return $code;
-    }
-}
-
-/**
- * Generate random OTP code
- *
- * @param  int  $length
- * @param  bool  $alphanumeric
- * @return string
- */
-if (! function_exists('generate_otp_code')) {
-    function generate_otp_code(int $length = 6, bool $alphanumeric = false): string
-    {
-        if ($alphanumeric) {
-            $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        } else {
-            $characters = '0123456789';
-        }
-
-        $code = '';
-        $max = strlen($characters) - 1;
-
-        for ($i = 0; $i < $length; $i++) {
-            $code .= $characters[random_int(0, $max)];
-        }
-
-        return $code;
-    }
-}
-
-/**
- * Validate OTP code format
- *
- * @param  string  $code
- * @return bool
- */
-if (! function_exists('validate_otp_code_format')) {
-    function validate_otp_code_format(string $code): bool
-    {
-        // Remove spaces and hyphens
-        $code = preg_replace('/[\s\-]/', '', $code);
-
-        // Check if it's numeric and between 4-8 characters
-        return preg_match('/^\d{4,8}$/', $code) === 1;
     }
 }

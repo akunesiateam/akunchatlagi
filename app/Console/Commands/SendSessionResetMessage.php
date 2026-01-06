@@ -97,7 +97,7 @@ class SendSessionResetMessage extends Command
                 'tenant_id' => $this->tenant->id,
             ]);
             $message = $message_data['reply_text'] ?? $message;
-
+            
             $messageResponse = $this->sendWhatsAppMessage($chat->receiver_id, $message, $whatsappSettings);
             if (! $messageResponse['success']) {
                 whatsapp_log('Failed to send session reset message', 'error', [

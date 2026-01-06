@@ -69,7 +69,7 @@ class ProcessContactImportBatch implements ShouldQueue
             'firstname' => 'required|string|max:191',
             'lastname' => 'required|string|max:191',
             'company' => 'nullable|string|max:191',
-            'type' => 'required|in:lead,customer,guest',
+            'type' => 'required|in:lead,customer',
             'description' => 'nullable|string',
             'country_id' => 'nullable|exists:countries,id',
             'zip' => 'nullable|string|max:20',

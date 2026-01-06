@@ -10,7 +10,6 @@ enum WhatsAppTemplateRelationType: string
     case DEFAULT_REPLY = 'if any keyword does not match';
     case LEAD = 'lead';
     case CUSTOMER = 'customer';
-    case GUEST = 'guest';
 
     case PROFESSIONAL = 'professional';
     case FRIENDLY = 'friendly';
@@ -50,7 +49,6 @@ enum WhatsAppTemplateRelationType: string
         $reply_type = [
             'lead' => self::LEAD,
             'customer' => self::CUSTOMER,
-            'guest' => self::GUEST,
         ];
 
         if ($type !== null) {

@@ -3,12 +3,13 @@ import laravel from "laravel-vite-plugin";
 import path from "path";
 import fs from "fs";
 import vue from "@vitejs/plugin-vue";
-import collectModuleAssetsPaths from "./vite-module-loader.js";
+import collectModuleAssetsPaths from './vite-module-loader.js';
 
 const themeFilePath = path.resolve(__dirname, "theme.json");
 const activeTheme = fs.existsSync(themeFilePath)
     ? JSON.parse(fs.readFileSync(themeFilePath, "utf8")).name
     : "anchor";
+console.log(`Active theme: ${activeTheme}`);
 
 async function getConfig() {
     // Base application assets
@@ -22,7 +23,7 @@ async function getConfig() {
     ];
 
     // Collect module assets (only non-empty files will be added)
-    const allPaths = await collectModuleAssetsPaths(paths, "Modules");
+    const allPaths = await collectModuleAssetsPaths(paths, 'Modules');
 
     return defineConfig({
         plugins: [
@@ -40,12 +41,10 @@ async function getConfig() {
             }),
         ],
         server: {
-            host: "127.0.0.1", // or 'localhost'
+            cors: true,
+            host: "0.0.0.0",
             port: 5173,
             strictPort: false,
-            hmr: {
-                host: "127.0.0.1",
-            },
         },
         resolve: {
             alias: {

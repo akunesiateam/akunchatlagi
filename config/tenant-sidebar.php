@@ -189,7 +189,6 @@ return [
                     'active_routes' => ['tenant.templatebot.*'],
                     'feature_required' => 'template_bots',
                 ],
-
             ],
         ],
 
