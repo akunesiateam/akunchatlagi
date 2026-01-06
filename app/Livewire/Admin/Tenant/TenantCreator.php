@@ -47,7 +47,7 @@ class TenantCreator extends Component
             'user.email' => ['required', 'email', 'unique:users,email,'.$this->user->id],
             'password' => $this->tenant->id ? ['nullable', Password::defaults()] : ['required', 'confirmed', Password::defaults(), 'min:8'],
             'tenant.country_id' => ['nullable', 'integer'],
-            'user.phone' => ['required', 'regex:/^\+?[0-9]+$/', new PurifiedInput(t('sql_injection_error'))],
+            'user.phone' => ['required'],
             'tenant.address' => ['nullable', 'string', new PurifiedInput(t('sql_injection_error'))],
             'tenant.features_config' => ['nullable', 'json'],
             'tenant.custom_colors' => ['nullable', 'json'],
@@ -108,9 +108,7 @@ class TenantCreator extends Component
             $this->user->is_admin = true;
             $this->user->email_verified_at = get_super_admin_current_time();
             $this->user->default_language = $tenantSettings['tenant.set_default_tenant_language'] ?? 'en';
-            if ($this->password) {
-                $this->user->password = Hash::make($this->password);
-            }
+            $this->user->password = Hash::make($this->password);
             $this->user->save();
 
             // If this is a new tenant, dispatch the event to update counters

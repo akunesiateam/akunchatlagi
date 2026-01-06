@@ -6,6 +6,7 @@ use App\Enum\SubscriptionStatus;
 use App\Facades\AdminCache;
 use Carbon\Carbon;
 use Corbital\Installer\Classes\EnvironmentManager;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -357,7 +358,7 @@ class Dashboard extends Component
     public function updateEnv()
     {
         $environmentManager = new EnvironmentManager;
-        if (! env('APP_PREVIOUS_KEYS')) {
+        if (!env('APP_PREVIOUS_KEYS')) {
             $environmentManager->saveEnv([
                 'APP_PREVIOUS_KEYS' => env('APP_KEY'),
             ]);
@@ -526,9 +527,8 @@ class Dashboard extends Component
                 '#ec4899', // Pink
             ];
 
-            // Get all active plans using cache
-            $plans = \App\Services\PlanFeatureCache::getAllPlansWithFeatures()
-                ->filter(fn ($plan) => $plan->is_active);
+            // Get all active plans
+            $plans = \App\Models\Plan::where('is_active', true)->get();
 
             // Get the count of active subscriptions for each plan in a single query
             $subscriptionCounts = DB::table('subscriptions')

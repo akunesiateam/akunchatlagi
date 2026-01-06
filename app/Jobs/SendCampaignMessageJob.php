@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Models\Tenant\Campaign;
 use App\Models\Tenant\CampaignDetail;
 use App\Models\Tenant\WhatsappTemplate;
-use App\Services\OtpService;
 use App\Traits\WhatsApp;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -170,29 +169,6 @@ class SendCampaignMessageJob implements ShouldQueue
                 return;
             }
 
-            // Check if authentication template
-            $isAuthTemplate = $template['category'] === 'AUTHENTICATION';
-
-            // For authentication templates, generate OTP code and check rate limit
-            if ($isAuthTemplate) {
-                $otpService = app(OtpService::class);
-
-                // Check rate limit
-                $rateLimit = $otpService->checkRateLimit($contact->phone);
-                if (! $rateLimit['allowed']) {
-                    $detail->update([
-                        'status' => 0,
-                        'message_status' => 'failed',
-                        'response_message' => $rateLimit['message'],
-                    ]);
-
-                    return;
-                }
-
-                // Generate OTP code
-                $otpCode = $otpService->generate(6, false);
-            }
-
             // Build message parameters
             $rel_data = array_merge(
                 [
@@ -211,11 +187,6 @@ class SendCampaignMessageJob implements ShouldQueue
                 ]
             );
 
-            // For authentication templates, override body params with OTP code
-            if ($isAuthTemplate && isset($otpCode)) {
-                $rel_data['body_params'] = json_encode([$otpCode]);
-            }
-
             $this->setWaTenantId($this->tenantId);
 
             // Use the WhatsApp trait to send the template
@@ -223,36 +194,12 @@ class SendCampaignMessageJob implements ShouldQueue
 
             // Update the detail record with the response
             if (! empty($response['status'])) {
-                $updateData = [
+                $detail->update([
                     'status' => 2,
                     'message_status' => 'sent',
                     'whatsapp_id' => $response['data']->messages[0]->id ?? null,
                     'response_message' => null,
-                ];
-
-                // For authentication templates, update body_message with actual OTP sent
-                if ($isAuthTemplate && isset($otpCode)) {
-                    // Replace the placeholder with actual OTP code
-                    $updateData['body_message'] = str_replace('{{1}}', $otpCode, $template['body_data'] ?? '');
-                }
-
-                $detail->update($updateData);
-
-                // Increment rate limit for auth templates
-                if ($isAuthTemplate && isset($otpCode) && isset($otpService)) {
-                    $otpService->incrementRateLimit($contact->phone);
-                }
-
-                // Log OTP send
-                if ($isAuthTemplate) {
-                    whatsapp_log('Campaign OTP sent', 'info', [
-                        'campaign_id' => $campaign->id,
-                        'contact_id' => $contact->id,
-                        'phone' => $contact->phone,
-                        'template' => $template['template_name'],
-                        'message_id' => $response['data']->messages[0]->id ?? null,
-                    ], null, $this->tenantId);
-                }
+                ]);
             } else {
                 $this->handleFailedMessage($detail, $response);
             }

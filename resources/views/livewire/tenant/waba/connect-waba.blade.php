@@ -23,7 +23,7 @@
                 <x-card class="-mx-4 sm:-mx-0 rounded-md">
                     <x-slot:header>
                         <div class="flex items-center justify-between">
-                            <h3 class="text-base sm:text-lg font-semibold leading-6 text-primary-600 dark:text-slate-200">
+                            <h3 class="text-lg leading-6 font-medium text-primary-600 dark:text-slate-200">
                                 {{ t('wp_integration_step1') }}
                             </h3>
                             @if (!$admin_webhook_connected)
@@ -96,7 +96,7 @@
                 <x-card class="-mx-4 sm:-mx-0 rounded-md">
                     <x-slot:header>
                         <div class="flex items-center justify-between">
-                            <h3 class="text-base sm:text-lg font-semibold leading-6 text-primary-600 dark:text-slate-200">
+                            <h3 class="text-lg leading-6 font-medium text-primary-600 dark:text-slate-200">
                                 {{ t('wp_integration_step2') }}
                             </h3>
                             <span
@@ -191,7 +191,7 @@
             <div class="py-4">
                 <x-card class="-mx-4 sm:-mx-0 rounded-md">
                     <x-slot:header>
-                        <h3 class="text-base sm:text-lg leading-6 font-semibold text-primary-600 dark:text-slate-200">
+                        <h3 class="text-lg leading-6 font-medium text-primary-600 dark:text-slate-200">
                             @if ($step == 1)
                             {{ t('connection_requirements') }}
                             @else

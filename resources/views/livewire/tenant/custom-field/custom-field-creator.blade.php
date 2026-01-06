@@ -12,8 +12,8 @@
         <div class="flex-grow lg:w-2/3">
             <x-card>
                 <x-slot:header>
-                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{{ t('field_configuration') }}</h3>
-                    <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ t('field_configuration') }}</h3>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
                         {{ t('configure_custom_field_settings') }}
                     </p>
                 </x-slot:header>
@@ -269,9 +269,9 @@
             <x-slot:header>
                 <div class="flex items-center space-x-2">
                     <x-heroicon-o-eye class="w-5 h-5 text-gray-500" />
-                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{{ t('live_preview_custom_field') }}</h3>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ t('live_preview_custom_field') }}</h3>
                 </div>
-                <p class="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
                     {{ t('live_preview_description') }}
                 </p>
             </x-slot:header>
@@ -369,7 +369,7 @@
             <x-slot:header>
                 <div class="flex items-center space-x-2">
                     <x-heroicon-o-information-circle class="w-5 h-5 text-gray-500" />
-                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{{ t('field_instructions') }}</h3>
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ t('field_instructions') }}</h3>
                 </div>
             </x-slot:header>
 

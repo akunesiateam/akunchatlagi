@@ -166,7 +166,7 @@ class PurifiedInput implements ValidationRule
     {
         try {
             $patterns = [
-                '/(?<!@)\{(?![a-zA-Z0-9_]+\})[^}]*?\}|\[.*?\]/s',  // Detects JSON-like structures but allows @{merge_field}
+                '/(?<!@)\{[^}]*?\}|\[.*?\]/s',        // Detects JSON-like structures but allows @{name}
                 '/("|\')\s*:\s*("|\')(?!\s*&)/',      // Detects key-value pairs, except safe "&"
                 '/<script\b[^>]*>(.*?)<\/script>/is', // Detects inline scripts
                 '/\\\\"/',                            // Detects excessive escaping

@@ -9,7 +9,7 @@
                     <span class="text-primary-600 font-semibold">{{ substr($tenant->company_name, 0, 1) }}</span>
                 </div>
                 <div class="ml-3">
-                    <h3 class="text-base sm:text-lg font-semibold text-primary-600">{{ $tenant->company_name }}</h3>
+                    <h1 class="font-semibold text-primary-600">{{ $tenant->company_name }}</h1>
                     <div class="flex items-center">
                         <span
                             class="text-primary-600 break-all">{{ config('app.url') . '/' . $tenant->subdomain }}</span>
@@ -190,7 +190,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         <x-card class="mb-6 w-full self-start">
             <x-slot:header>
-                <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{{ t('tenant_information') }}</h3>
+                <h3 class=" font-medium text-gray-900 dark:text-white">{{ t('tenant_information') }}</h3>
             </x-slot:header>
             <x-slot:content>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -312,7 +312,7 @@
         <x-card class="mb-6 w-full self-start">
             <x-slot:header>
                 <div class="flex items-center justify-between">
-                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">{{ t('current_subscription') }} 
+                    <h3 class=" font-medium text-gray-900 dark:text-white">{{ t('current_subscription') }}
                     </h3>
                     @if (checkPermission('admin.subscription.view'))
                         <a href="{{ route('admin.subscription.list') }}"
@@ -446,7 +446,7 @@
         @if ($subscription->exists && $subscription->invoices->count() > 0)
             <x-card class="mb-6 w-full self-start">
                 <x-slot:header>
-                    <h3 class="text-base sm:text-lg font-semibold dark:text-white">{{ t('recent_invoices') }}</h3>
+                    <h3 class=" font-medium text-gray-900 dark:text-white">{{ t('recent_invoices') }}</h3>
                 </x-slot:header>
                 <x-slot:content>
                     <div class="overflow-y-auto">
@@ -504,20 +504,47 @@
         @endif
     </div>
 
-    <x-modal.confirm-box :maxWidth="'lg'" :id="'delete-banner-modal'" title="{{ t('change_tenant_status') }}"
-        wire:model.defer="confirmingStatusChange" description="{{ t('delete_message') }} ">
-        <div
-            class="border-neutral-200 border-neutral-500/30 flex justify-end items-center sm:block space-x-3 bg-gray-100 dark:bg-gray-700 ">
-            <x-button.cancel-button wire:click="$set('confirmingStatusChange', false)" class="">
+    <!-- Status Change Confirmation Modal -->
+    <x-modal.confirm-box wire:model.live="confirmingStatusChange" :maxWidth="'lg'">
+        <x-slot:title>
+            {{ t('change_tenant_status') }}
+        </x-slot:title>
+
+        <x-slot:content>
+            @if ($newStatus === 'active')
+                <p class="text-gray-700 dark:text-gray-300">{{ t('confirm_activate_tenant') }}</p>
+                <div
+                    class="mt-3 p-3 bg-success-50 dark:bg-success-900/20 rounded text-success-800 dark:text-success-300">
+                    {{ t('activate_tenant_description') }}
+                </div>
+            @elseif($newStatus === 'deactive')
+                <p class="text-gray-700 dark:text-gray-300">{{ t('confirm_deactivate_tenant') }}</p>
+                <div
+                    class="mt-3 p-3 bg-warning-50 dark:bg-warning-900/20 rounded text-warning-800 dark:text-warning-300">
+                    {{ t('deactivate_tenant_description') }}
+                </div>
+            @elseif($newStatus === 'suspended')
+                <p class="text-gray-700 dark:text-gray-300">{{ t('confirm_suspend_tenant') }}</p>
+                <div class="mt-3 p-3 bg-danger-50 dark:bg-danger-900/20 rounded text-danger-800 dark:text-danger-300">
+                    <strong>{{ t('warning') }}:</strong> {{ t('suspend_tenant_description') }}
+                </div>
+            @endif
+        </x-slot:content>
+
+        <x-slot:footer>
+            <x-button.cancel-button wire:click="$set('confirmingStatusChange', false)" wire:loading.attr="disabled">
                 {{ t('cancel') }}
             </x-button.cancel-button>
-            <x-button.delete-button wire:click="updateStatus" class="mt-3 sm:mt-0">
-                @if($newStatus == 'active')
-                {{ t('activate') }}
-                @else
-                {{ t('deactivate') }}
-                @endif
-            </x-button.delete-button>
-        </div>
+
+            <button type="button" wire:click="updateStatus" wire:loading.attr="disabled"
+                class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm font-medium rounded-md
+                {{ $newStatus === 'active'
+                    ? 'text-white bg-success-600 hover:bg-success-700'
+                    : ($newStatus === 'deactive'
+                        ? 'text-white bg-warning-600 hover:bg-warning-700'
+                        : 'text-white bg-danger-600 hover:bg-danger-700') }}">
+                {{ t('confirm') }}
+            </button>
+        </x-slot:footer>
     </x-modal.confirm-box>
 </div>

@@ -225,7 +225,7 @@ class StaffCreator extends Component
             }
 
             // Fix email verification date storage
-            if (! can_send_email('tenant-email-confirmation', 'tenant_email_templates', tenant_id()) || $this->isVerified) {
+            if (! can_send_email('tenant-email-confirmation', 'tenant_email_templates') || $this->isVerified) {
                 $this->staff->email_verified_at = now();
             } else {
                 $this->staff->email_verified_at = null;
@@ -315,7 +315,7 @@ class StaffCreator extends Component
     public function send_welcome_mail_to_tenant($isChanged)
     {
         try {
-            if (is_smtp_valid() && can_send_email('tenants-welcome-mail', 'tenant_email_templates', tenant_id()) && $this->staff->send_welcome_mail && $isChanged !== $this->staff->send_welcome_mail) {
+            if (is_smtp_valid() && can_send_email('tenants-welcome-mail', 'tenant_email_templates') && $this->staff->send_welcome_mail && $isChanged !== $this->staff->send_welcome_mail) {
                 $content = render_email_template('tenants-welcome-mail', ['userId' => auth()->id(), 'tenantId' => tenant_id()], 'tenant_email_templates');
                 $subject = get_email_subject('tenants-welcome-mail', ['userId' => auth()->id(), 'tenantId' => tenant_id()], 'tenant_email_templates');
 

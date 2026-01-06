@@ -9,8 +9,6 @@ class EmailTemplateList extends Component
 {
     public $templates;
 
-    public ?bool $is_active = false;
-
     public function mount()
     {
         if (! checkPermission('tenant.email_template.view')) {

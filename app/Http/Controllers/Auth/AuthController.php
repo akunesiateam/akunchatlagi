@@ -76,17 +76,12 @@ class AuthController extends Controller
             return redirect()->back()->with('error', t('user_not_found'));
         }
 
-        $can_send_email = can_send_email('tenant-email-confirmation', 'tenant_email_templates', tenant_id());
-
         if ($user->email_verified_at) {
             if ($user->user_type == 'admin') {
                 return redirect()->route('admin.dashboard');
             }
 
-            if ($can_send_email == false) {
-                return redirect()->to(tenant_route('tenant.dashboard'));
-            }
-
+            return redirect()->to(tenant_route('tenant.dashboard'));
         }
 
         try {

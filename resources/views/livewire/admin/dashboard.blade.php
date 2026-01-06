@@ -101,12 +101,11 @@
     <!-- Statistics Cards Section -->
     <x-card>
         <x-slot:header>
-            <h3 class="text-base sm:text-lg font-semibold text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">
+            <h2 class="text-lg font-medium text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">
                 {{ t('system_statistics') }}
-            </h3>
+            </h2>
         </x-slot:header>
         <x-slot:content>
-            @if (is_admin())
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <!-- Active Subscriptions -->
                 <x-dashboard.stats-card title="{{ t('total_subscriptions') }}" :value="$activeSubscriptions"
@@ -160,63 +159,20 @@
                     </x-slot:icon>
                 </x-dashboard.stats-card>
             </div>
-            @else
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Active Subscriptions -->
-                <x-dashboard.stats-card title="{{ t('total_subscriptions') }}" :value="$activeSubscriptions"
-                    subtitle="Since Last Month: {{ $activeSubscriptionsChange >= 0 ? '+' : '' }}{{ $activeSubscriptionsChange }}"
-                    color="indigo" :bg="true">
-                    <x-slot:icon>
-                        <svg class="h-6 w-6 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-9.618 5.04L2 8.5V14c0 4.97 4.03 9 9 9a9 9 0 009-9V8.5l-.382-.516z" />
-                        </svg>
-                    </x-slot:icon>
-                </x-dashboard.stats-card>
-
-                <!-- Total Clients -->
-                <x-dashboard.stats-card title="{{ t('total_clients') }}" :value="$totalClients"
-                    subtitle="Since Last Month: {{ $totalClientsChange >= 0 ? '+' : '' }}{{ $totalClientsChange }}"
-                    color="blue" :bg="true">
-                    <x-slot:icon>
-                        <svg class="h-6 w-6 text-info-600 dark:text-info-400" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                    </x-slot:icon>
-                </x-dashboard.stats-card>
-
-                <!-- Total Campaigns -->
-                <x-dashboard.stats-card title="{{ t('total_campaigns') }}" :value="$totalCampaigns"
-                    subtitle="Since Last Month: {{ $totalCampaignsChange >= 0 ? '+' : '' }}{{ $totalCampaignsChange }}"
-                    color="purple" :bg="true">
-                    <x-slot:icon>
-                        <svg class="h-6 w-6 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                        </svg>
-                    </x-slot:icon>
-                </x-dashboard.stats-card>
-            </div>
-            @endif
         </x-slot:content>
     </x-card>
 
     <!-- Charts Section -->
-    @if (is_admin())
     <div class="mt-6">
         <div class="flex flex-col sm:flex-row gap-6">
             <!-- Earnings Report - 60% width -->
             <div class="w-full sm:w-3/5">
                 <x-card>
                     <x-slot:header>
-                        <h3
-                            class="text-base sm:text-lg font-semibold text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">
+                        <h2
+                            class="text-lg font-medium text-slate-700 dark:text-slate-300  border-slate-200 dark:border-slate-700">
                             {{ t('earnings_report') }}
-                        </h3>
+                        </h2>
                     </x-slot:header>
                     <x-slot:content>
                         <div class="h-72" wire:ignore>
@@ -230,10 +186,10 @@
             <div class="w-full sm:w-2/5">
                 <x-card>
                     <x-slot:header>
-                        <h3
-                            class="text-base sm:text-lg font-semibold text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">
+                        <h2
+                            class="text-lg font-medium text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">
                             {{ t('best_selling_plan') }}
-                        </h3>
+                        </h2>
                     </x-slot:header>
                     <x-slot:content>
                         <div class="space-y-3" id="plan-cards">
@@ -246,7 +202,6 @@
             </div>
         </div>
     </div>
-    @endif
 </div>
 
 <!-- Chart.js -->

@@ -77,22 +77,17 @@ class TemplateList extends Component
     }
 
     #[On('showEditPage')]
-    public function showEditPage($templateId, $templateType)
+    public function showEditPage($templateId)
     {
         if (! checkPermission('tenant.template.edit')) {
-            $this->notify([
-                'type' => 'danger',
-                'message' => t('access_denied_note'),
-            ]);
+            $this->notify(['type' => 'danger', 'message' => t('access_denied_note')]);
 
             return;
         }
-        // Build the redirect URL with query string
-        $url = tenant_route('tenant.dynamic-template.show', [
-            'id' => $templateId,
-        ]).($templateType ? '?type='.urlencode($templateType) : '');
 
-        return redirect()->to($url);
+        return redirect()->to(tenant_route('tenant.dynamic-template.show', [
+            'id' => $templateId,
+        ]));
     }
 
     /**

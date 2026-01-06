@@ -1132,29 +1132,6 @@
                                             <!-- Body Variables -->
                                             <div x-show="templateData && templateData.body && templateData.body.params_count > 0"
                                                 class="mb-6">
-                                                <!-- Authentication Template Warning -->
-                                                <div x-show="templateData && templateData.category === 'AUTHENTICATION'"
-                                                    class="mb-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
-                                                    <div class="flex items-start space-x-3">
-                                                        <div class="flex-shrink-0">
-                                                            <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                                            </svg>
-                                                        </div>
-                                                        <div class="flex-1">
-                                                            <h4 class="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-1">
-                                                                Authentication Template - Auto OTP Generation
-                                                            </h4>
-                                                            <p class="text-sm text-amber-700 dark:text-amber-400">
-                                                                This is an authentication template. A unique OTP code will be automatically generated for each contact when sending. You cannot manually enter OTP codes.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
                                                 <!-- Unique Header Design -->
                                                 <div class="relative mb-4">
                                                     <div
@@ -1214,10 +1191,8 @@
                                                                 <input type="text" :id="'body_input_' + i"
                                                                     :name="'bodyInputs[' + (i - 1) + ']'"
                                                                     x-model="variables.body[i-1]" @input="updatePreview"
-                                                                    :disabled="templateData && templateData.category === 'AUTHENTICATION'"
-                                                                    :readonly="templateData && templateData.category === 'AUTHENTICATION'"
-                                                                    class="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-gray-900 dark:text-gray-100 text-sm bg-white dark:bg-gray-700 focus:ring-1 focus:ring-info-500 focus:border-info-500 dark:focus:ring-info-400 dark:focus:border-info-400 transition-colors duration-200 placeholder-gray-400 dark:placeholder-gray-500 mentionable disabled:bg-gray-100 disabled:cursor-not-allowed dark:disabled:bg-gray-800"
-                                                                    :placeholder="templateData && templateData.category === 'AUTHENTICATION' ? 'Auto-generated OTP (unique per contact)' : `Enter value for variable ${i}`"
+                                                                    class="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-gray-900 dark:text-gray-100 text-sm bg-white dark:bg-gray-700 focus:ring-1 focus:ring-info-500 focus:border-info-500 dark:focus:ring-info-400 dark:focus:border-info-400 transition-colors duration-200 placeholder-gray-400 dark:placeholder-gray-500 mentionable"
+                                                                    :placeholder="`Enter value for variable ${i}`"
                                                                     autocomplete="off">
                                                             </div>
                                                             <p
@@ -2042,8 +2017,8 @@ clearAllFiltersGlobally() {
                         }
                     }
 
-                    // Validate body variables (skip for authentication templates - OTP is auto-generated)
-                    if (this.templateData.body?.params_count > 0 && this.templateData.category !== 'AUTHENTICATION') {
+                    // Validate body variables
+                    if (this.templateData.body?.params_count > 0) {
                         for (let i = 0; i < this.templateData.body.params_count; i++) {
                             if (!this.variables.body[i]?.trim()) {
                                 this.validationIssues.push(`Body variable ${i + 1} is required`);
@@ -2480,8 +2455,8 @@ clearAllFiltersGlobally() {
                         }
                     }
 
-                    // Validate body variables (skip for authentication templates - OTP is auto-generated)
-                    if (this.templateData?.body?.params_count > 0 && this.templateData?.category !== 'AUTHENTICATION') {
+                    // Validate body variables
+                    if (this.templateData?.body?.params_count > 0) {
                         for (let i = 0; i < this.templateData.body.params_count; i++) {
                             if (!this.variables.body[i]?.trim()) {
                                 showNotification(`{{ t('please_fill_all_body_variables') }}`, 'danger');
@@ -2705,10 +2680,14 @@ clearAllFiltersGlobally() {
                                 this.originalContacts = [...this.contacts];
                             }
 
+                          	console.log("contacts",  this.contacts.length);
+
                             this.filteredContacts = this.contacts;
+                          	console.log("filteredContacts",  this.filteredContacts.length);
                             this.pagination.hasMore = response.has_more;
 
                             this.totalContactsCount = response.total;
+
 
                             // In edit mode, ensure ALL originally selected contacts remain selected
                             if (this.isEditMode && !this.formData.select_all) {

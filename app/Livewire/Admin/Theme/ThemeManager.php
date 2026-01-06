@@ -141,7 +141,7 @@ class ThemeManager extends Component
         Theme::query()->update(['active' => 0]);
     }
 
-    public function resetTheme(): void
+     public function resetTheme(): void
     {
         // Reset by deactivating all themes and activating the default core theme.
         \DB::transaction(function () {

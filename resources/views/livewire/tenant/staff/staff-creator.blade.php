@@ -86,9 +86,9 @@
                     <x-slot:header>
                         <div class="flex items-center">
                             <x-heroicon-o-user-circle class="w-8 h-8 mr-2 text-primary-600" />
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300">
+                            <h1 class="text-xl font-semibold text-slate-700 dark:text-slate-300">
                                 {{ t('personal_information') }}
-                            </h3>
+                            </h1>
                         </div>
                     </x-slot:header>
 
@@ -366,9 +366,9 @@
                     <x-slot:header>
                         <div class="flex items-center">
                             <x-heroicon-o-shield-check class="w-8 h-8 mr-2 text-primary-600" />
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300">
+                            <h1 class="text-xl font-semibold text-slate-700 dark:text-slate-300">
                                 {{ t('roles_and_permissions') }}
-                            </h3>
+                            </h1>
                         </div>
                     </x-slot:header>
 

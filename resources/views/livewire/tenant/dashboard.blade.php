@@ -185,10 +185,10 @@
     <div class="mb-6">
         <x-card>
             <x-slot:header>
-                <h3
-                    class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300 border-slate-200 dark:border-slate-700">
+                <h2
+                    class="text-lg font-semibold text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">
                     {{ t('usage_limits') }}
-                </h3>
+                </h2>
             </x-slot:header>
             <x-slot:content>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -333,10 +333,10 @@
                 <x-card>
                     <x-slot:header>
                         <div class="flex justify-between items-center ">
-                            <h3
-                                class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300 border-slate-200 dark:border-slate-700">
+                            <h2
+                                class="text-lg font-semibold text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">
                                 {{ t('audience_growth') }}
-                            </h3>
+                            </h2>
                             <div class="flex space-x-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
                                 <button @click="switchChartMode('combination')"
                                     :class="currentMode === 'combination' ? 'bg-white dark:bg-slate-600 shadow-sm' : ''"
@@ -367,10 +367,10 @@
         <div class="rounded-xl">
             <x-card>
                 <x-slot:header>
-                    <h3
-                        class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300 border-slate-200 dark:border-slate-700">
+                    <h2
+                        class="text-lg font-semibold text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">
                         {{ t('contact_sources') }}
-                    </h3>
+                    </h2>
                 </x-slot:header>
                 <x-slot:content>
                     <div class="h-48 flex items-center justify-center mb-4" x-cloak>
@@ -401,10 +401,10 @@
         <div class="w-full lg:w-1/2 lg:flex-shrink-0 rounded-xl">
             <x-card>
                 <x-slot:header>
-                    <h3
-                        class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300 border-slate-200 dark:border-slate-700">
+                    <h2
+                        class="text-lg font-semibold text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">
                         {{ t('weekly_message_volume') }}
-                    </h3>
+                    </h2>
                     <h1>
 
                     </h1>
@@ -423,9 +423,9 @@
                 <x-card>
                     <x-slot:header>
                         <div class="flex justify-between items-center">
-                            <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-slate-300">
+                            <h2 class="text-xl font-semibold text-slate-700 dark:text-slate-300">
                                 {{ t('campaign_statistic') }}
-                            </h3>
+                            </h2>
                             <div class="flex space-x-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
                                 <button @click="switchChartType('line')"
                                     :class="currentType === 'line' ? 'bg-white dark:bg-slate-600 shadow-sm' : ''"

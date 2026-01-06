@@ -25,11 +25,13 @@
                                             class="rounded-full h-12 w-12 object-cover" />
                                     </div>
                                     <div class="mx-3">
+                                        <!-- AKUNCHAT -->
                                         <p x-show="selectedUser"
                                             class="font-normal text-sm text-gray-800 dark:text-gray-200">
                                             <span>{{ t('from') }}</span>
-                                            <span x-text="selectedUser?.wa_no ? '+' + selectedUser.wa_no : ''"></span>
+                                            <span x-text="maskPhoneNumberJS(selectedUser?.wa_no)"></span>
                                         </p>
+                                        <!-- END AKUNCHAT -->
                                     </div>
                                 </div>
                             </div>
@@ -215,23 +217,45 @@
                                     x-on:click="selectChat(chat)">
                                     <div class="flex-1">
                                         <div class="flex items-center ">
-                                            <div class="flex-shrink-0 relative">
-                                                <div
-                                                    class="rounded-full h-10 w-10 flex items-center justify-center bg-primary-100 text-primary-700 text-sm font-medium">
-                                                    <span
-                                                        x-text="chat.name.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase()"></span>
-                                                </div>
-                                            </div>
+                                            <!-- AKUNCHAT -->
+                                        <div class="flex-shrink-0 relative">
+                                        <!-- Avatar -->
+                                        <div
+                                            class="rounded-full h-10 w-10 flex items-center justify-center bg-primary-100 text-primary-700 text-sm font-medium">
+                                            <span
+                                                x-text="chat.name.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase()">
+                                            </span>
+                                        </div>
+                                    
+                                        <!-- ICON TIPPY — CONDITIONAL -->
+                                        <x-heroicon-o-information-circle 
+                                            class="absolute -right-1 w-4 h-4 text-gray-700 dark:text-gray-300 cursor-pointer"
+                                            style="margin-top: -18px;"
+                                            x-show="
+                                                (
+                                                    ((chat.contact_first_name ?? '') + ' ' + (chat.contact_last_name ?? '')).trim()
+                                                    !== (chat.name ?? '').trim()
+                                                )
+                                            "
+                                            x-bind:data-tippy-content="
+                                                'Edit : ' +
+                                                ((chat.contact_first_name ?? '') +
+                                                (chat.contact_last_name ? ' ' + chat.contact_last_name : ''))
+                                            "
+                                        />
+                                    </div>
+                                    <!-- END AKUNCHAT -->
 
                                             <div
                                                 class="mx-3 flex flex-col gap-1 justify-start items-start w-full relative">
                                                 <!-- Name and Type in One Line -->
                                                 <div class="flex items-center justify-between w-full">
                                                     <div class="flex items-center justify-start">
-                                                        <p class="font-normal text-xs truncate max-w-[100px]"
-                                                            x-text="chat.name"
-                                                            x-bind:data-tippy-content="chat.receiver_id">
-                                                        </p>
+                                                        <!-- AKUNCHAT -->
+                                                    <p class="font-normal text-xs truncate max-w-[100px]"
+                                                        x-text="chat.name" x-bind:data-tippy-content="maskPhoneNumberJS(chat.receiver_id)">
+                                                    </p>
+                                                    <!-- END AKUNCHAT -->
                                                         <span
                                                             :class="{
                                                                 'bg-violet-100 text-purple-800': chat
@@ -326,14 +350,42 @@
                                     <x-heroicon-s-bars-3 class="w-6 h-6" />
                                 </button>
 
-                                <!-- User Avatar and Active Indicator -->
-                                <div class="relative flex-none">
-                                    <div
-                                        class="rounded-full h-11 w-11 flex items-center justify-center bg-primary-100 text-primary-700 text-sm font-medium">
-                                        <span
-                                            x-text="(selectedUser?.name ?? 'User').split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase()"></span>
-                                    </div>
+                                <!-- AKUNCHAT -->
+
+                            <!-- User Avatar and Active Indicator -->
+                            <div class="relative flex-none">
+                                <!-- Avatar -->
+                                <div
+                                    class="rounded-full h-11 w-11 flex items-center justify-center bg-primary-100 text-primary-700 text-sm font-medium">
+                                    <span
+                                        x-text="(selectedUser?.name ?? 'User')
+                                            .split(' ')
+                                            .map(word => word[0])
+                                            .join('')
+                                            .substring(0, 2)
+                                            .toUpperCase()">
+                                    </span>
                                 </div>
+                            
+                                <!-- ICON TIPPY — FIX TANPA ERROR -->
+                                <x-heroicon-o-information-circle 
+                                    class="absolute -right-1 w-4 h-4 text-gray-700 dark:text-gray-300 cursor-pointer"
+                                    style="margin-top: -20px;"
+                                    x-show="
+                                        (
+                                            ((selectedUser.contact_first_name ?? '') + ' ' + (selectedUser.contact_last_name ?? '')).trim()
+                                            !== ((selectedUser.wa_name ?? selectedUser.name ?? '').trim())
+                                        )
+                                    "
+                                    x-bind:data-tippy-content="
+                                        'Edit : ' +
+                                        ((selectedUser.contact_first_name ?? '') +
+                                        (selectedUser.contact_last_name ? ' ' + selectedUser.contact_last_name : ''))
+                                    "
+                                />
+                            </div>
+                            
+                            <!-- END AKUNCHAT -->
 
 
                                 <!-- User Name and Status -->
@@ -367,13 +419,29 @@
                                             x-text="selectedUser?.type">
                                         </span>
                                     </div>
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400"
-                                        x-text="selectedUser?.receiver_id ?? ''"></p>
+                                    <!-- AKUNCHAT -->
+                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400"
+                                    x-text="maskPhoneNumberJS(selectedUser?.receiver_id ?? '')"></p>
+                                    <!-- END AKUNCHAT -->
                                 </div>
                             </div>
 
                             <!-- Action Buttons -->
-                            <div class="flex sm:gap-3 gap-1 relative">
+                        <div class="flex sm:gap-3 gap-1 relative">
+                            <!-- Bot Countdown Timer - Improved UI -->
+                        <div x-show="botCountdownData.is_bot_stopped && botCountdownData.seconds_remaining > 0" 
+                            x-transition
+                            class="flex items-center mr-3 hidden sm:flex">
+                            <button x-on:click="restartBotManually(selectedUser.id)"
+                                    class="flex items-center bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/40 border border-orange-200 dark:border-orange-700 px-3 py-1.5 rounded-lg transition-colors duration-200"
+                                    data-tippy-content="Click to restart bot manually">
+                                <x-heroicon-o-clock class="w-4 h-4 text-orange-600 dark:text-orange-400 mr-2" />
+                                <span class="text-orange-700 dark:text-orange-300 text-sm font-medium"
+                                    x-text="formatCountdownTime(botCountdownData.seconds_remaining)">
+                                </span>
+                            </button>
+                        </div>
+                        <!-- End Bot Countdown Timer -->
                                 <button x-on:click="messagesSearch = !messagesSearch"
                                     class=" text-primary-500 dark:text-gray-200 mr-3 hidden sm:block">
                                     <x-heroicon-m-magnifying-glass class="w-5 h-5" />
@@ -423,7 +491,7 @@
                                         </template>
                                     </div>
                                 </div>
-                                <div x-show="isAdmin == 1" x-html="asignAgentView">
+                                <div x-show="canAssign == 1" x-html="asignAgentView">
                                 </div>
                                 <button type="button"
                                     class="hover:text-primary-500 text-gray-500 dark:text-slate-400 mt-1 hidden sm:block"
@@ -442,30 +510,43 @@
                                 </button>
 
                                 <!-- Dropdown Menu (Popper) -->
-                                <div class="dropdown">
-                                    <div x-data="{ openDropdown: false }" class="relative">
-                                        <button x-on:click="openDropdown = !openDropdown"
-                                            class="bg-[#f4f4f4] dark:bg-[#050b14] hover:text-primary-500 w-8 h-8 text-gray-500 dark:text-slate-400 rounded-full flex justify-center items-center">
-                                            <x-heroicon-m-ellipsis-vertical class="w-5 h-5"
-                                                data-tippy-content="{{ t('more') }}" aria-hidden="true" />
-                                        </button>
-                                        <ul x-show="openDropdown" x-on:click.away="openDropdown = false"
-                                            class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-2 z-20">
-                                            <li class="sm:hidden block">
-                                                <button type="button"
-                                                    class="flex items-center gap-2 px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700"
+                            <div class="dropdown">
+                                <div x-data="{ openDropdown: false }" class="relative">
+                                    <button x-on:click="openDropdown = !openDropdown"
+                                        class="bg-[#f4f4f4] dark:bg-[#050b14] hover:text-primary-500 w-8 h-8 text-gray-500 dark:text-slate-400 rounded-full flex justify-center items-center">
+                                        <x-heroicon-m-ellipsis-vertical class="w-5 h-5"
+                                            data-tippy-content="{{ t('more') }}" aria-hidden="true" />
+                                    </button>
+                                    <ul x-show="openDropdown" x-on:click.away="openDropdown = false"
+                                        class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-2 z-20">
+                                        <!-- Bot Countdown for Mobile -->
+                                        <li x-show="botCountdownData.is_bot_stopped && botCountdownData.seconds_remaining > 0" 
+                                            class="sm:hidden block">
+                                            <button x-on:click="restartBotManually(selectedUser.id); openDropdown = false" class="flex items-center w-full gap-3 px-4 py-2 text-sm text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20" style="background: antiquewhite;">
+                                                <x-heroicon-o-clock class="w-5 h-5" />
+                                                <div class="flex flex-col items-start">
+                                                    <span class="font-medium">Bot Paused</span>
+                                                    <span class="text-xs"
+                                                        x-text="formatCountdownTime(botCountdownData.seconds_remaining)">
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        </li>
+                                        <li class="sm:hidden block">
+                                            <button type="button"
+                                                    class="flex items-center justify-start w-full gap-2 px-4 py-2 text-sm text-left text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700"
                                                     x-on:click="isShowUserInfo = true">
-                                                    <x-heroicon-o-information-circle class="w-5 h-5" />
-                                                    <span>{{ t('user_information') }}</span>
-                                                </button>
-                                            </li>
-                                            <li class="sm:hidden block">
-                                                <button x-on:click="messagesSearch = true; openDropdown = false"
-                                                    class="flex items-center w-full gap-2 px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
-                                                    <x-heroicon-m-magnifying-glass class="w-5 h-5" />
-                                                    <span>{{ t('search') }}</span>
-                                                </button>
-                                            </li>
+                                                <x-heroicon-o-information-circle class="w-5 h-5 flex-shrink-0" />
+                                                <span class="whitespace-nowrap">{{ t('user_information') }}</span>
+                                            </button>
+                                        </li>
+                                        <li class="sm:hidden block">
+                                            <button x-on:click="messagesSearch = true; openDropdown = false"
+                                                class="flex items-center w-full gap-2 px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
+                                                <x-heroicon-m-magnifying-glass class="w-5 h-5" />
+                                                <span>{{ t('search') }}</span>
+                                            </button>
+                                        </li>
 
                                             <li class="sm:hidden block">
                                                 <button x-on:click='handleModal()'
@@ -480,7 +561,7 @@
                                                 </button>
                                             </li>
                                             @if (get_tenant_setting_from_db('whats-mark', 'only_agents_can_chat'))
-                                                <li x-show="isAdmin == 1">
+                                                <li x-show="canAssign == 1">
                                                     <button x-on:click='openSupportAgentModal()'
                                                         class="flex items-center w-full gap-2 px-4 py-2 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700">
                                                         <x-heroicon-o-user-plus class="w-6 h-6" />
@@ -545,20 +626,19 @@
                                             </template>
 
                                             <!-- Message Wrapper -->
-                                            <div class="flex items-start gap-3">
-                                                <div class="flex w-full relative"
-                                                    :class="message.sender_id === selectedUser.wa_no ? 'justify-end' :
+                                        <div class="flex items-start gap-3">
+                                            <div class="flex w-full relative" :class="message.sender_id === selectedUser.wa_no ? 'justify-end' :
                                                         'justify-start'">
-                                                    <!-- Ellipsis Icon to Open Menu -->
-                                                    <button x-on:click="toggleMessageOptions(message.id)">
-                                                        <x-heroicon-m-ellipsis-vertical
-                                                            class="w-5 h-5 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white" />
-                                                    </button>
-
-                                                    <!-- Message Content -->
-                                                    <div class="p-2 rounded-lg max-w-xl break-words my-2 message-item"
-                                                        :data-message-id='message.message_id'
-                                                        :class="{
+                                                <!-- Ellipsis Icon to Open Menu -->
+                                                <button x-on:click="toggleMessageOptions(message.id)">
+                                                    <x-heroicon-m-ellipsis-vertical
+                                                        class="w-5 h-5 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white" />
+                                                </button>
+                                                
+                                                
+                                                <!-- Message Content -->
+                                                <div class="p-2 rounded-lg w-fit max-w-[210px] break-words my-2 message-item"
+                                                    :data-message-id='message.message_id' :class="{
                                                             'bg-[#c7c8ff] dark:bg-[#2d2454]': message.sender_id ===
                                                                 selectedUser.wa_no,
                                                             'bg-white dark:bg-[#273443]': message.sender_id !==
@@ -567,143 +647,228 @@
                                                             'bg-[#cbced4] dark:bg-[#3b4348fa]': message.staff_id == 0 &&
                                                                 message.sender_id === selectedUser.wa_no
                                                         }">
-                                                        <div x-show="message.ref_message_id"
-                                                            x-on:click="scrollToMessage(message.ref_message_id)"
-                                                            class="bg-neutral-100 dark:bg-gray-500 rounded-lg mb-2 cursor-pointer">
-                                                            <div
-                                                                class="flex flex-col gap-2 p-2 border-primary-500 border-l-4 rounded">
+                                                    <div x-show="message.ref_message_id"
+                                                        x-on:click="scrollToMessage(message.ref_message_id)"
+                                                        class="bg-neutral-100 dark:bg-gray-500 rounded-lg mb-2 cursor-pointer">
+                                                        <div
+                                                            class="flex flex-col gap-2 p-2 border-primary-500 border-l-4 rounded">
 
-                                                                <span class="text-gray-700 dark:text-gray-200 text-xs"
-                                                                    x-html="getOriginalMessage(message.ref_message_id)?.message"></span>
-                                                                <template
-                                                                    x-if="getOriginalMessage(message.ref_message_id)?.url">
-                                                                    <div>
-                                                                        <template
-                                                                            x-if="getOriginalMessage(message.ref_message_id)?.type === 'image'">
-                                                                            <a :href="getOriginalMessage(message.ref_message_id)
-                                                                                ?.url"
-                                                                                data-lightbox="image-group"
-                                                                                target="_blank">
-                                                                                <img :src="getOriginalMessage(message
+                                                            <span class="text-gray-700 dark:text-gray-200 text-xs"
+                                                                x-html="getOriginalMessage(message.ref_message_id)?.message"></span>
+                                                            <template
+                                                                x-if="getOriginalMessage(message.ref_message_id)?.url">
+                                                                <div>
+                                                                    <template
+                                                                        x-if="getOriginalMessage(message.ref_message_id)?.type === 'image'">
+                                                                        <a :href="getOriginalMessage(message.ref_message_id)
+                                                                                ?.url" data-lightbox="image-group"
+                                                                            target="_blank">
+                                                                            <img :src="getOriginalMessage(message
                                                                                         .ref_message_id)
                                                                                     ?.url"
-                                                                                    class="rounded-lg max-w-xs max-h-28"
-                                                                                    alt="Image">
-                                                                            </a>
-                                                                        </template>
+                                                                                class="rounded-lg max-w-xs max-h-28"
+                                                                                alt="Image">
+                                                                        </a>
+                                                                    </template>
 
-                                                                        <template
-                                                                            x-if="getOriginalMessage(message.ref_message_id)?.type === 'video'">
-                                                                            <video
-                                                                                :src="getOriginalMessage(message
+                                                                    <template
+                                                                        x-if="getOriginalMessage(message.ref_message_id)?.type === 'video'">
+                                                                        <video :src="getOriginalMessage(message
                                                                                         .ref_message_id)
-                                                                                    ?.url"
-                                                                                controls
-                                                                                class="rounded-lg max-w-xs max-h-28"></video>
-                                                                        </template>
+                                                                                    ?.url" controls
+                                                                            class="rounded-lg max-w-xs max-h-28"></video>
+                                                                    </template>
 
-                                                                        <template
-                                                                            x-if="getOriginalMessage(message.ref_message_id)?.type === 'document'">
-                                                                            <a :href="getOriginalMessage(message.ref_message_id)
-                                                                                ?.url"
-                                                                                target="_blank"
-                                                                                class="text-info-500 underline">
-                                                                                {{ t('download_document') }}
-                                                                            </a>
-                                                                        </template>
+                                                                    <template
+                                                                        x-if="getOriginalMessage(message.ref_message_id)?.type === 'document'">
+                                                                        <a :href="getOriginalMessage(message.ref_message_id)
+                                                                                ?.url" target="_blank"
+                                                                            class="text-info-500 underline">
+                                                                            {{ t('download_document') }}
+                                                                        </a>
+                                                                    </template>
 
-                                                                        <template
-                                                                            x-if="getOriginalMessage(message.ref_message_id)?.type === 'audio'">
-                                                                            <audio controls class="w-[250px]">
-                                                                                <source
-                                                                                    :src="getOriginalMessage(message
+                                                                    <template
+                                                                        x-if="getOriginalMessage(message.ref_message_id)?.type === 'audio'">
+                                                                        <audio controls class="w-[250px]">
+                                                                            <source :src="getOriginalMessage(message
                                                                                         .ref_message_id)?.url"
-                                                                                    type="audio/mpeg">
-                                                                            </audio>
-                                                                        </template>
-                                                                        <template
-                                                                            x-if="getOriginalMessage(message.ref_message_id)?.type === 'interactive'">
-                                                                            <span
-                                                                                class="text-gray-700 dark:text-gray-200 text-xs"
-                                                                                x-html="getOriginalMessage(message.ref_message_id)?.message"></span>
-                                                                        </template>
-                                                                    </div>
-                                                                </template>
-                                                            </div>
+                                                                                type="audio/mpeg">
+                                                                        </audio>
+                                                                    </template>
+                                                                    <template
+                                                                        x-if="getOriginalMessage(message.ref_message_id)?.type === 'interactive'">
+                                                                        <span
+                                                                            class="text-gray-700 dark:text-gray-200 text-xs"
+                                                                            x-html="getOriginalMessage(message.ref_message_id)?.message"></span>
+                                                                    </template>
+                                                                </div>
+                                                            </template>
                                                         </div>
+                                                    </div>
 
-                                                        <!-- Message Text -->
+                                                    <!-- Message Text -->
 
-                                                        <template
-                                                            x-if="message.type === 'text' &&message.staff_id != 0">
-                                                            <p class="text-gray-800 dark:text-white text-sm"
-                                                                x-html="formatMessage(message.message)"></p>
-                                                        </template>
-                                                        <template
-                                                            x-if="message.type === 'text' &&message.staff_id == 0">
-                                                            <p class="text-gray-800 dark:text-white text-sm"
-                                                                x-html="heighlightMessage(message.message)"></p>
-                                                        </template>
+                                                        <template x-if="message.type === 'text' &&message.staff_id != 0">
+                                                        <div>
+                                                        <p class="text-gray-800 dark:text-white text-sm"
+                                                            x-html="formatMessage(message.message)"></p>
+                                                    </template>
+                                                    <template x-if="message.type === 'text' &&message.staff_id == 0">
+                                                        <p class="text-gray-800 dark:text-white text-sm"
+                                                            x-html="heighlightMessage(message.message)"></p>
+                                                            </div>
+                                                    </template>
 
 
 
                                                         <template x-if="message.type === 'button'">
-                                                            <p class="text-gray-800 dark:text-white text-sm"
-                                                                x-html="highlightSearch(message.message)"></p>
-                                                        </template>
+                                                        <p class="text-gray-800 dark:text-white text-sm"
+                                                            x-html="highlightSearch(message.message)"></p>
+                                                    </template>
 
-                                                        <template x-if="message.type === 'reaction'">
-                                                            <p class="text-gray-800 dark:text-white text-sm"
-                                                                x-html="highlightSearch(message.message)"></p>
-                                                        </template>
+                                                    <template x-if="message.type === 'reaction'">
+                                                        <p class="text-gray-800 dark:text-white text-sm"
+                                                            x-html="highlightSearch(message.message)"></p>
+                                                    </template>
 
                                                         <template x-if="message.type === 'interactive'">
-                                                            <p class="text-gray-800 dark:text-white text-sm"
-                                                                x-html="highlightSearch(message.message)"></p>
-                                                        </template>
+                                                        <p class="text-gray-800 dark:text-white text-sm"
+                                                            x-html="highlightSearch(message.message)"></p>
+                                                    </template>
 
-                                                        <!-- Image -->
-                                                        <template x-if="message.type === 'image'"
-                                                            x-init="$nextTick(() => { window.initGLightbox() })">
-                                                            <a :href="message.url" target="_blank"
-                                                                class="glightbox">
-                                                                <img :src="message.url" alt="Image"
-                                                                    class="rounded-lg max-w-xs max-h-28">
-                                                                <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
-                                                                    x-show="message.message" x-text="message.message">
-                                                                </p>
+                                                    <!-- Image -->
+                                                    <template x-if="message.type === 'image'"
+                                                        x-init="$nextTick(() => { window.initGLightbox() })">
+                                                        <div>
+                                                        <a :href="message.url" target="_blank" class="glightbox">
+                                                            <img :src="message.url" alt="Image"
+                                                                class="rounded-lg max-w-xs max-h-auto">
+                                                        </a>
+                                                        <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                            x-show="message.message && message.message !== 'image'" x-text="message.message"></p>
+                                                            </div>
+                                                    </template>
+                                                    
+                                                    <!-- Sticker -->
+                                                    <template x-if="message.type === 'sticker'"
+                                                        x-init="$nextTick(() => { window.initGLightbox() })">
+                                                        <div>
+                                                            <a :href="message.url" target="_blank" class="glightbox">
+                                                                <img :src="message.url" alt="Sticker"
+                                                                    class="rounded-lg max-w-xs max-h-32 hover:opacity-80 transition-opacity">
                                                             </a>
-                                                        </template>
-
-                                                        <!-- Video -->
-                                                        <template x-if="message.type === 'video'"
-                                                            x-init="$nextTick(() => { window.initGLightbox() })">
+                                                            <p class="text-gray-500 text-xs mt-1 dark:text-gray-400"
+                                                                x-show="message.message && message.message !== 'sticker'" x-text="message.message"></p>
+                                                        </div>
+                                                    </template>
+                                                    
+                                                    <!-- ORDER KATALOG -->
+                                                    <template x-if="message.type === 'order'">
+                                                      <div
+                                                        style="background:#ffffff;border-radius:8px;padding:10px 14px;
+                                                               font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,
+                                                               'Liberation Mono','Courier New',monospace;color:#111827;
+                                                               box-shadow:0 1px 2px rgba(0,0,0,.05);"
+                                                        x-html="message.message.replace(/^ORDER:\s*/,'').replace(/\n/g,'<br>')"
+                                                      ></div>
+                                                    </template>
+                                                    
+                                                    <!-- Video -->
+                                                    <template x-if="message.type === 'video'" x-init="$nextTick(() => { window.initGLightbox() })">
+                                                        <div>
                                                             <a :href="message.url" class="glightbox">
-                                                                <video :src="message.url" controls
-                                                                    class="rounded-lg max-w-xs max-h-28"></video>
-                                                                <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
-                                                                    x-show="message.message" x-text="message.message">
-                                                                </p>
+                                                                <video :src="message.url" controls class="rounded-lg max-w-xs max-h-28"></video>
                                                             </a>
-                                                        </template>
+                                                            <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                               x-show="message.message && message.message !== 'video'" 
+                                                               x-text="message.message"></p>
+                                                        </div>
+                                                    </template>
 
-                                                        <!-- Document -->
-                                                        <template x-if="message.type === 'document'">
-                                                            <a :href="message.url" target="_blank"
-                                                                class="bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400">
-                                                                {{ t('download_document') }}
-                                                            </a>
-                                                        </template>
-
-                                                        <!-- Audio -->
-                                                        <template x-if="message.type === 'audio'">
-                                                            <audio id="audioPlayer" controls class="w-[300px]">
-                                                                <source :src="message.url" type="audio/mpeg">
-                                                                <p class="text-gray-600 text-sm mt-2 dark:text-gray-200"
-                                                                    x-show="message.message" x-text="message.message">
-                                                                </p>
-                                                            </audio>
-                                                        </template>
+                                                    <!-- Document -->
+                                        <template x-if="message.type === 'document'">
+                                            <div>
+                                                <a :href="message.url" target="_blank"
+                                                    class="bg-gray-100 text-success-500 px-3 py-2 rounded-lg flex items-center justify-center text-xs space-x-2 w-full dark:bg-gray-800 dark:text-success-400">
+                                                    {{ t('download_document') }}
+                                                </a>
+                                                <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                   x-show="message.message && message.message !== 'document'" 
+                                                   x-text="message.message"></p>
+                                            </div>
+                                        </template>
+                                        
+                                        <!-- Location -->
+                                            <template x-if="message.type === 'location'">
+                                                <div class="max-w-sm">
+                                                    <div class="bg-green-100 border border-green-200 rounded-lg p-3 dark:bg-green-900 dark:border-green-700">
+                                                        <div class="flex items-start space-x-2">
+                                                            <svg class="w-5 h-5 text-green-600 mt-0.5 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                                                            </svg>
+                                                            <div class="flex-1">
+                                                                <p class="text-sm font-medium text-green-800 dark:text-green-200" 
+                                                                   x-text="message.message.replace(/ - [-\d.]+,[-\d.]+$/, '')"></p>
+                                                                <button @click="(() => {
+                                                                    const parts = message.message.split(' - ');
+                                                                    const coordPart = parts[parts.length - 1];
+                                                                    const [lat, lng] = coordPart.split(',');
+                                                                    if (lat && lng) {
+                                                                        window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+                                                                    }
+                                                                })()" 
+                                                                        class="text-green-600 hover:text-green-700 text-xs mt-1 dark:text-green-400">
+                                                                    📍 View Location
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Contact -->
+                                    <template x-if="message.type === 'contacts'">
+                                        <div class="max-w-sm">
+                                            <div class="bg-blue-100 border border-blue-200 rounded-lg p-3 dark:bg-blue-900 dark:border-blue-700">
+                                                <div class="flex items-center space-x-3">
+                                                    <div class="w-8 h-8 bg-blue-200 rounded-full flex items-center justify-center dark:bg-blue-800">
+                                                        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                                                        </svg>
+                                                    </div>
+                                                    <div class="flex-1">
+                                                        <p class="text-sm font-medium text-blue-800 dark:text-blue-200" x-text="message.message"></p>
+                                                        <div class="flex items-center justify-between mt-1">
+                                                            <p class="text-xs text-blue-600 dark:text-blue-400">Contact</p>
+                                                            <button @click="(() => {
+                                                                const parts = message.message.split(' - ');
+                                                                const phone = parts[parts.length - 1];
+                                                                if (phone) {
+                                                                    navigator.clipboard.writeText(phone);
+                                                                    alert('Phone number copied!');
+                                                                }
+                                                            })()" 
+                                                                    class="flex items-center space-x-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16">
+                                                                    <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/>
+                                                                </svg>
+                                                                <span>Copy</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                                    <!-- Audio -->
+                                                    <template x-if="message.type === 'audio'">
+                                                        <audio id="audioPlayer" controls class="w-[300px]">
+                                                            <source :src="message.url" type="audio/mpeg">
+                                                        </audio>
+                                                        <p class="text-gray-600 text-xs mt-2 dark:text-gray-200"
+                                                            x-show="message.message" x-text="message.message"></p>
+                                                    </template>
 
                                                         <!-- Message Timestamp & Status -->
                                                         <div
@@ -746,51 +911,96 @@
                                                         </div>
 
                                                         <!-- Options Menu -->
-                                                        <div x-show="activeMessageId === message.id" x-transition
-                                                            x-on:click.away="activeMessageId = null"
-                                                            class="absolute top-[-4.5rem] z-10 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-lg py-2"
-                                                            :class="message.sender_id === selectedUser.wa_no ? 'right-0' :
-                                                                'left-0'">
-                                                            <ul class="text-sm">
-                                                                <div class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
-                                                                    x-on:click="replyToMessage(message)">
-                                                                    <x-heroicon-c-arrow-path-rounded-square
-                                                                        class="w-5 h-5 dark:text-gray-300 text-primary-500" />
-                                                                    <li class="dark:text-gray-300 text-primary-500">
-                                                                        {{ t('reply') }}
-                                                                    </li>
-                                                                </div>
-                                                                <div x-on:click.stop="deleteMessage(message.id)"
-                                                                    class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer">
-                                                                    <x-heroicon-o-trash
-                                                                        class="w-5 h-5 dark:text-gray-300 text-danger-500" />
-                                                                    <li class="dark:text-gray-300 text-primary-500">
-                                                                        {{ t('delete') }}
-                                                                    </li>
-                                                                </div>
-                                                            </ul>
-                                                        </div>
-                                                    </div> <!-- End Message Content -->
-                                                </div> <!-- End Message Wrapper -->
+                                            <div x-show="activeMessageId === message.id" x-transition
+                                                x-on:click.away="activeMessageId = null"
+                                                class="absolute top-[-4.5rem] z-10 w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 shadow-lg rounded-lg py-2"
+                                                :class="message.sender_id === selectedUser.wa_no ? 'right-0' : 'left-0'">
+                                                <ul class="text-sm">
+                                                    <!-- Reply -->
+                                                    <div class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
+                                                        x-on:click="replyToMessage(message)">
+                                                        <x-heroicon-c-arrow-path-rounded-square class="w-5 h-5 dark:text-gray-300 text-primary-500" />
+                                                        <li class="dark:text-gray-300 text-primary-500">
+                                                            {{ t('reply') }}
+                                                        </li>
+                                                    </div>
+                                                    <!-- Copy -->
+                                                    <div class="relative flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer"
+                                                        x-on:click="(() => {
+                                                            navigator.clipboard.writeText(message.message);
+                                                            activeMessageId = null;
+                                                            showCopyTooltip = message.id; // Set ke ID message
+                                                            setTimeout(() => showCopyTooltip = null, 1500);
+                                                        })()">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 dark:text-gray-300 text-primary-500">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                                                        </svg>
+                                                        <li class="dark:text-gray-300 text-primary-500">
+                                                            {{ t('copy') }}
+                                                        </li>
+                                                    </div>
+                                                    <!-- Delete -->
+                                                    <div x-on:click.stop="deleteMessage(message.id)"
+                                                        class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-primary-500 dark:hover:bg-gray-700 cursor-pointer">
+                                                        <x-heroicon-o-trash class="w-5 h-5 dark:text-gray-300 text-danger-500" />
+                                                        <li class="dark:text-gray-300 text-primary-500">
+                                                            {{ t('delete') }}
+                                                        </li>
+                                                    </div>
+                                                    
+                                                    <!-- Resend hanya muncul jika pesan memiliki status failed -->
+                                                    <div x-show="message.status === 'failed'" 
+                                                         class="flex justify-start items-center gap-2 px-2 py-2 hover:bg-gray-200 hover:text-danger-500 dark:hover:bg-gray-700 cursor-pointer"
+                                                         x-on:click="(() => {
+                                                            resendMessage(message);  // Ganti navigator menjadi resendMessage
+                                                            activeMessageId = null;
+                                                            showResendTooltip = message.id; 
+                                                            setTimeout(() => showResendTooltip = null, 1500);
+                                                         })()">
+                                                        <x-heroicon-o-arrow-path class="w-5 h-5 dark:text-gray-300 text-danger-500" />
+                                                        <li class="dark:text-gray-300 text-danger-500">
+                                                            {{ t('resend') }}
+                                                        </li>
+                                                    </div>
+                                                    
+                                                    <!-- Tambahkan di area yang sesuai, misalnya di atas atau di bawah daftar pesan 
+                                                    <button 
+                                                        @click="message.status = 'failed'"
+                                                        class="bg-red-500 text-white p-2 rounded"
+                                                    >
+                                                        Simulate Failed Message
+                                                    </button>-->
+                                                </ul>
                                             </div>
-                                            <span x-show="message.status_message && message.status_message.length > 0"
-                                                class="text-danger-500 text-xs truncate text-right block text-wrap"
-                                                x-text="message.status_message">
-                                            </span>
+                                            <!-- Tooltip dengan kondisi ID -->
+                                                <div x-show="showCopyTooltip === message.id" x-transition.opacity
+                                                    class="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
+                                                    ✓ Copied!
+                                                </div>
+                                                <div x-show="showResendTooltip === message.id" x-transition.opacity
+                                                    class="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-50">
+                                                    ✓ Resend!
+                                                </div>
+
+                                                </div> <!-- End Message Content -->
+                                            </div> <!-- End Message Wrapper -->
                                         </div>
-                                    </template>
-                                </div>
+                                        <span x-show="message.status_message && message.status_message.length > 0"
+                                            class="text-danger-500 text-xs truncate text-right block text-wrap"
+                                            x-text="message.status_message">
+                                        </span>
+                                    </div>
+                                </template>
                             </div>
                         </div>
-                        <button
-                            class="absolute p-2 rounded-full shadow-lg bottom-[9rem] sm:bottom-[10rem] right-4
+                    </div>
+                    <button class="absolute p-2 rounded-full shadow-lg bottom-[9rem] sm:bottom-[10rem] right-4
                             transition-all duration-300 ease-in-out
                             bg-gray-200 hover:bg-gray-300 text-gray-700
                             dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200
-                            transform hover:scale-110"
-                            x-on:click="scrollToBottom">
-                            <x-heroicon-o-arrow-small-down class="w-5 h-5" />
-                        </button>
+                            transform hover:scale-110" x-on:click="scrollToBottom">
+                        <x-heroicon-o-arrow-small-down class="w-5 h-5" />
+                    </button>
                         <!-- Search Modal -->
                         <div x-show="messagesSearch" x-cloak
                             class="absolute top-[5.5rem] left-1/2 transform -translate-x-1/2 z-50"
@@ -946,7 +1156,7 @@
                                 </div>
 
                                 <!-- Button -->
-                                <x-button.green x-on:click='handleModal()'>
+                                <x-button.green x-show="getChatType !== 'guest'" x-on:click='handleModal()'>
                                     <x-heroicon-o-chat-bubble-oval-left class="w-5 h-5 mr-1" />
                                     {{ t('initiate_chat') }}
                                 </x-button.green>
@@ -1658,12 +1868,30 @@
                                     </p>
                                 </div>
 
-                                <div class="flex items-center gap-3">
+                                <!-- AKUNCHAT -->
+                            <div class="flex items-center gap-3">
+                                <x-heroicon-o-user class="w-5 h-5 text-primary-500 dark:text-gray-400" />
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                    Edit :
+                                    <span class="text-primary-500 text-sm font-medium"
+                                        x-text="
+                                            (selectedUser.contact_first_name ?? '') +
+                                            (selectedUser.contact_last_name ? ' ' + selectedUser.contact_last_name : '')
+                                        ">
+                                    </span>
+                                </p>
+                            </div>
+                            <!-- END AKUNCHAT -->
+                            
+                            <div class="flex items-center gap-3">
                                     <x-heroicon-o-phone class="w-5 h-5 text-success-500 dark:text-gray-400" />
                                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                                        {{ t('phone') }} <span class="text-primary-500 text-sm font-medium"
-                                            x-text="selectedUser?.receiver_id ? '+' + selectedUser.receiver_id : ''"></span>
-                                    </p>
+    {{ t('phone') }}
+    <span class="text-primary-500 text-sm font-medium"
+        x-text="maskPhoneNumberJS(selectedUser?.receiver_id ? '+' + selectedUser.receiver_id : '')">
+    </span>
+</p>
+
                                 </div>
                             </div>
 
@@ -1737,84 +1965,736 @@
                             </div>
                         </div>
                     </div>
+
                 </div>
 
                 <div x-show="isInitiateChatModal" x-cloak>
                     <div class="fixed inset-0 z-50">
-                        <!-- Stylish Backdrop with Gradient -->
-                        <div class="fixed inset-0 backdrop-blur-sm bg-gradient-to-br from-black/30 to-black/60">
-                        </div>
-                        <!-- Modal Container with Animation -->
+
                         <div class="fixed inset-0 z-50 overflow-y-auto">
                             <div class="flex justify-center p-4 mt-12">
-                                <div x-data="{
-                                    vueMounted: false,
-                                    campaignsSelected: false,
-                                    modalSize: 'max-w-2xl'
-                                }"
-                                    x-effect="
-                                        // 🔹 Resize modal
-                                        modalSize = campaignsSelected ? 'max-w-6xl' : 'max-w-2xl';
-
-                                        // 🔹 Mount Vue when modal opens
-                                        if (isInitiateChatModal && !vueMounted) {
-                                            $nextTick(() => {
-                                                setTimeout(() => {
-                                                    window.mountInitiateChatTemplate();
-                                                    vueMounted = true;
-                                                }, 50);
-                                            });
-                                        }
-
-                                        // 🔹 Reset when modal closes
-                                        if (!isInitiateChatModal) {
-                                            vueMounted = false;
-                                            campaignsSelected = false;
-                                        }
-                                    "
-                                     x-init="
-                                        window.addEventListener('template-selected', () => {
-                                            campaignsSelected = true;
-                                        });
-
-                                        window.addEventListener('close-modal', (e) => {
-                                            if (e.detail === 'initiate-chat-template') {
-                                                isInitiateChatModal = false;
-                                            }
-                                        });
-                                    " x-show="isInitiateChatModal"
+                                <div x-data="{ modalSize: 'max-w-3xl', campaignsSelected: false, }" x-show="isInitiateChatModal"
                                     x-transition:enter="transition ease-out duration-300"
+                                    x-effect="modalSize = campaignsSelected ? 'max-w-6xl' : 'max-w-2xl'"
                                     x-transition:enter-start="opacity-0 scale-95"
                                     x-transition:enter-end="opacity-100 scale-100"
                                     x-transition:leave="transition ease-in duration-200"
                                     x-transition:leave-start="opacity-100 scale-100"
                                     x-transition:leave-end="opacity-0 scale-95" :class="modalSize"
-                                    class="relative w-full rounded-lg bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 transition-all duration-300">
-                                    <!-- Header -->
+                                    class="relative w-full rounded-lg bg-white/95 dark:bg-slate-800/95 shadow-2xl ring-1 ring-black/5 dark:ring-white/5">
+
                                     <div
-                                        class="px-8 py-4 border-b border-neutral-200 dark:border-slate-700 flex justify-between">
-                                        <h1 class="text-xl font-semibold text-slate-800 dark:text-white">
+                                        class="px-8 py-4 border-b border-neutral-200 dark:border-neutral-500/30 flex justify-between">
+                                        <h1 class="text-xl font-medium text-slate-800 dark:text-slate-300">
                                             {{ t('initiate_chat') }}
                                         </h1>
-                                        <button class="text-gray-500 hover:text-gray-700 dark:text-gray-300 text-2xl dark:hover:text-white"
-                                           x-on:click="isInitiateChatModal = false">
+                                        <button
+                                            class="text-gray-500 hover:text-gray-700 text-2xl dark:hover:text-gray-300"
+                                            x-on:click="modalClose()">
                                             &times;
                                         </button>
                                     </div>
 
-                                    <!-- Body -->
-                                    <div id="initiate-chat-template" >
-                                        <initiate-chat-template
-                                            :templates='@json($templates ?? [])'
-                                            :meta-extensions='@json($metaExtensions ?? [])'
-                                          ></initiate-chat-template>
+                                    <div x-data="{
+
+                                        fileError: null,
+                                        isDisabled: false,
+                                        campaignHeader: '',
+                                        isSaving: false,
+                                        campaignBody: '',
+                                        campaignFooter: '',
+                                        buttons: [],
+                                        inputType: 'text',
+                                        inputAccept: '',
+                                        headerInputErrors: [],
+                                        bodyInputErrors: [],
+                                        footerInputErrors: [],
+                                        headerParamsCount: 0,
+                                        bodyParamsCount: 0,
+                                        footerParamsCount: 0,
+                                        selectedCount: 0,
+                                        relType: '',
+                                        // Added for preview
+                                        previewType: '', // Store file type (image, video, document)
+                                        previewFileName: '{{ !empty($filename) ? basename($filename) : '' }}',
+                                        {{-- filteredContacts: @entangle('contacts'), --}}
+                                        filteredContacts: '',
+                                        metaExtensions: {{ json_encode(get_meta_allowed_extension()) }},
+                                        {{-- isUploading: false, --}}
+                                        progress: 0,
+
+                                        uploadStarted() {
+                                            this.isUploading = true;
+                                            this.progress = 0;
+                                            $dispatch('upload-started');
+                                        },
+                                        uploadFinished() {
+                                            this.isUploading = false;
+                                            this.progress = 100;
+                                            $dispatch('upload-finished');
+                                        },
+                                        initTribute() {
+
+
+                                            setTimeout(() => {
+                                                if (typeof window.Tribute === 'undefined') {
+                                                    return;
+                                                }
+                                                let tribute = new window.Tribute({
+                                                    trigger: '@',
+                                                    values: this.mergeFields,
+                                                });
+                                                document.querySelectorAll('.mentionable').forEach((el) => {
+                                                    if (!el.hasAttribute('data-tribute')) {
+                                                        tribute.attach(el);
+                                                        el.setAttribute('data-tribute', 'true'); // Mark as initialized
+                                                    }
+                                                });
+                                            }, 500);
+
+                                        },
+                                        handleCampaignChange(event) {
+
+                                            this.selectedOption = event.target.selectedOptions[0];
+
+                                            this.campaignsSelected = event.target.value !== '';
+                                            this.campaignHeader = this.selectedOption?.dataset.header || '';
+                                            this.campaignBody = this.selectedOption?.dataset.body || '';
+                                            this.campaignFooter = this.selectedOption?.dataset.footer || '';
+                                            this.buttons = this.selectedOption ? JSON.parse(this.selectedOption.dataset.buttons || '[]') : [];
+                                            this.inputType = this.selectedOption?.dataset.headerFormat || 'text';
+                                            this.headerParamsCount = parseInt(this.selectedOption?.dataset.headerParamsCount || 0);
+                                            this.bodyParamsCount = parseInt(this.selectedOption?.dataset.bodyParamsCount || 0);
+                                            this.footerParamsCount = parseInt(this.selectedOption?.dataset.footerParamsCount || 0);
+                                            this.editTemplateId = this.selectedOption.value;
+
+                                            this.hInput = Array(this.headerParamsCount).fill('');
+                                            this.bInput = Array(this.bodyParamsCount).fill('');
+                                            this.footerInputs = Array(this.footerParamsCount).fill('');
+
+                                            if (!this.selectedOption || !this.previewUrl.includes('{{ $filename ?? '' }}')) {
+                                                this.previewUrl = '';
+                                                this.previewFileName = '';
+                                            }
+
+                                            const format = this.selectedOption?.dataset.headerFormat || 'text';
+                                            this.inputAccept = this.metaExtensions[format.toLowerCase()]?.extension || '';
+
+                                        },
+
+                                        replaceVariables(template, inputs) {
+                                            if (!template || !inputs) return ''; // Prevent undefined error
+                                            return template.replace(/\{\{(\d+)\}\}/g, (match, p1) => {
+                                                const index = parseInt(p1, 10) - 1;
+                                                return `<span class='text-primary-600'>${inputs[index] || match}</span>`;
+                                            });
+                                        },
+                                        handleFilePreview(event) {
+
+                                            const file = event.target.files[0];
+                                            this.fileError = null; // Clear previous errors
+
+                                            if (!file) {
+                                                return;
+                                            }
+
+                                            // Get allowed extensions and max size from metaExtensions
+                                            const typeKey = this.inputType.toLowerCase(); // Convert to lowercase for consistency
+                                            const metaData = this.metaExtensions[typeKey];
+
+
+                                            const allowedExtensions = metaData.extension.split(',').map(ext => ext.trim());
+                                            const maxSizeMB = metaData.size || 0; // Default to 0 if not set
+                                            const maxSizeBytes = maxSizeMB * 1024 * 1024; // Convert MB to bytes
+
+                                            // Extract file extension
+                                            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+
+                                            // Validate file extension (from metaExtensions)
+                                            if (!allowedExtensions.includes(fileExtension)) {
+                                                this.fileError = `Invalid file type. Allowed types: ${allowedExtensions.join(', ')}`;
+                                                return;
+                                            }
+
+                                            // MIME type validation (strict check)
+                                            const fileType = file.type.split('/')[0];
+
+                                            if (this.inputType === 'DOCUMENT' && !['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'text/plain'].includes(file.type)) {
+                                                this.fileError = 'Invalid document type. Please upload a valid document.';
+                                                return;
+                                            }
+
+                                            if (this.inputType === 'IMAGE' && !file.type.startsWith('image/')) {
+                                                this.fileError = 'Invalid image file. Please upload an image.';
+                                                return;
+                                            }
+
+                                            if (this.inputType === 'VIDEO' && !file.type.startsWith('video/')) {
+                                                this.fileError = 'Invalid video file. Please upload a video.';
+                                                return;
+                                            }
+
+                                            if (this.inputType === 'AUDIO' && !file.type.startsWith('audio/')) {
+                                                this.fileError = 'Invalid audio file. Please upload an audio file.';
+                                                return;
+                                            }
+
+                                            if (this.inputType === 'STICKER' && file.type !== 'image/webp') {
+                                                this.fileError = 'Invalid sticker file. Only .webp format is allowed.';
+                                                return;
+                                            }
+
+                                            // Validate file size
+                                            if (file.size > maxSizeBytes) {
+                                                this.fileError = `File size exceeds ${maxSizeMB} MB. Please upload a smaller file.`;
+                                                return;
+                                            }
+
+                                            // If validation passes, handle the file preview
+                                            this.prev = URL.createObjectURL(file);
+                                            this.previewUrl = this.prev;
+                                            this.previewFileName = file.name;
+                                            this.fileInput = file.name;
+                                            this.fileI = file;
+
+
+                                        },
+                                        validateInputs() {
+                                            const hasTextInputs = this.headerParamsCount > 0 || this.bodyParamsCount > 0 || this.footerInputs.length > 0;
+                                            const hasFileInput = ['IMAGE', 'VIDEO', 'DOCUMENT', 'AUDIO'].includes(this.inputType);
+
+                                            if (!hasTextInputs && !hasFileInput) {
+                                                return true;
+                                            }
+                                            const validateInputGroup = (inputs, paramsCount) => {
+                                                // Ensure inputs is a properly unwrapped array
+                                                const unwrappedInputs = inputs ? JSON.parse(JSON.stringify(inputs)) : [];
+
+                                                // Ensure length matches paramsCount by filling missing values with empty strings
+                                                while (unwrappedInputs.length < paramsCount) {
+
+                                                    unwrappedInputs.push('');
+                                                }
+
+                                                // Return errors if inputs are empty
+                                                return unwrappedInputs.map(value =>
+                                                    value.trim() === '' ? '{{ t('this_field_is_required') }}' : ''
+                                                );
+                                            };
+
+                                            // Validate text inputs
+                                            this.headerInputErrors = validateInputGroup(this.hInput, this.headerParamsCount);
+                                            this.bodyInputErrors = validateInputGroup(this.bInput, this.bodyParamsCount);
+                                            this.footerInputErrors = validateInputGroup(this.footerInputs, this.footerInputs.length);
+
+                                            if (hasFileInput && !this.previewFileName) {
+                                                this.fileError = '{{ t('this_field_is_required') }}';
+                                            } else {
+                                                this.fileError = ''; // Reset file error if not needed
+                                            }
+
+                                            // Check if all inputs are valid
+                                            const isTextValid = [this.headerInputErrors, this.bodyInputErrors, this.footerInputErrors]
+                                                .every(errors => errors.length === 0 || errors.every(error => error === ''));
+
+
+                                            const isFileValid = !this.fileError; // No error means file validation passed
+
+                                            return isTextValid && isFileValid;
+                                        },
+
+                                        handleSave() {
+
+                                            if (!this.validateInputs()) {
+                                                return; // Prevent further action if validation fails
+                                            }
+
+                                            submitChat(selectedUser.id)
+
+                                        }
+
+                                    }" x-init="$nextTick(() => {
+                                        const select = $el.querySelector('#basic-select');
+
+                                        if (select?.value) {
+                                            handleCampaignChange({ target: select });
+                                        }
+                                        if (isInitiateChatModal = false) {
+
+                                            this.campaignsSelected = '';
+                                        }
+                                    })" class="">
+
+                                        <div class="px-6 py-4">
+                                            <form @submit.prevent="handleSave" enctype="multipart/form-data">
+                                                @csrf
+
+                                                {{-- template_name --}}
+                                                <div class="mt-1 mb-2">
+                                                    <div class="flex item-centar justify-start">
+                                                        <span class="text-danger-500 me-1 ">*</span>
+                                                        <x-label for="template_id" :value="t('template')" />
+                                                    </div>
+
+                                                    <div wire:ignore x-cloak>
+                                                        <x-select id="basic-select" class="block w-full tom-select"
+                                                            wire:model.defer="template_id" x-ref="campaignsChange"
+                                                            x-on:change="handleCampaignChange({ target: $refs.campaignsChange });"
+                                                            x-init="() => {
+                                                                handleCampaignChange({ target: $refs.campaignsChange });
+                                                            }">
+                                                            <option value="" selected>
+                                                                {{ t('nothing_selected') }}
+                                                            </option>
+
+                                                            @foreach ($templates as $template)
+                                                                <option value="{{ $template['template_id'] }}"
+                                                                    data-header="{{ $template['header_data_text'] }}"
+                                                                    data-body="{{ $template['body_data'] }}"
+                                                                    data-footer="{{ $template['footer_data'] }}"
+                                                                    data-buttons="{{ $template['buttons_data'] }}"
+                                                                    data-header-format="{{ $template['header_data_format'] }}"
+                                                                    data-header-params-count="{{ $template['header_params_count'] }}"
+                                                                    data-body-params-count="{{ $template['body_params_count'] }}"
+                                                                    data-footer-params-count="{{ $template['footer_params_count'] }}">
+                                                                    {{ $template['template_name'] . ' (' . $template['language'] . ')' }}
+                                                                </option>
+                                                            @endforeach
+
+                                                        </x-select>
+                                                    </div>
+
+                                                    <x-input-error for="template_id" class="mt-2" />
+                                                </div>
+                                                <div x-show="campaignsSelected" x-cloak
+                                                    class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div>
+                                                        {{-- Variables --}}
+                                                        <x-card class="rounded-lg mt-8">
+                                                            <x-slot:header>
+                                                                <h1
+                                                                    class="text-xl font-semibold text-slate-700 dark:text-slate-300 ">
+                                                                    {{ t('variables') }}
+                                                                </h1>
+                                                            </x-slot:header>
+                                                            <x-slot:content>
+                                                                <div>
+                                                                    <!-- Alert for missing variables -->
+                                                                    <div x-show="((inputType == 'TEXT' || inputType == '') && headerParamsCount === 0) && bodyParamsCount === 0 && footerParamsCount === 0"
+                                                                        class="bg-danger-100 border-l-4 rounded border-danger-500 text-danger-800 px-2 py-3 dark:bg-gray-800 dark:border-danger-800 dark:text-danger-300"
+                                                                        role="alert">
+                                                                        <div
+                                                                            class="flex justify-start items-center gap-2">
+                                                                            <p class="font-base text-sm">
+                                                                                {{ t('variable_not_available_for_this_template') }}
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {{-- Header section --}}
+                                                                    <div
+                                                                        x-show="inputType !== 'TEXT' || headerParamsCount > 0">
+                                                                        <div class="flex items-center justify-start">
+                                                                            <label for="dynamic_input"
+                                                                                class="block font-medium text-slate-700 dark:text-slate-200">
+                                                                                <template
+                                                                                    x-if="inputType == 'TEXT' && headerParamsCount > 0">
+                                                                                    <span
+                                                                                        class="text-lg font-semibold">{{ t('header') }}</span>
+                                                                                </template>
+                                                                                <template x-if="inputType == 'IMAGE'">
+                                                                                    <span
+                                                                                        class="text-lg font-semibold">{{ t('image') }}</span>
+                                                                                </template>
+                                                                                <template
+                                                                                    x-if="inputType == 'DOCUMENT'">
+                                                                                    <span
+                                                                                        class="text-lg font-semibold">{{ t('document') }}</span>
+                                                                                </template>
+                                                                                <template x-if="inputType == 'VIDEO'">
+                                                                                    <span
+                                                                                        class="text-lg font-semibold">{{ t('video') }}</span>
+                                                                                </template>
+                                                                            </label>
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <!-- Standard Input with Tailwind CSS -->
+                                                                            <template x-if="inputType == 'TEXT'">
+                                                                                <template
+                                                                                    x-for="(value, index) in headerParamsCount"
+                                                                                    :key="index">
+                                                                                    <div class="mt-2">
+                                                                                        <div
+                                                                                            class="flex justify-start gap-1">
+                                                                                            <span
+                                                                                                class="text-danger-500">*</span>
+                                                                                            <label
+                                                                                                :for="'header_name_' + index"
+                                                                                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                                                                {{ t('variable') }}
+                                                                                                <span
+                                                                                                    x-text="index + 1"></span>
+                                                                                            </label>
+                                                                                        </div>
+                                                                                        <input
+                                                                                            x-bind:type="inputType"
+                                                                                            :id="'header_name_' + index"
+                                                                                            x-model="hInput[index]"
+                                                                                            x-init="initTribute()"
+                                                                                            class="mentionable block mt-1 w-full border-slate-300 rounded-md shadow-sm text-slate-900 sm:text-sm focus:ring-info-500 focus:border-info-500 disabled:opacity-50 dark:border-slate-500 dark:bg-slate-800 dark:placeholder-slate-500 dark:text-slate-200 dark:focus:ring-info-500 dark:focus:border-info-500 dark:focus:placeholder-slate-600"
+                                                                                            autocomplete="off" />
+                                                                                        <p x-show="headerInputErrors[index]"
+                                                                                            x-text="headerInputErrors[index]"
+                                                                                            class="text-danger-500 text-sm mt-1">
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </template>
+                                                                            @if ($errors->has('hInput.*'))
+                                                                                <x-dynamic-alert type="danger"
+                                                                                    :message="$errors->first(
+                                                                                        'hInput.*',
+                                                                                    )"
+                                                                                    class="mt-4"></x-dynamic-alert>
+                                                                            @endif
+                                                                            <!-- For DOCUMENT input type (file upload) -->
+                                                                            <template x-if="inputType == 'DOCUMENT'">
+                                                                                <div>
+                                                                                    <label for="document_upload"
+                                                                                        class="block text-sm font-medium text-gray-800 dark:text-gray-300">
+                                                                                        {{ t('select_document') }}
+                                                                                        <span
+                                                                                            x-text="metaExtensions.document.extension"></span>
+                                                                                    </label>
+
+                                                                                    <div class="relative mt-1 p-6 border-2 border-dashed rounded-lg cursor-pointer hover:border-info-500 transition duration-300"
+                                                                                        x-on:click="$refs.documentUpload.click()">
+                                                                                        <div class="text-center">
+                                                                                            <x-heroicon-s-photo
+                                                                                                class="h-12 w-12 text-gray-400 mx-auto" />
+                                                                                            <p
+                                                                                                class="mt-2 text-sm text-gray-600">
+                                                                                                {{ t('select_or_browse_to') }}
+                                                                                                <span
+                                                                                                    class="text-info-600 underline">{{ t('document') }}</span>
+                                                                                            </p>
+                                                                                        </div>
+                                                                                        <input type="file"
+                                                                                            x-ref="documentUpload"
+                                                                                            id="document_upload"
+                                                                                            x-bind:accept="inputAccept"
+                                                                                            wire:model="file"
+                                                                                            x-on:change="handleFilePreview($event)"
+                                                                                            class="hidden" />
+                                                                                    </div>
+                                                                                    <template x-if="fileError">
+                                                                                        <p class="text-danger-500 text-sm mt-2"
+                                                                                            x-text="fileError">
+                                                                                        </p>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </template>
+
+                                                                            <!-- For IMAGE input type (image file upload) -->
+                                                                            <template x-if="inputType === 'IMAGE'">
+                                                                                <div>
+                                                                                    <label for="image_upload"
+                                                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                                                        {{ t('select_image') }}
+                                                                                        <span
+                                                                                            x-text="metaExtensions.image.extension"></span>
+                                                                                    </label>
+                                                                                    <div class="relative mt-1 p-6 border-2 border-dashed rounded-lg cursor-pointer hover:border-info-500 transition duration-300"
+                                                                                        x-on:click="$refs.imageUpload.click()">
+                                                                                        <div class="text-center">
+                                                                                            <x-heroicon-s-photo
+                                                                                                class="h-12 w-12 text-gray-400 mx-auto" />
+                                                                                            <p
+                                                                                                class="mt-2 text-sm text-gray-600">
+                                                                                                {{ t('select_or_browse_to') }}
+                                                                                                <span
+                                                                                                    class="text-info-600 underline">{{ t('image') }}</span>
+                                                                                            </p>
+                                                                                        </div>
+                                                                                        <input type="file"
+                                                                                            id="image_upload"
+                                                                                            x-ref="imageUpload"
+                                                                                            x-bind:accept="inputAccept"
+                                                                                            wire:model.defer="file"
+                                                                                            x-on:change="handleFilePreview($event)"
+                                                                                            class="hidden" />
+                                                                                    </div>
+
+                                                                                    @if ($errors->has('file'))
+                                                                                        <x-input-error class="mt-2"
+                                                                                            for="file" />
+                                                                                    @else
+                                                                                        <template x-if="fileError">
+                                                                                            <p class="text-danger-500 text-sm mt-2"
+                                                                                                x-text="fileError">
+                                                                                            </p>
+                                                                                        </template>
+                                                                                    @endif
+                                                                                </div>
+                                                                            </template>
+
+                                                                            <!-- For VIDEO input type (video file upload) -->
+                                                                            <template x-if="inputType == 'VIDEO'">
+                                                                                <div>
+                                                                                    <label for="video_upload"
+                                                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                                                        {{ t('select_video') }}
+                                                                                    </label>
+                                                                                    <span
+                                                                                        x-text="metaExtensions.video.extension"></span>
+                                                                                    <div class="relative mt-1 p-6 border-2 border-dashed rounded-lg cursor-pointer hover:border-info-500 transition duration-300"
+                                                                                        x-on:click="$refs.videoUpload.click()">
+                                                                                        <div class="text-center">
+                                                                                            <x-heroicon-s-photo
+                                                                                                class="h-12 w-12 text-gray-400 mx-auto" />
+                                                                                            <p
+                                                                                                class="mt-2 text-sm text-gray-600">
+                                                                                                {{ t('select_or_browse_to') }}
+                                                                                                <span
+                                                                                                    class="text-info-600 underline">{{ t('video') }}</span>
+                                                                                            </p>
+                                                                                        </div>
+                                                                                        <input type="file"
+                                                                                            id="video_upload"
+                                                                                            x-ref="videoUpload"
+                                                                                            x-bind:accept="inputAccept"
+                                                                                            wire:model.defer="file"
+                                                                                            x-on:change="handleFilePreview($event)"
+                                                                                            class="hidden" />
+                                                                                    </div>
+                                                                                    <template x-if="fileError">
+                                                                                        <p class="text-danger-500 text-sm mt-2"
+                                                                                            x-text="fileError">
+                                                                                        </p>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </template>
+
+                                                                        </div>
+                                                                    </div>
+                                                                    {{-- Body section --}}
+                                                                    <div x-show="bodyParamsCount > 0">
+                                                                        <div
+                                                                            class="flex items-center justify-start mt-2">
+                                                                            <label for="dynamic_input"
+                                                                                class="block font-medium text-slate-700 dark:text-slate-200">
+                                                                                <span
+                                                                                    class="text-lg font-semibold">{{ t('body') }}</span>
+                                                                            </label>
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <template
+                                                                                x-for="(value, index) in bodyParamsCount"
+                                                                                :key="index">
+                                                                                <div class="mt-2">
+                                                                                    <div
+                                                                                        class="flex justify-start gap-1">
+                                                                                        <span
+                                                                                            class="text-danger-500">*</span>
+                                                                                        <label
+                                                                                            :for="'body_name_' + index"
+                                                                                            class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                                                            {{ t('variable') }} <span
+                                                                                                x-text="index + 1"></span>
+                                                                                        </label>
+                                                                                    </div>
+                                                                                    <input type="text"
+                                                                                        :id="'body_name_' + index"
+                                                                                        x-model="bInput[index]"
+                                                                                        x-init='initTribute()'
+                                                                                        class="mentionable block mt-1 w-full border-slate-300 rounded-md shadow-sm text-slate-900 sm:text-sm focus:ring-info-500 focus:border-info-500 disabled:opacity-50 dark:border-slate-500 dark:bg-slate-800 dark:placeholder-slate-500 dark:text-slate-200 dark:focus:ring-info-500 dark:focus:border-info-500 dark:focus:placeholder-slate-600"
+                                                                                        autocomplete="off" />
+                                                                                    <p x-show="bodyInputErrors[index]"
+                                                                                        x-text="bodyInputErrors[index]"
+                                                                                        class="text-danger-500 text-sm mt-1">
+                                                                                    </p>
+                                                                                </div>
+                                                                            </template>
+                                                                            @if ($errors->has('bInput.*'))
+                                                                                <x-dynamic-alert type="danger"
+                                                                                    :message="$errors->first(
+                                                                                        'bInput.*',
+                                                                                    )"
+                                                                                    class="mt-4"></x-dynamic-alert>
+                                                                            @endif
+                                                                        </div>
+                                                                    </div>
+                                                                    {{-- Footer section --}}
+                                                                    <div x-show="footerParamsCount > 0">
+                                                                        <div
+                                                                            class="text-gray-600 dark:text-gray-400 border-b mt-8 mb-6 border-gray-300 dark:border-gray-600">
+                                                                        </div>
+
+                                                                        {{-- Footer section --}}
+                                                                        <div class="flex items-center justify-start">
+                                                                            <label for="dynamic_input"
+                                                                                class="block font-medium text-slate-700 dark:text-slate-200">
+                                                                                <span
+                                                                                    class="text-lg font-semibold">{{ t('footer') }}</span>
+                                                                            </label>
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <template
+                                                                                x-for="(value, index) in footerInputs"
+                                                                                :key="index">
+                                                                                <div class="mt-2">
+                                                                                    <div
+                                                                                        class="flex justify-start gap-1">
+                                                                                        <span
+                                                                                            class="text-danger-500">*</span>
+                                                                                        <label
+                                                                                            :for="'footer_name_' + index"
+                                                                                            class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                                                            {{ t('variable') }} <span
+                                                                                                x-text="index"></span>
+                                                                                        </label>
+                                                                                    </div>
+                                                                                    <input type="text"
+                                                                                        :id="'footer_name_' + index"
+                                                                                        x-model="footerInputs[index]"
+                                                                                        class="mentionable block mt-1 w-full border-slate-300 rounded-md shadow-sm text-slate-900 sm:text-sm focus:ring-info-500 focus:border-info-500 disabled:opacity-50 dark:border-slate-500 dark:bg-slate-800 dark:placeholder-slate-500 dark:text-slate-200 dark:focus:ring-info-500 dark:focus:border-info-500 dark:focus:placeholder-slate-600"
+                                                                                        autocomplete="off" />
+                                                                                    <p x-show="footerInputErrors[index]"
+                                                                                        x-text="footerInputErrors[index]"
+                                                                                        class="text-danger-500 text-sm mt-1">
+                                                                                    </p>
+                                                                                </div>
+                                                                            </template>
+                                                                            @if ($errors->has('footerInputs.*'))
+                                                                                <x-dynamic-alert type="danger"
+                                                                                    :message="$errors->first(
+                                                                                        'footerInputs.*',
+                                                                                    )"
+                                                                                    class="mt-4"></x-dynamic-alert>
+                                                                            @endif
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </x-slot:content>
+                                                        </x-card>
+                                                    </div>
+                                                    <div class="h-full">
+                                                        {{-- Preview --}}
+                                                        <x-card class="rounded-lg mt-8">
+                                                            <x-slot:header>
+                                                                <h1
+                                                                    class="text-xl font-semibold text-slate-700 dark:text-slate-300 ">
+                                                                    {{ t('preview') }}
+                                                                </h1>
+                                                            </x-slot:header>
+                                                            <x-slot:content>
+                                                                <div class="w-full p-6 border border-gray-200 rounded shadow-sm dark:border-gray-700"
+                                                                    style="background-image: url('{{ asset('img/chat/whatsapp_light_bg.png') }}');">
+                                                                    <!-- File Preview Section -->
+                                                                    <div class="mb-1" x-show="previewUrl">
+                                                                        <!-- Image Preview -->
+                                                                        <a x-show="inputType === 'IMAGE'"
+                                                                            x-init="$nextTick(() => { window.initGLightbox() })"
+                                                                            :href="previewUrl" class="glightbox">
+                                                                            <img x-show="inputType === 'IMAGE'"
+                                                                                :src="previewUrl"
+                                                                                class="w-full max-h-60 rounded-lg shadow bg-white dark:bg-gray-800" />
+                                                                        </a>
+
+                                                                        <!-- Video Preview -->
+                                                                        <video x-show="inputType === 'VIDEO'"
+                                                                            x-init="$nextTick(() => { window.initGLightbox() })"
+                                                                            :src="previewUrl" controls
+                                                                            class="w-full max-h-60 rounded-lg shadow bg-white dark:bg-gray-800 glightbox cursor-pointer"></video>
+
+                                                                        <!-- Document Preview -->
+                                                                        <div x-show="inputType === 'DOCUMENT'"
+                                                                            class="p-4 border border-gray-300 bg-white dark:bg-gray-800 rounded-lg">
+                                                                            <p
+                                                                                class="text-sm text-gray-500 dark:text-gray-400">
+                                                                                {{ t('document_uploaded') }}
+                                                                                <a :href="previewUrl"
+                                                                                    target="_blank"
+                                                                                    class="text-info-500 underline break-all inline-block"
+                                                                                    x-text="previewFileName"></a>
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <!-- Campaign Text Section -->
+                                                                    <div
+                                                                        class="p-6 bg-white rounded-lg dark:bg-gray-800 dark:text-white">
+                                                                        <p class="mb-3 font-meduim text-gray-800 dark:text-gray-400"
+                                                                            x-html="replaceVariables(campaignHeader, hInput)">
+                                                                        </p>
+                                                                        <p class="mb-3 font-normal text-sm text-gray-500 dark:text-gray-400"
+                                                                            x-html="replaceVariables(campaignBody, bInput)">
+                                                                        </p>
+                                                                        <div class="mt-4">
+                                                                            <p class="font-normal text-xs text-gray-500 dark:text-gray-400"
+                                                                                x-text="campaignFooter">
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <template x-if="buttons && buttons.length > 0"
+                                                                        class="bg-white rounded-lg py-2 dark:bg-gray-800 dark:text-white">
+                                                                        <!-- Check if buttons is defined and not empty -->
+                                                                        <div class="space-y-1">
+                                                                            <!-- Use space-y-2 for vertical spacing between buttons -->
+                                                                            <template
+                                                                                x-for="(button, index) in buttons"
+                                                                                :key="index">
+                                                                                <div
+                                                                                    class="w-full px-4 py-2 bg-white text-gray-900 rounded-md dark:bg-gray-700 dark:text-white">
+                                                                                    <span x-text="button.text"
+                                                                                        class="text-sm block text-center"></span>
+                                                                                    <!-- Center the text inside the button -->
+                                                                                </div>
+                                                                            </template>
+                                                                        </div>
+                                                                    </template>
+                                                                </div>
+                                                            </x-slot:content>
+
+                                                        </x-card>
+
+                                                    </div>
+                                                </div>
+                                                <div x-show="campaignsSelected" x-cloak
+                                                    class="py-4 flex justify-end space-x-3 border-t border-neutral-200 dark:border-neutral-500/30  mt-5 px-6">
+                                                    <x-button.secondary x-on:click="modalClose()">
+                                                        {{ t('cancel') }}
+                                                    </x-button.secondary>
+
+                                                    <x-button.loading-button type="button"
+                                                        x-on:click="
+                            initiate_chat_loading =true;
+                            handleSave();
+                          "
+                                                        x-bind:disabled="initiate_chat_loading"
+                                                        x-bind:class="{ 'opacity-50 cursor-not-allowed': initiate_chat_loading }">
+                                                        <span x-show="initiate_chat_loading">
+                                                            <x-heroicon-o-arrow-path
+                                                                class="animate-spin w-4 h-4 my-1" />
+                                                        </span>
+                                                        <span x-show="!initiate_chat_loading">
+                                                            {{ t('submit') }}
+                                                        </span>
+                                                    </x-button.loading-button>
+
+                                                </div>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-
                 <div x-show="isSupportAgentModal" x-cloak>
                     <div class="fixed inset-0 z-50">
                         <!-- Stylish Backdrop with Gradient -->
@@ -1831,11 +2711,11 @@
                                     x-transition:leave="transition ease-in duration-200"
                                     x-transition:leave-start="opacity-100 scale-100"
                                     x-transition:leave-end="opacity-0 scale-95"
-                                    class="relative w-full max-w-xl rounded-lg bg-white dark:bg-slate-800 shadow-2xl ring-1 ring-black/5 dark:ring-white/10">
+                                    class="relative w-full max-w-xl  rounded-lg bg-white/95 dark:bg-slate-800/95 shadow-2xl ring-1 ring-black/5 dark:ring-white/5">
                                     <!-- Gradient Background Accent -->
 
-                                    <div class="px-6 py-4 border-b border-neutral-200 dark:border-slate-700">
-                                        <h1 class="text-xl font-semibold text-slate-800 dark:text-white">
+                                    <div class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-500/30">
+                                        <h1 class="text-xl font-medium text-slate-800 dark:text-slate-300">
                                             {{ t('support_agent') }}
                                         </h1>
                                     </div>
@@ -1850,7 +2730,7 @@
                                             <div class="mt-1 relative">
                                                 <!-- Dropdown Button -->
                                                 <button type="button" x-on:click="open = !open"
-                                                    class="relative w-full cursor-default rounded-md border border-slate-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:ring-offset-slate-800">
+                                                    class="relative w-full cursor-default rounded-md border border-slate-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:focus:ring-offset-slate-800">
                                                     <span class="block truncate"
                                                         x-text="selectedOptions.length ? selectedOptions.map(o => o.firstname).join(', ') : 'Select Users'">
                                                     </span>
@@ -1868,14 +2748,14 @@
 
                                                 <!-- Dropdown Menu -->
                                                 <div x-show="open" x-on:click.away="open = false"
-                                                    class="absolute z-10 mt-1 w-full bg-white dark:bg-slate-700 dark:text-white shadow-lg max-h-60 rounded-md ring-1 ring-black ring-opacity-5 dark:ring-slate-600 overflow-auto focus:outline-none sm:text-sm"
+                                                    class="absolute z-10 mt-1 w-full bg-white dark:bg-slate-700 dark:text-white shadow-lg max-h-60 rounded-md ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm"
                                                     style="display: none;">
 
                                                     <!-- Search Bar -->
                                                     <div class="p-2">
                                                         <input type="text" x-model="search"
                                                             placeholder="Search users..."
-                                                            class="w-full border border-gray-300 dark:border-slate-600 rounded-md p-2 dark:bg-slate-800 dark:text-white dark:placeholder:text-gray-400 focus:ring-primary-500 focus:border-primary-500">
+                                                            class="w-full border border-gray-300 rounded-md p-2 dark:bg-slate-800 dark:placeholder:text-white focus:ring-primary-500 focus:border-primary-500">
                                                     </div>
 
                                                     <!-- User List -->
@@ -1908,7 +2788,7 @@
                                                         </template>
 
                                                         <template x-if="filteredOptions.length === 0">
-                                                            <li class="p-2 text-gray-500 dark:text-gray-300 text-center">
+                                                            <li class="p-2 text-gray-500 dark:text-white text-center">
                                                                 {{ t('no_result_found') }}
                                                             </li>
                                                         </template>
@@ -1919,7 +2799,7 @@
                                         </div>
                                     </div>
                                     <div
-                                        class="py-4 flex justify-end space-x-3 border-t border-neutral-200 dark:border-slate-700 mt-5 px-6">
+                                        class="py-4 flex justify-end space-x-3 border-t border-neutral-200 dark:border-neutral-500/30 mt-5 px-6">
                                         <x-button.secondary x-on:click="closeSupportAgentModal()">
                                             {{ t('cancel') }}
                                         </x-button.secondary>
@@ -1954,6 +2834,8 @@
             previewType: '',
             fileName: '',
             attachment: null,
+            showCopyTooltip: null, //NEW AKUNESIA
+            showResendTooltip: null,
             attachmentType: '',
             searchText: '',
             searchMessagesText: '',
@@ -1964,7 +2846,6 @@
             showReactionList: false,
             activeMessageId: null,
             showEmojiPicker: false,
-            isRecording: false,
             isRecording: false,
             audioBlob: null,
             recordedAudio: null,
@@ -1978,6 +2859,14 @@
             openAiMenu: false,
             showCannedReply: false,
             loading: false,
+            // TAMBAHKAN 2 BARIS INI:
+            botCountdownData: {
+                is_bot_stopped: false,
+                seconds_remaining: 0,
+                restart_hours: 6
+            },
+            countdownInterval: null,
+            countdownRequest: null, // TAMBAHKAN BARIS INI
             hideUnreadCount: false,
             hasUserInteracted: false,
             userInfo: [],
@@ -2002,6 +2891,7 @@
             selectedOptions: @json($selectedAgent ?? []),
             asignAgentView: '',
             isDeleteChatModal: false,
+            canAssign: {{ $user_can_assign ? 1 : 0 }},
             isSupportAgentModal: false,
             isInitiateChatModal: false,
             isAdmin: {{ $user_is_admin ? 1 : 0 }},
@@ -2022,7 +2912,7 @@
             _tempSelectedOptions: [],
             showSubmenu: false,
             search: '',
-            getChatType: '',
+            getChatType:'',
             selectedTab: 'searching',
             reltypeFilter: '',
             agentsFilter: '',
@@ -2031,18 +2921,10 @@
             selectedSource: '',
             selectedReadStatus: '',
             noResultsMessage: '',
-            rel_types: [{
-                    key: 'lead',
-                    value: 'Lead'
-                },
-                {
-                    key: 'customer',
-                    value: 'Customer'
-                },
-                {
-                    key: 'guest',
-                    value: 'Guest'
-                },
+            rel_types: [
+                { key: 'lead', value: 'Lead' },
+                { key: 'customer', value: 'Customer' },
+                { key: 'guest', value: 'Guest' },
             ],
             resetFilters() {
 
@@ -2067,7 +2949,7 @@
                 setTimeout(() => {
                     this.sortedChats = [...this.chats];
                 }, 500);
-                // Reset to original chat list
+                   // Reset to original chat list
             },
             handleAllFilters(e) {
                 // Reset the sorted chats to trigger a fresh server-side filtered request
@@ -2094,12 +2976,20 @@
 
             },
             formatMessage(text) {
-
-                text = this.highlightSearch(text);
-
-                // Then replace newlines with <br> for display formatting
-                return text.replace(/\n/g, '<br>');
+            text = this.highlightSearch(text);
+            
+            // Jangan replace emoji, biarkan apa adanya
+            text = text.replace(/\*([^*]+)\*/g, '<strong class="font-semibold">$1</strong>');
+            
+            // Format prices saja
+            text = text.replace(/(Rp\s*[\d.,]+)/g, '<span class="font-semibold text-green-600 dark:text-green-400">$1</span>');
+            
+            // Line breaks
+            text = text.replace(/\n/g, '<br>');
+            
+            return text;
             },
+            
             heighlightMessage(text) {
                 // First, highlight the search term if any
                 return text = this.highlightSearch(text);
@@ -2176,10 +3066,9 @@
                     .then(response => response.json())
                     .then(data => {
                         this.initiate_chat_loading = false;
-
-                        if (data.status || data.success) {
-                            this.isInitiateChatModal = false;
-                            showNotification(data.message || 'Chat Initiated Successfully', 'success');
+                        this.isInitiateChatModal = false;
+                        if (data.status) {
+                            showNotification('Chat Initiated Successfully', 'success');
                             this.editTemplateId = '';
                             this.selectedOption = '';
                             this.campaignsSelected = false;
@@ -2199,8 +3088,7 @@
                             this.footerInputErrors = [];
 
                         } else {
-                            this.isInitiateChatModal = false;
-                            let message = data.message || (data.log_data ? String(data.log_data.response_data).trim() : 'Failed to send message');
+                            let message = String(data.log_data.response_data).trim();
                             // Remove surrounding quotes if present
                             if (message.startsWith('"') && message.endsWith('"')) {
                                 message = message.slice(1, -1).trim();
@@ -2229,10 +3117,7 @@
                         }
                     })
                     .catch(error => {
-                        this.initiate_chat_loading = false;
-                        this.isInitiateChatModal = false;
-                        console.error('Error submitting chat:', error);
-                        showNotification('An error occurred while sending the message', 'danger');
+                        // Error handling for chat submission
                     });
             },
             getUserInformation(type, type_id) {
@@ -2308,6 +3193,30 @@
 
             },
 
+            modalClose() {
+                this.isInitiateChatModal = false;
+                // Reset values after closing
+                setTimeout(() => {
+                    this.editTemplateId = '';
+                    this.selectedOption = '';
+                    this.campaignsSelected = false;
+                    this.fileError = null;
+                    this.campaignHeader = '';
+                    this.campaignBody = '';
+                    this.campaignFooter = '';
+                    this.buttons = [];
+                    this.inputType = 'text';
+                    this.previewUrl = '';
+                    this.previewFileName = '';
+                    this.hInput = [];
+                    this.bInput = [];
+                    this.footerInputs = [];
+                    this.headerInputErrors = [];
+                    this.bodyInputErrors = [];
+                    this.footerInputErrors = [];
+                }, 500); // Wait for modal close animation
+            },
+
             getAgentView(chatId) {
 
                 fetch(`/${this.subdomain}/assign-agent-layout/${chatId}`, { // Only chatId in URL
@@ -2320,7 +3229,6 @@
                     .then(response => response.json())
                     .then(data => {
                         this.asignAgentView = data.agent_layout;
-                        window.selectedChatId = data.chat_id;
                     })
                     .catch(error => {
                         // Error handling for agent view fetch
@@ -2339,6 +3247,94 @@
             uniqueWaNos() {
                 return [...new Set(this.chats.map(chat => chat.wa_no))];
             },
+            
+            // CUSTOM AKUNESIA
+            
+            // TAMBAHKAN 3 METHOD INI DI SINI:
+            getBotCountdown(chatId) {
+                if (!chatId) return;
+                
+                fetch(`/${this.subdomain}/bot-countdown/${chatId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    this.botCountdownData = data;
+                    if (data.is_bot_stopped && data.seconds_remaining > 0) {
+                        this.startCountdown();
+                    } else {
+                        this.stopCountdown();
+                    }
+                })
+                .catch(error => console.error('Error getting bot countdown:', error));
+            },
+            
+            startCountdown() {
+                this.stopCountdown();
+                
+                this.countdownInterval = setInterval(() => {
+                    if (this.botCountdownData.seconds_remaining > 0) {
+                        this.botCountdownData.seconds_remaining--;
+                    } else {
+                        this.stopCountdown();
+                        this.botCountdownData.is_bot_stopped = false;
+                    }
+                }, 1000);
+            },
+            
+            stopCountdown() {
+                if (this.countdownInterval) {
+                    clearInterval(this.countdownInterval);
+                    this.countdownInterval = null;
+                }
+            },
+            
+            // TAMBAHKAN METHOD INI:
+            restartBotManually(chatId) {
+                if (!chatId) return;
+                
+                fetch(`/${this.subdomain}/bot-restart/${chatId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        this.botCountdownData.is_bot_stopped = false;
+                        this.botCountdownData.seconds_remaining = 0;
+                        this.stopCountdown();
+                        showNotification('Bot restarted successfully!', 'success');
+                    } else {
+                        showNotification(data.message || 'Failed to restart bot', 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error restarting bot:', error);
+                    showNotification('Failed to restart bot', 'danger');
+                });
+            },
+            
+            formatCountdownTime(seconds) {
+                if (!seconds || seconds <= 0) return '00:00:00';
+                
+                // Convert to integer first
+                const totalSeconds = parseInt(seconds, 10);
+                
+                const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+                const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+                const secs = String(totalSeconds % 60).padStart(2, '0');
+                
+                return `${hours}:${minutes}:${secs}`;
+            },
+            
+            // END CUSTOM AKUNESIA
 
             deleteMessage(messageId) {
                 if (!this.selectedUser || !this.selectedUser.messages) return;
@@ -2528,7 +3524,7 @@
                             chat.last_message.toLowerCase().includes(query) ||
                             chat.receiver_id.toLowerCase().includes(query) ||
                             chat.wa_no.toLowerCase().includes(query) ||
-                            chat.type.toLowerCase().includes(query)
+                            chat.type.toLowerCase().includes(query) 
                         )
                         .sort((a, b) => new Date(b.time_sent) - new Date(a.time_sent)); // Keep sorting order
                 } else {
@@ -3603,70 +4599,117 @@
                     this.triggerChatDesktopNotification(data.chat);
                 });
             },
+            
+            //AKUNCHAT
             appendNewChats(newChats) {
-                const existingInteractions = [...this.sortedChats]; // Existing interactions array
-
-                const index = existingInteractions.findIndex(chat => chat.id === newChats
-                    .id); //matching interaction id to newChats id
+                const existingInteractions = [...this.sortedChats];
+                const index = existingInteractions.findIndex(chat => chat.id === newChats.id);
+            
                 let isNewMessage = false;
-                if (index !== -1) { //interaction IDs match, replace the whole existing message with the new message
+            
+                if (index !== -1) {
                     const existingInteraction = existingInteractions[index];
-
-                    // Create a new object that contains all properties from newChats except messages
+            
+                    // Ambil hanya pesan terbaru (bukan seluruh array)
+                    const newMsg = Array.isArray(newChats.messages)
+                        ? newChats.messages[newChats.messages.length - 1]
+                        : newChats.messages;
+            
+                    // Clone interaction lama
                     const updatedInteraction = {
-                        ...existingInteraction, // Existing properties
-                        ...newChats, // Spread newChats properties
-                        messages: existingInteraction.messages // Keep the original messages for now
+                        ...existingInteraction,
+                        ...newChats,
+                        messages: [...existingInteraction.messages] // clone array lama
                     };
-                    // Find index of matching message_id
-                    const find_msg_index = Array.isArray(existingInteraction.messages) ?
-                        existingInteraction.messages.findIndex(interaction =>
-                            Array.isArray(newChats.messages) &&
-                            newChats.messages.some(newMsg => interaction.message_id === newMsg.message_id)
-                        ) : -1;
-                    //matching interaction messages id to newChats messages id
-                    if (find_msg_index !== -1) {
-                        // If IDs match, replace the whole existing message with the new message
-                        existingInteraction.messages[find_msg_index] = {
-                            ...newChats.messages[0]
-                        };
-                    } else if (this.selectedUser.id == existingInteraction.id) {
-                        existingInteraction.messages.push(...newChats.messages);
+            
+                    // Cek apakah pesan ini sudah ada
+                    const msgExists = updatedInteraction.messages.some(
+                        msg => msg.message_id === newMsg.message_id
+                    );
+            
+                    // Jika belum ada → push pesan baru
+                    if (!msgExists) {
+                        updatedInteraction.messages.push(newMsg);
+                        isNewMessage = true;
                     }
-                    isNewMessage = true;
+            
+                    // Apakah chat ini sedang dibuka?
+                    const chatOpened = this.selectedUser && this.selectedUser.id === newChats.id;
+            
+                    // UNREAD LOGIC
+                    if (chatOpened) {
+                        updatedInteraction.unreadmessagecount = 0;
+                        updatedInteraction.hideUnreadCount = true;
+                    } else {
+                        updatedInteraction.unreadmessagecount =
+                            Number(newChats.unreadmessagecount) || 0;
+            
+                        updatedInteraction.hideUnreadCount =
+                            updatedInteraction.unreadmessagecount === 0 ? true : false;
+                    }
+            
+                    // Masukkan update ke array utama
                     existingInteractions[index] = updatedInteraction;
-                    this.countUnreadMessages(existingInteractions[index].id);
-                    this.initializeUserInteractionTracking();
-                } else {
-                    // Ensure newChats.messages is an array or initialize it as an empty array
-                    if (!Array.isArray(newChats.messages)) {
-                        newChats.messages = [newChats.messages];
+            
+                    // === UPDATE BUBBLE UI jika chat sedang dibuka ===
+                    if (chatOpened) {
+                        this.messages = updatedInteraction.messages;
+                        this.selectedUser.messages = updatedInteraction.messages;
                     }
-                    // If the interaction id does not exist, push newChats directly
+            
+                    this.countUnreadMessages(updatedInteraction.id);
+                    this.initializeUserInteractionTracking();
+            
+                } else {
+                    // INTERAKSI BARU
+                    const newMsg = Array.isArray(newChats.messages)
+                        ? newChats.messages[newChats.messages.length - 1]
+                        : newChats.messages;
+            
                     existingInteractions.push({
                         ...newChats,
-                        messages: [...newChats.messages] // Ensure messages is properly handled
+                        messages: [newMsg],
+                        unreadmessagecount: 1,
+                        hideUnreadCount: false
                     });
+            
                     isNewMessage = true;
-                    if (existingInteractions[index]) {
-                        this.countUnreadMessages(existingInteractions[index].id);
-                    }
-
                     this.initializeUserInteractionTracking();
                 }
-
-                if (isNewMessage && this.isNotificationSoundEnable) {
-                    this.playNotificationSound();
-                }
-
-                // Now sort the `existingInteractions` array by `time_sent`
+                
+                // === SOUND NOTIFICATION ===
+            
+            // Cek apakah pesan ini cuma update status (read/delivered)
+            const newMsg = Array.isArray(newChats.messages)
+                ? newChats.messages[newChats.messages.length - 1]
+                : newChats.messages;
+            
+            const isStatusUpdate =
+                newMsg?.status === 'read' ||
+                newMsg?.status === 'delivered';
+            
+            // Bunyi hanya jika:
+            // - pesan benar-benar baru (bukan update status)
+            // - notif diaktifkan
+            // - chat lain (bukan chat yang sedang dibuka)
+            const shouldPlaySound =
+                isNewMessage &&
+                !isStatusUpdate &&
+                this.isNotificationSoundEnable &&
+                (!this.selectedUser || this.selectedUser.id !== newChats.id);
+            
+            if (shouldPlaySound) {
+                this.playNotificationSound();
+            }
+            
+                // Sort by time
                 existingInteractions.sort((a, b) => {
-                    // Find the latest message by comparing all time_sent values
-                    let latestTimeA = new Date(a.time_sent || 0);
-                    let latestTimeB = new Date(b.time_sent || 0);
-                    return latestTimeB - latestTimeA; // Sorting in descending order
+                    return new Date(b.time_sent || 0) - new Date(a.time_sent || 0);
                 });
+            
                 this.sortedChats = existingInteractions;
+                //END AKUNCHAT
+
 
                 if (!this.isAdmin && this.enableSupportAgent == 1) {
                     const staff_id = @json($login_user);
@@ -3944,4 +4987,54 @@
             },
         }
     }
+</script>
+
+<script>
+// JavaScript helper untuk masking di frontend
+function maskPhoneNumberJS(phoneNumber) {
+    // Check if masking is enabled for current user
+    const maskingEnabled = {{ get_tenant_setting_from_db('masking_number', 'enabled') ? 'true' : 'false' }};
+    const isAdmin = {{ auth()->user()->is_admin == 1 ? 'true' : 'false' }};
+    
+    // If disabled or user is admin, return original
+    if (!maskingEnabled || isAdmin) {
+        return phoneNumber || '';
+    }
+    
+    // If empty or too short, return as is
+    if (!phoneNumber || phoneNumber.length < 8) {
+        return phoneNumber || '';
+    }
+    
+    // Apply masking
+    phoneNumber = phoneNumber.toString().trim();
+    
+    // Handle phone with country code (+)
+    if (phoneNumber.startsWith('+')) {
+        const matches = phoneNumber.match(/^(\+\d{1,3})(\d+)$/);
+        
+        if (matches && matches.length === 3) {
+            const countryCode = matches[1]; // e.g., +62
+            const restNumber = matches[2];  // e.g., 81234567890
+            
+            if (restNumber.length <= 6) {
+                return phoneNumber; // Too short to mask
+            }
+            
+            const firstPart = restNumber.substring(0, 3); // First 3 digits
+            const lastPart = restNumber.slice(-2);        // Last 2 digits
+            
+            return countryCode + firstPart + '******' + lastPart;
+        }
+    }
+    
+    // Fallback: mask without country code detection
+    if (phoneNumber.length > 6) {
+        const firstPart = phoneNumber.substring(0, 4);
+        const lastPart = phoneNumber.slice(-2);
+        return firstPart + '******' + lastPart;
+    }
+    
+    return phoneNumber;
+}
 </script>

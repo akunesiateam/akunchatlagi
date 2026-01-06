@@ -21,18 +21,6 @@ class ImportContactsLogsFilamentTable extends BaseFilamentTable
         $tenantId = tenant_id();
 
         return ContactImport::query()
-            ->select([
-                'id',
-                'tenant_id',
-                'status',
-                'file_path',
-                'processed_records',
-                'total_records',
-                'valid_records',
-                'invalid_records',
-                'skipped_records',
-                'created_at',
-            ])
             ->where('tenant_id', $tenantId);
     }
 

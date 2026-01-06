@@ -11,7 +11,6 @@ use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\Tenant\BotFlowController;
 use App\Http\Controllers\Tenant\ManageCampaigns;
 use App\Http\Controllers\Tenant\ManageChat;
-use App\Http\Controllers\Tenant\TemplateBotController;
 use App\Http\Controllers\Tenant\WhatsappDynamicTemplateController;
 use App\Http\Controllers\Whatsapp\WhatsAppWebhookController;
 use App\Http\Middleware\CheckTenantDeleted;
@@ -20,6 +19,7 @@ use App\Livewire\Tenant\ActivityLogDetails;
 use App\Livewire\Tenant\ActivityLogList;
 use App\Livewire\Tenant\Bot\MessageBotCreator;
 use App\Livewire\Tenant\Bot\MessageBotList;
+use App\Livewire\Tenant\Bot\TemplateBotCreator;
 use App\Livewire\Tenant\Bot\TemplateBotList;
 use App\Livewire\Tenant\Campaign\CampaignDetails;
 use App\Livewire\Tenant\Campaign\CampaignList;
@@ -83,8 +83,6 @@ Route::middleware(['auth', TenantMiddleware::class, CheckTenantDeleted::class, E
             Route::get('/', Dashboard::class)->name('dashboard');
             // Contacts
             Route::get('/contacts', ContactList::class)->name('contacts.list');
-            Route::post('/contacts/initiatechat', [ContactList::class, 'save'])->name('contacts.initiateChat');
-            Route::get('/contacts/mergefields', [ContactList::class, 'loadMergeFields'])->name('contacts.mergeFields');
             Route::get('/contacts/contact/{contactId?}', ContactCreator::class)->name('contacts.save');
 
             Route::get('/status', ManageStatus::class)->name('status');
@@ -103,6 +101,7 @@ Route::middleware(['auth', TenantMiddleware::class, CheckTenantDeleted::class, E
             Route::get('/message-bot/bot/{messagebotId?}', MessageBotCreator::class)->name('messagebot.create');
 
             Route::get('/template-bot', action: TemplateBotList::class)->name('templatebot.list');
+            Route::get('/template-bot/bot/{templatebotId?}', TemplateBotCreator::class)->name('templatebot.create');
 
             // Campaigns
             Route::get('/campaigns', CampaignList::class)->name('campaigns.list');
@@ -113,6 +112,9 @@ Route::middleware(['auth', TenantMiddleware::class, CheckTenantDeleted::class, E
 
             Route::get('/activity-log', ActivityLogList::class)->name('activity-log.list');
             Route::get('/activity-log/{logId?}', ActivityLogDetails::class)->name('activity-log.details');
+            
+            Route::get('bot-countdown/{chatId}', [ManageChat::class, 'getBotCountdown'])->name('bot_countdown');
+            Route::post('bot-restart/{chatId}', [ManageChat::class, 'restartBot'])->name('bot_restart');
 
             // Chat
             Route::get('ai-prompt', ManageAiPrompt::class)->name('ai-prompt');
@@ -263,21 +265,11 @@ Route::middleware(['auth', TenantMiddleware::class, CheckTenantDeleted::class, E
             Route::post('/save-bot-flow', [BotFlowController::class, 'save']);
             Route::get('/whatsapp-templates', [BotFlowController::class, 'getTemplates']);
             Route::post('/upload-media', [BotFlowController::class, 'upload']);
-            // Flow Export, Import, Clone
-            Route::get('bot-flows/{id}/export', [BotFlowController::class, 'export'])->name('bot_flows.export');
-            Route::post('bot-flows/import', [BotFlowController::class, 'import'])->name('bot_flows.import');
-            // API routes for bot flow node dropdowns
-            Route::get('/api/statuses', [BotFlowController::class, 'getStatuses']);
-            Route::get('/api/sources', [BotFlowController::class, 'getSources']);
-            Route::get('/api/groups', [BotFlowController::class, 'getGroups']);
             // Dynamic Templates
             Route::get('/dynamic-template', [WhatsappDynamicTemplateController::class, 'create'])->name('dynamic-template.index');
             Route::post('/dynamic-template', [WhatsappDynamicTemplateController::class, 'store'])->name('dynamic-template.store');
             Route::get('/dynamic-template/{id}', [WhatsappDynamicTemplateController::class, 'show'])->name('dynamic-template.show');
             Route::post('/dynamic-template/{id}/update', [WhatsappDynamicTemplateController::class, 'update'])->name('dynamic-template.update');
-
-            // NEW: Authentication Templates
-            Route::post('/dynamic-template/authentication', [WhatsappDynamicTemplateController::class, 'storeAuthentication'])->name('dynamic-template.authentication.store');
 
             // NEW: File upload routes
             Route::post('/dynamic-template/upload-media', [WhatsappDynamicTemplateController::class, 'uploadMedia'])->name('tenant.dynamic-template.upload-media');
@@ -289,22 +281,6 @@ Route::middleware(['auth', TenantMiddleware::class, CheckTenantDeleted::class, E
             Route::post('/coupons/validate', [CouponController::class, 'validate'])->name('coupon.validate');
             Route::post('/coupons/apply', [CouponController::class, 'apply'])->name('coupon.apply');
             Route::post('/coupons/remove', [CouponController::class, 'remove'])->name('coupon.remove');
-
-            // vue init
-            // Template Bot API Routes
-
-            // Template Bot Routes
-            Route::get('/template-bot/bot/{templatebotId?}', [TemplateBotController::class, 'create'])
-                ->name('templatebot.create');
-
-            Route::get('/template-bot/data/{templatebotId?}', [TemplateBotController::class, 'getData'])
-                ->name('templatebot.data');
-
-            Route::post('/template-bot/store', [TemplateBotController::class, 'store'])
-                ->name('templatebot.store');
-
-            Route::post('/template-bot/upload', [TemplateBotController::class, 'uploadFile'])
-                ->name('templatebot.upload');
         });
         // Route without 'sanitize.inputs'
         Route::post('send-message', [WhatsAppWebhookController::class, 'send_message'])->name('send_message');

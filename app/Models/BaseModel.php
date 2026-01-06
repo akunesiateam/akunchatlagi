@@ -22,7 +22,7 @@ class BaseModel extends Model
 
     public function getTimezone()
     {
-        if (\App\Models\Tenant::checkCurrent()) {
+        if (Tenant::checkCurrent()) {
             $systemSettings = tenant_settings_by_group('system');
 
             return $systemSettings['timezone'] ?? config('app.timezone');

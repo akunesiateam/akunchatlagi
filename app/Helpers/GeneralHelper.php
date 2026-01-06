@@ -47,6 +47,7 @@ if (! function_exists('format_date_time')) {
         try {
             // 🧠 Try parsing normally (e.g. DB timestamp)
             $date = Carbon::parse($dateTime);
+
         } catch (\Exception $e) {
             try {
                 // 🧩 If parse fails, try using the dynamic date/time format
@@ -169,7 +170,7 @@ if (! function_exists('get_default_tax')) {
 
             return $single ? $taxes->first() : $taxes;
         } catch (\Exception $e) {
-            app_log('Error parsing default taxes: ' . $e->getMessage(), 'error', $e);
+            app_log('Error parsing default taxes: '.$e->getMessage(), 'error', $e);
 
             // Fallback to first tax if there's an error
             return $single ? TaxCache::getAllTaxes()->first() : collect([]);
@@ -217,7 +218,7 @@ if (! function_exists('get_default_taxes')) {
 
             return TaxCache::getAllTaxes()->whereIn('id', $default_tax_ids);
         } catch (\Exception $e) {
-            app_log('Error parsing default taxes: ' . $e->getMessage(), 'error', $e);
+            app_log('Error parsing default taxes: '.$e->getMessage(), 'error', $e);
 
             // Return empty collection if there's an error
             return collect([]);
@@ -404,7 +405,7 @@ if (! function_exists('t')) {
 
         if (tenant_check()) {
             $tenant = current_tenant();
-            $locale = $tenant->id . '_tenant_' . $locale;
+            $locale = $tenant->id.'_tenant_'.$locale;
         }
 
         $translations = Cache::remember("translations.{$locale}", 3600, function () use ($data) {
@@ -480,7 +481,7 @@ if (! function_exists('app_log')) {
             $logContext['exception'] = [
                 'class' => get_class($exception),
                 'message' => $exception->getMessage(),
-                'file' => $exception->getFile() . ':' . $exception->getLine(),
+                'file' => $exception->getFile().':'.$exception->getLine(),
                 'trace' => array_slice(
                     array_filter(
                         array_map(
@@ -505,8 +506,8 @@ if (! function_exists('app_log')) {
             }
 
             // Create filename with date (daily rotation pattern)
-            $filename = 'laravel-' . now()->format('Y-m-d') . '.log';
-            $logPath = $logDir . '/' . $filename;
+            $filename = 'laravel-'.now()->format('Y-m-d').'.log';
+            $logPath = $logDir.'/'.$filename;
 
             // Create a simple file logger
             $logger = Log::build([
@@ -740,7 +741,7 @@ if (! function_exists('payment_log')) {
         if ($exception) {
             $context['exception'] = [
                 'message' => $exception->getMessage(),
-                'file' => $exception->getFile() . ':' . $exception->getLine(),
+                'file' => $exception->getFile().':'.$exception->getLine(),
                 'trace' => $exception->getTraceAsString(),
             ];
         }
@@ -755,8 +756,8 @@ if (! function_exists('payment_log')) {
             }
 
             // Create filename with date (daily rotation pattern)
-            $filename = 'payment-' . now()->format('Y-m-d') . '.log';
-            $logPath = $logDir . '/' . $filename;
+            $filename = 'payment-'.now()->format('Y-m-d').'.log';
+            $logPath = $logDir.'/'.$filename;
 
             // Create a simple file logger
             $logger = Log::build([
@@ -859,9 +860,9 @@ if (! function_exists('formateInvoiceNumber')) {
     {
         $settings = get_batch_settings(['invoice.prefix']);
         $prefix = ! empty($settings['invoice.prefix']) ? $settings['invoice.prefix'] : 'INV';
-        $invoice_number = ! empty($invoice_number) ? $invoice_number : 'DRAFT-' . $id;
+        $invoice_number = ! empty($invoice_number) ? $invoice_number : 'DRAFT-'.$id;
 
-        return $prefix . '-' . $invoice_number;
+        return $prefix.'-'.$invoice_number;
     }
 }
 
@@ -872,12 +873,11 @@ if (! function_exists('can_send_email')) {
      * @param  string  $slug  The email template slug.
      * @return bool True if the email can be sent, otherwise false.
      */
-    function can_send_email(string $slug, $table = null, $tenant_id = null): bool
+    function can_send_email(string $slug, $table = null): bool
     {
         if ($table) {
             return EmailTemplate::fromTable($table)->where('slug', $slug)
                 ->where('is_active', true)
-                ->where('tenant_id', $tenant_id)
                 ->exists();
         }
 
@@ -914,7 +914,7 @@ if (! function_exists('can_send_email')) {
     if (! function_exists('truncate_text')) {
         function truncate_text($text, $limit = 50, $suffix = '......')
         {
-            return strlen($text) > $limit ? substr($text, 0, $limit) . $suffix : $text;
+            return strlen($text) > $limit ? substr($text, 0, $limit).$suffix : $text;
         }
     }
 }
@@ -998,7 +998,7 @@ if (! function_exists('format_draft_invoice_number')) {
         $settings = get_batch_settings(['invoice.prefix']);
         $prefix = ! empty($settings['invoice.prefix']) ? $settings['invoice.prefix'] : 'INV';
 
-        return rtrim($prefix, '-') . '-' . 'DRAFT';
+        return rtrim($prefix, '-').'-'.'DRAFT';
     }
 }
 
@@ -1013,10 +1013,7 @@ if (! function_exists('tenant_on_active_plan')) {
         try {
             $subscription = SubscriptionCache::getActiveSubscription(tenant_id());
 
-            return is_null($subscription) || in_array($subscription->status, [
-                Subscription::STATUS_TRIAL,
-                Subscription::STATUS_CANCELLED,
-            ]);
+            return is_null($subscription) ? true : (($subscription->status === Subscription::STATUS_TRIAL) ? true : false);
         } catch (\Throwable $e) {
             return false;
         }
@@ -1159,9 +1156,10 @@ if (! function_exists('getTenantDefaultLanguage')) {
                 });
 
             return array_merge($languages, $dbLanguages->toArray());
+
         } catch (\Exception $e) {
             // Log error and return default language on failure
-            app_log('Error getting tenant languages: ' . $e->getMessage(), 'error', $e);
+            app_log('Error getting tenant languages: '.$e->getMessage(), 'error', $e);
 
             return [[
                 'name' => 'English',

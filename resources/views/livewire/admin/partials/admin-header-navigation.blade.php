@@ -9,13 +9,11 @@
         <div class="flex-1 flex ">
         </div>
         <div class="flex items-center">
-            @if(get_setting('system.is_enable_landing_page'))
              <x-button size="sm"
                 class="inline-flex items-center justify-center px-3 py-2 text-sm leading-4 border border-transparent rounded-md font-medium  transition bg-slate-200 text-slate-700 truncate  dark:bg-slate-700 dark:border-slate-500 dark:text-slate-200 mr-4"
                 wire:navigate href="{{ route('home') }}">
                 {{ t('visit_site') }}
             </x-button>
-            @endif
             <x-dropdown>
                 <x-slot:trigger>
                     <button

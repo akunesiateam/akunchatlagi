@@ -99,12 +99,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/verify-phone', [WhatsAppController::class, 'verifyPhone']);
         Route::get('/webhooks', [WhatsAppController::class, 'webhooks']);
         Route::post('/webhooks', [WhatsAppController::class, 'createWebhook']);
-
-        // OTP Routes
-        Route::prefix('otp')->group(function () {
-            Route::post('/send', [\App\Http\Controllers\Tenant\WhatsappOtpController::class, 'send'])->name('whatsapp.otp.send');
-            Route::post('/verify', [\App\Http\Controllers\Tenant\WhatsappOtpController::class, 'verify'])->name('whatsapp.otp.verify');
-        });
     });
 });
 
