@@ -2848,11 +2848,6 @@ trait WhatsApp
             return $text;
         }
 
-        // Convert contactData to array if it's an object (happens when coming from queued jobs)
-        if (is_object($contactData)) {
-            $contactData = (array) $contactData;
-        }
-
         $data['rel_type'] = $contactData['type'] ?? 'lead';
         $data['rel_id'] = $contactData['id'] ?? '';
         $data['reply_text'] = $text;
