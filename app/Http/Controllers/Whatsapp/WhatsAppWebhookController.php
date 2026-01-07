@@ -342,6 +342,7 @@ class WhatsAppWebhookController extends Controller
                     foreach ($template_bots as $template) {
                         $template['rel_id'] = $contact_data->id;
                         $response = $this->setWaTenantId($this->tenant_id)->sendTemplate($contact_number, $template, 'template_bot', $metadata['phone_number_id']);
+                        
                         $chatId = $this->createOrUpdateInteraction($contact_number, $metadata['display_phone_number'], $metadata['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
                         $this->storeBotMessages($template, $chatId, $contact_data, 'template_bot', $response);
                     }
@@ -366,131 +367,146 @@ class WhatsAppWebhookController extends Controller
         $trigger_msg = isset($message['button']['text'])
             ? $message['button']['text']
             : $message['text']['body'] ?? '';
-            //if (! empty($message['interactive']) && //$message['interactive']['type'] == 'button_reply') {
-                //$trigger_msg = $message['interactive']['button_reply']['id'];
-        //    }
-                if (! empty($message['interactive']) && $message['interactive']['type'] == 'button_reply') {
-                    // ✅ Gunakan title (text yang tampil) bukan ID untuk matching bot trigger
-                    $trigger_msg = $message['interactive']['button_reply']['title'] ?? $message['interactive']['button_reply']['id'];
+
+        if (! empty($message['interactive']) && $message['interactive']['type'] == 'button_reply') {
+            // ✅ Gunakan title (text yang tampil) bukan ID untuk matching bot trigger
+            $trigger_msg = $message['interactive']['button_reply']['title'] ?? $message['interactive']['button_reply']['id'];
+        }
+
+        if (! empty($trigger_msg)) {
+            $contact = reset($message_data['contacts']);
+            $metadata = $message_data['metadata'];
+
+            do_action('before_process_bot_sending', [
+                'tenant_id' => $this->tenant_id,
+                'tenant_subdomain' => $this->tenant_subdomain,
+                'contact' => $contact,
+                'message' => $message,
+                'trigger_msg' => $trigger_msg,
+                'metadata' => $metadata,
+            ]);
+
+            try {
+                $contact_number = $message['from'];
+                $contact_data = $this->getContactData($contact_number, $contact['profile']['name']);
+                if ($contact_data instanceof stdClass && empty((array) $contact_data)) {
+                    return;
                 }
-            if (! empty($trigger_msg)) {
-                $contact = reset($message_data['contacts']);
-                $metadata = $message_data['metadata'];
 
-                do_action('before_process_bot_sending', [
+                $query_trigger_msg = $trigger_msg;
+                $reply_type = null;
+                if ($this->is_first_time) {
+                    $query_trigger_msg = '';
+                    $reply_type = 3;
+                }
+
+                $current_interaction = Chat::fromTenant($this->tenant_subdomain)->where([
+                    'type' => $contact_data->type,
+                    'type_id' => $contact_data->id,
+                    'wa_no' => $message_data['metadata']['display_phone_number'],
                     'tenant_id' => $this->tenant_id,
-                    'tenant_subdomain' => $this->tenant_subdomain,
-                    'contact' => $contact,
-                    'message' => $message,
-                    'trigger_msg' => $trigger_msg,
-                    'metadata' => $metadata,
-                ]);
+                ])->first();
 
-                try {
-                    $contact_number = $message['from'];
-                    $contact_data = $this->getContactData($contact_number, $contact['profile']['name']);
-                    if ($contact_data instanceof stdClass && empty((array) $contact_data)) {
+                if ($current_interaction->is_bots_stoped == 1 && (time() > strtotime($current_interaction->bot_stoped_time) + ((int) get_tenant_setting_by_tenant_id('whats-mark', 'restart_bots_after', null, $this->tenant_id) * 3600))) {
+                    Chat::fromTenant($this->tenant_subdomain)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => null, 'is_bots_stoped' => '0']);
+                    $this->is_bot_stop = false;
+                } elseif ($current_interaction->is_bots_stoped == 1) {
+                    $this->is_bot_stop = true;
+                }
+
+                if (collect(get_tenant_setting_by_tenant_id('whats-mark', 'stop_bots_keyword', null, $this->tenant_id))->first(fn ($keyword) => str_contains($trigger_msg, $keyword))) {
+                    Chat::fromTenant($this->tenant_subdomain)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => date('Y-m-d H:i:s'), 'is_bots_stoped' => '1']);
+                    $this->is_bot_stop = true;
+                }
+
+                if (! $this->is_bot_stop) {
+                    // ✅ FLAG: Digunakan untuk mencegah FlowBot terpanggil jika bot sudah merespons keyword
+                    $is_bot_triggered = false; 
+
+                    // Fetch template and message bots based on interaction
+                    $template_bots = TemplateBot::getTemplateBotsByRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, $reply_type);
+                    $message_bots = MessageBot::getMessageBotsbyRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, $reply_type);
+
+                    if (empty($template_bots) && empty($message_bots)) {
+                        $template_bots = TemplateBot::getTemplateBotsByRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, 4);
+                        $message_bots = MessageBot::getMessageBotsbyRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, 4);
+                    }
+
+                    $add_messages = function ($item) {
+                        $item['header_message'] = $item['header_data_text'];
+                        $item['body_message'] = $item['body_data'];
+                        $item['footer_message'] = $item['footer_data'];
+                        return $item;
+                    };
+
+                    $template_bots = array_map($add_messages, $template_bots);
+
+                    // Iterate over template bots
+                    foreach ($template_bots as $template) {
+                        $template['rel_id'] = $contact_data->id;
+                        if (! empty($contact_data->userid)) {
+                            $template['userid'] = $contact_data->userid;
+                        }
+
+                        if (($template['reply_type'] == 1 && in_array(strtolower($trigger_msg), array_map('trim', array_map('strtolower', explode(',', $template['trigger']))))) || ($template['reply_type'] == 2 && ! empty(array_filter(explode(',', $template['trigger']), fn ($word) => mb_stripos($trigger_msg, trim($word)) !== false))) || ($template['reply_type'] == 3 && $this->is_first_time) || $template['reply_type'] == 4) {
+                            $response = $this->setWaTenantId($this->tenant_id)->sendTemplate($contact_number, $template, 'template_bot', $metadata['phone_number_id']);
+                            
+                            // ✅ Set flag jika bot merespons
+                            if ($response && isset($response['status']) && $response['status']) {
+                                $is_bot_triggered = true;
+                            }
+
+                            $chatId = $this->createOrUpdateInteraction($contact_number, $message_data['metadata']['display_phone_number'], $message_data['metadata']['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
+                            $this->storeBotMessages($template, $chatId, $contact_data, 'template_bot', $response);
+                        }
+                    }
+
+                    // Iterate over message bots
+                    foreach ($message_bots as $msg) {
+                        $msg['rel_id'] = $contact_data->id;
+                        if (! empty($contact_data->userid)) {
+                            $msg['userid'] = $contact_data->userid;
+                        }
+                        if (($msg['reply_type'] == 1 && in_array(strtolower($trigger_msg), array_map('trim', array_map('strtolower', explode(',', $msg['trigger']))))) || ($msg['reply_type'] == 2 && ! empty(array_filter(explode(',', $msg['trigger']), fn ($word) => mb_stripos($trigger_msg, trim($word)) !== false))) || ($msg['reply_type'] == 3 && $this->is_first_time) || $msg['reply_type'] == 4) {
+
+                            do_action('before_process_messagebot_sending_message', ['message' => $msg, 'trigger_msg' => $trigger_msg, 'contact_number' => $contact_number, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdomain]);
+
+                            $response = $this->setWaTenantId($this->tenant_id)->sendMessage($contact_number, $msg, $metadata['phone_number_id']);
+
+                            // ✅ Set flag jika bot merespons
+                            if ($response && isset($response['status']) && $response['status']) {
+                                $is_bot_triggered = true;
+                            }
+
+                            $chatId = $this->createOrUpdateInteraction($contact_number, $message_data['metadata']['display_phone_number'], $message_data['metadata']['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
+                            $this->storeBotMessages($msg, $chatId, $contact_data, '', $response);
+                        }
+                    }
+
+                    // ✅ KUNCI: Berhenti di sini jika bot sudah aktif menjawab keyword
+                    if ($is_bot_triggered) {
                         return;
                     }
-
-                    $query_trigger_msg = $trigger_msg;
-                    $reply_type = null;
-                    if ($this->is_first_time) {
-                        $query_trigger_msg = '';
-                        $reply_type = 3;
-                    }
-
-                    $current_interaction = Chat::fromTenant($this->tenant_subdomain)->where([
-                        'type' => $contact_data->type,
-                        'type_id' => $contact_data->id,
-                        'wa_no' => $message_data['metadata']['display_phone_number'],
-                        'tenant_id' => $this->tenant_id,
-                    ])->first();
-
-                    if ($current_interaction->is_bots_stoped == 1 && (time() > strtotime($current_interaction->bot_stoped_time) + ((int) get_tenant_setting_by_tenant_id('whats-mark', 'restart_bots_after', null, $this->tenant_id) * 3600))) {
-                        Chat::fromTenant($this->tenant_subdomain)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => null, 'is_bots_stoped' => '0']);
-                        $this->is_bot_stop = false;
-                    } elseif ($current_interaction->is_bots_stoped == 1) {
-                        $this->is_bot_stop = true;
-                    }
-
-                    if (collect(get_tenant_setting_by_tenant_id('whats-mark', 'stop_bots_keyword', null, $this->tenant_id))->first(fn ($keyword) => str_contains($trigger_msg, $keyword))) {
-                        Chat::fromTenant($this->tenant_subdomain)->where(['id' => $current_interaction->id, 'tenant_id' => $this->tenant_id])->update(['bot_stoped_time' => date('Y-m-d H:i:s'), 'is_bots_stoped' => '1']);
-                        $this->is_bot_stop = true;
-                    }
-
-                    if (! $this->is_bot_stop) {
-                        // Fetch template and message bots based on interaction
-                        $template_bots = TemplateBot::getTemplateBotsByRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, $reply_type);
-                        $message_bots = MessageBot::getMessageBotsbyRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, $reply_type);
-
-                        if (empty($template_bots) && empty($message_bots)) {
-                            $template_bots = TemplateBot::getTemplateBotsByRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, 4);
-                            $message_bots = MessageBot::getMessageBotsbyRelType($contact_data->type ?? '', $query_trigger_msg, $this->tenant_id, 4);
-                        }
-
-                        $add_messages = function ($item) {
-                            $item['header_message'] = $item['header_data_text'];
-                            $item['body_message'] = $item['body_data'];
-                            $item['footer_message'] = $item['footer_data'];
-
-                            return $item;
-                        };
-
-                        $template_bots = array_map($add_messages, $template_bots);
-
-                        // Iterate over template bots
-                        foreach ($template_bots as $template) {
-                            $template['rel_id'] = $contact_data->id;
-                            if (! empty($contact_data->userid)) {
-                                $template['userid'] = $contact_data->userid;
-                            }
-
-                            // Send template on exact match, contains, or first time
-                            if (($template['reply_type'] == 1 && in_array(strtolower($trigger_msg), array_map('trim', array_map('strtolower', explode(',', $template['trigger']))))) || ($template['reply_type'] == 2 && ! empty(array_filter(explode(',', $template['trigger']), fn ($word) => mb_stripos($trigger_msg, trim($word)) !== false))) || ($template['reply_type'] == 3 && $this->is_first_time) || $template['reply_type'] == 4) {
-                                // Use the tenant ID when sending the template
-                                $response = $this->setWaTenantId($this->tenant_id)->sendTemplate($contact_number, $template, 'template_bot', $metadata['phone_number_id']);
-
-                                $chatId = $this->createOrUpdateInteraction($contact_number, $message_data['metadata']['display_phone_number'], $message_data['metadata']['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
-                                $chatMessage = $this->storeBotMessages($template, $chatId, $contact_data, 'template_bot', $response);
-                            }
-                        }
-
-                        // Iterate over message bots
-                        foreach ($message_bots as $message) {
-                            $message['rel_id'] = $contact_data->id;
-                            if (! empty($contact_data->userid)) {
-                                $message['userid'] = $contact_data->userid;
-                            }
-                            if (($message['reply_type'] == 1 && in_array(strtolower($trigger_msg), array_map('trim', array_map('strtolower', explode(',', $message['trigger']))))) || ($message['reply_type'] == 2 && ! empty(array_filter(explode(',', $message['trigger']), fn ($word) => mb_stripos($trigger_msg, trim($word)) !== false))) || ($message['reply_type'] == 3 && $this->is_first_time) || $message['reply_type'] == 4) {
-
-                                do_action('before_process_messagebot_sending_message', ['message' => $message, 'trigger_msg' => $trigger_msg, 'contact_number' => $contact_number, 'tenant_id' => $this->tenant_id, 'tenant_subdomain' => $this->tenant_subdomain]);
-
-                                // Use the tenant ID when sending the message
-                                $response = $this->setWaTenantId($this->tenant_id)->sendMessage($contact_number, $message, $metadata['phone_number_id']);
-
-                                $chatId = $this->createOrUpdateInteraction($contact_number, $message_data['metadata']['display_phone_number'], $message_data['metadata']['phone_number_id'], $contact_data->firstname.' '.$contact_data->lastname, '', '', false);
-                                $chatMessage = $this->storeBotMessages($message, $chatId, $contact_data, '', $response);
-                            }
-                        }
-                    }
-                } catch (\Throwable $th) {
-                    whatsapp_log(
-                        'Error processing bot sending',
-                        'error',
-                        [
-                            'error' => $th->getMessage(),
-                            'tenant_id' => $this->tenant_id,
-                        ],
-                        $th,
-                        $this->tenant_id
-                    );
-                    file_put_contents(base_path().'/errors.json', json_encode([$th->getMessage()]));
                 }
+            } catch (\Throwable $th) {
+                whatsapp_log(
+                    'Error processing bot sending',
+                    'error',
+                    [
+                        'error' => $th->getMessage(),
+                        'tenant_id' => $this->tenant_id,
+                    ],
+                    $th,
+                    $this->tenant_id
+                );
+                file_put_contents(base_path().'/errors.json', json_encode([$th->getMessage()]));
             }
         }
-        $this->processBotFlow($message_data);
     }
+    
+    // Baris ini hanya akan jalan jika tidak ada keyword bot yang cocok
+    $this->processBotFlow($message_data);
+}
     
     /**
      * Check if this is a first-time interaction

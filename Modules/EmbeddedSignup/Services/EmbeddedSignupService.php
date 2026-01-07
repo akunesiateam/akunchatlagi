@@ -416,14 +416,21 @@ class EmbeddedSignupService
      */
     protected function saveTenantSettings(string $accessToken, array $wabaData, array $tokenData, array $signupData): void
     {
+        // Bersihkan nomor telepon agar hanya berisi angka (misal: +62 877-123 -> 62877123)
+        $cleanPhoneNumber = preg_replace('/[^0-9]/', '', $wabaData['display_phone_number']);
+
         save_tenant_setting('whatsapp', 'wm_access_token', $accessToken);
         save_tenant_setting('whatsapp', 'wm_business_account_id', $wabaData['waba_id']);
         save_tenant_setting('whatsapp', 'wm_default_phone_number_id', $wabaData['phone_number_id']);
-        save_tenant_setting('whatsapp', 'wm_default_phone_number', $wabaData['display_phone_number']);
+        
+        // Simpan nomor yang sudah bersih ke database
+        save_tenant_setting('whatsapp', 'wm_default_phone_number', $cleanPhoneNumber);
+        
         save_tenant_setting('whatsapp', 'wm_phone_number_verified_name', $wabaData['verified_name']);
 
         save_tenant_setting('whatsapp', 'embedded_signup_data', json_encode([
             'waba_name' => $wabaData['waba_name'],
+            'display_phone_number_raw' => $wabaData['display_phone_number'], // Opsional: simpan yang asli di json buat arsip
             'token_data' => $tokenData,
             'signup_data' => $signupData,
             'completed_at' => now()->toISOString(),
